@@ -1,5 +1,5 @@
 from triton.backends.compiler import BaseBackend, GPUTarget
-from triton._C.libtriton import ir, passes
+from triton._C.libtriton import ir, passes,llvm,tts_nv
 from dataclasses import dataclass
 from typing import Any, Dict, Tuple
 from types import ModuleType
@@ -12,17 +12,10 @@ import subprocess
 import functools
 from pathlib import Path
 
-def _get_triton_shared_opt_path() -> str:
-    path = os.getenv("TRITON_SHARED_OPT_PATH", "")
-    if path == "":
-        raise Exception("TRITON_SHARED_OPT_PATH is not set.")
-    return path
-
+currentDirname = os.path.dirname(os.path.realpath(__file__))
 
 def _get_llvm_bin_path(bin_name: str) -> str:
-    path = os.getenv("LLVM_BINARY_DIR", "")
-    if path == "":
-        raise Exception("LLVM_BINARY_DIR is not set.")
+    path= os.path.dirname(currentDirname)+ "/third_party/llvm-project/build/bin"
     return os.path.join(path, bin_name)
 
 
@@ -34,30 +27,15 @@ def _dump_ir_if_needed(files):
         shutil.copy(f, os.path.join(path, os.path.basename(f)))
 
 
-def _ttir_to_ttsharedir(mod):
-    # Get Triton-MLIR as string
-    ttir_code = str(mod)
-    with tempfile.TemporaryDirectory() as tmpdir:
-        src_path = os.path.join(tmpdir, "tt.mlir")
-        dst_path = os.path.join(tmpdir, "ttshared.mlir")
-        Path(src_path).write_text(ttir_code)
-        triton_shared_opt_path = _get_triton_shared_opt_path()
-        subprocess.check_call([triton_shared_opt_path, src_path, "--triton-to-linalg-experimental", "--mlir-print-debuginfo", "-o", dst_path])
-        _dump_ir_if_needed([src_path])
-        return Path(dst_path).read_text()
 
-
-def _optimize_ttsharedir(ttsharedir: str):
-    # We don't apply any optimizations now, but we can add passes if needed.
-    return ttsharedir
-
-
-def _ttsharedir_to_llir(ttsharedir: str):
+def _ttsharedir_to_llir(mod):
+    # Get tts-MLIR as string
+    ttsir_code = str(mod)
     with tempfile.TemporaryDirectory() as tmpdir:
         ttshared_path = os.path.join(tmpdir, "ttshared.mlir")
         llmlir_path = os.path.join(tmpdir, "ll.mlir")
         llir_path = os.path.join(tmpdir, "ll.ir")
-        Path(ttshared_path).write_text(ttsharedir)
+        Path(ttshared_path).write_text(ttsir_code)
         mlir_opt_path = _get_llvm_bin_path("mlir-opt")
         # TritonShared-MLIR to LLVM-MLIR
         subprocess.check_call([mlir_opt_path, ttshared_path,
@@ -157,6 +135,7 @@ class CPUBackend(BaseBackend):
 
     def __init__(self, target: GPUTarget) -> None:
         super().__init__(target)
+        self.capability = target.arch
 
     def parse_options(self, opts) -> Any:
         args = {'arch': self.target.arch}
@@ -199,10 +178,28 @@ class CPUBackend(BaseBackend):
         passes.common.add_symbol_dce(pm)
         pm.run(mod)
         return mod
+    
+    @staticmethod
+    def make_ttsharedir(mod, metadata, opt, capability):
+        pm = ir.pass_manager(mod.context)
+        pm.enable_debug()
+        tts_nv.passes.tts.triton_to_structured(pm)
+        passes.common.add_cse(pm)
+        passes.common.add_canonicalizer(pm)
+        tts_nv.passes.tts.triton_to_unstructured(pm)
+        tts_nv.passes.tts.triton_arith_to_linalg(pm)
+        tts_nv.passes.tts.structured_to_memref(pm)   
+        tts_nv.passes.tts.unstructured_to_memref(pm)  
+        tts_nv.passes.tts.triton_ptr_to_memref(pm)
+        tts_nv.passes.tts.reconcile_unrealized_casts(pm)
+        passes.common.add_cse(pm)
+        passes.common.add_canonicalizer(pm)
+        pm.run(mod)
+        return mod
 
     def add_stages(self, stages, options):
         stages["ttir"] = lambda src, metadata: self.make_ttir(src, metadata, options)
-        stages["ttsharedir"] = lambda src, metadata: _optimize_ttsharedir(_ttir_to_ttsharedir(src))
+        stages["ttsharedir"] = lambda src, metadata: self.make_ttsharedir(src, metadata, options,self.capability)
         stages["llir"] = lambda src, metadata: _optimize_llir(_ttsharedir_to_llir(src))
         stages["cpuasm"] = lambda src, metadata: _llir_to_bin(src, metadata)
 

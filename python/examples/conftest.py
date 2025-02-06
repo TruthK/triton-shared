@@ -2,7 +2,7 @@ import pytest
 import os
 import tempfile
 import triton
-from triton.backends.triton_shared.driver import CPUDriver
+from triton.backends.tts_nv.driver import CPUDriver
 
 triton.runtime.driver.set_active(CPUDriver())
 

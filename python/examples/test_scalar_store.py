@@ -3,7 +3,7 @@ import torch
 import triton
 import triton.language as tl
 
-from triton.backends.triton_shared.driver import CPUDriver
+from triton.backends.tts_nv.driver import CPUDriver
 
 @triton.jit
 def test_scalar_store(
