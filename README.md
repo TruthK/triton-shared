@@ -23,31 +23,35 @@ To build this repo clone `triton-shared` to a folder called `triton_shared` (not
 You need to set the `TRITON_PLUGIN_DIRS` environment variable to the location of your `triton-shared` directory for `triton` to find it.
 
 ```
-export TRITON_PLUGIN_DIRS=$(pwd)/triton_shared
-
-git clone --recurse-submodules https://github.com/microsoft/triton-shared.git triton_shared
+export TRITON_PLUGIN_DIRS=$(pwd)/triton-shared
+git submodule update --init --recursive
 cd triton_shared/triton/python
 ```
 
 To build with Clang:
 
 ```sh
-python3 -m pip install --upgrade pip
-python3 -m pip install cmake==3.24 ninja pytest-xdist
+
+chmod +x create_conda_env.sh
+// ${cud_version} set cuda version,e.g:11.8 ,defualt 12.1
+bash create_conda_env.sh ${cud_version}
+
 sudo apt-get update -y
 sudo apt-get install -y ccache clang lld
-TRITON_BUILD_WITH_CLANG_LLD=true TRITON_BUILD_WITH_CCACHE=true python3 -m pip install --no-build-isolation -vvv '.[tests]'
+
+cd third_party/llvm-project  # your clone of LLVM.
+mkdir build
+cd build
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Release  -DCMAKE_C_COMPILER=clang       -DCMAKE_CXX_COMPILER=clang++       -DCMAKE_LINKER=lld -DLLVM_ENABLE_ASSERTIONS=ON ../llvm -DLLVM_ENABLE_PROJECTS="mlir;llvm" -DLLVM_TARGETS_TO_BUILD="host;NVPTX;AMDGPU" 
+ninja
+
+// Return to the root directory of the project
+cd ../../.. 
+export LLVM_BUILD_DIR=$(pwd)/third_party/llvm-project/build
+export TRITON_PLUGIN_DIRS=$(pwd)
+Debug=1 TRITON_BUILD_WITH_CLANG_LLD=true TRITON_BUILD_WITH_CCACHE=true LLVM_INCLUDE_DIRS=$LLVM_BUILD_DIR/include   LLVM_LIBRARY_DIR=$LLVM_BUILD_DIR/lib   LLVM_SYSPATH=$LLVM_BUILD_DIR   TRITON_BUILD_WITH_CLANG_LLD=true pip install -e triton/python --no-build-isolation
 ```
 
-To build with a virtualenv:
-
-```
-python3 -m venv .venv --prompt triton
-source .venv/bin/activate
-
-pip3 install ninja cmake wheel pytest
-pip3 install -e python --no-build-isolation
-```
 
 The resulting `triton-shared` binaries will be placed under `triton/python/build/{current_cmake_version}/third_party/triton_shared`
 
@@ -169,8 +173,8 @@ The prototype was tested on the following triton kernel examples:
 
 The Python tests are setup to run with Pytest and you will need to set the following environment variables to run them:
 ```
-export LLVM_BINARY_DIR=<path-to-your-llvm-binaries>
-export TRITON_SHARED_OPT_PATH=$TRITON_PLUGIN_DIRS/triton/python/build/<your-cmake-directory>/third_party/triton_shared/tools/triton-shared-opt/triton-shared-opt
+export LLVM_BINARY_DIR=$(pwd)/third_party/llvm-project/build/bin
+export TRITON_SHARED_OPT_PATH=$(pwd)/triton/python/build/<your-cmake-directory>/third_party/triton_shared/tools/triton-shared-opt/triton-shared-opt
 
 pytest <path-to-triton-shared>/python/examples
 ```
