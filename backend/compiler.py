@@ -197,6 +197,51 @@ class CPUBackend(BaseBackend):
         pm.run(mod)
         return mod
 
+
+    @staticmethod
+    def make_llir(mod):
+        # Get tts-MLIR as string
+        pm = ir.pass_manager(mod.context)
+        pm.enable_debug()
+        
+        tts_nv.passes.convert.linalg_to_affine_loops(pm)
+        tts_nv.passes.convert.empty_tensor_to_alloc_tensor(pm)
+        tts_nv.passes.convert.one_shot_bufferize(pm)
+        tts_nv.passes.convert.lower_affine(pm)   
+        tts_nv.passes.convert.linalg_to_loops(pm)
+        tts_nv.passes.convert.expand_strided_metadata(pm)
+        tts_nv.passes.convert.convert_scf_to_cf(pm)
+        
+        tts_nv.passes.convert.convert_arith_to_llvm(pm)
+        tts_nv.passes.convert.convert_math_to_llvm(pm)
+        tts_nv.passes.convert.convert_complex_to_llvm(pm)
+        tts_nv.passes.convert.convert_vector_to_llvm(pm)
+        tts_nv.passes.convert.convert_index_to_llvm(pm)
+        
+        tts_nv.passes.convert.memref_expand(pm)
+        tts_nv.passes.convert.finalize_mem_ref_to_llvm(pm)
+        tts_nv.passes.convert.convert_func_to_llvm(pm)
+        tts_nv.passes.convert.convert_control_flow_to_llvm(pm)
+        tts_nv.passes.convert.lower_affine(pm)
+        tts_nv.passes.convert.convert_arith_to_llvm(pm)
+        tts_nv.passes.tts.reconcile_unrealized_casts(pm)
+        
+        pm.run(mod)
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            llmlir_path = os.path.join(tmpdir, "ll.mlir")
+            llir_path = os.path.join(tmpdir, "ll.ir")
+            
+            Path(llmlir_path).write_text(str(mod))
+            # LLVM-MLIR to LLVM-IR
+            mlir_translate_path = _get_llvm_bin_path("mlir-translate")
+            subprocess.check_call([mlir_translate_path, llmlir_path,
+                "--mlir-to-llvmir", 
+                "-o",
+                llir_path])
+            # _dump_ir_if_needed([ llmlir_path, llir_path])
+            return Path(llir_path).read_text()
+    
     def add_stages(self, stages, options):
         stages["ttir"] = lambda src, metadata: self.make_ttir(src, metadata, options)
         stages["ttsharedir"] = lambda src, metadata: self.make_ttsharedir(src, metadata, options,self.capability)
