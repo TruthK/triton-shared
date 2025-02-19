@@ -6,3 +6,6 @@ add_subdirectory(TritonArithToLinalg)
 add_subdirectory(StructuredToMemref)
 add_subdirectory(TritonPtrToMemref)
 add_subdirectory(UnstructuredToMemref)
+
+# ----------tts_nv subdirectory ---------------
+add_subdirectory(LinalgToLLVM)

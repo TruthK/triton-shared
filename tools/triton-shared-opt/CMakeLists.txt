@@ -1,5 +1,6 @@
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
 
 add_llvm_executable(triton-shared-opt triton-shared-opt.cpp PARTIAL_SOURCES_INTENDED)
 
@@ -10,8 +11,10 @@ target_link_libraries(triton-shared-opt PRIVATE
   TritonTransforms
   TritonGPUTransforms
   TritonSharedAnalysis
+  TTSNVLinalgToLLVM
   ${dialect_libs}
   ${conversion_libs}
+  ${extension_libs}
   # tests
   TritonTestAnalysis
   # MLIR core

@@ -51,7 +51,12 @@ export LLVM_BUILD_DIR=$(pwd)/third_party/llvm-project/build
 export TRITON_PLUGIN_DIRS=$(pwd)
 //make sure had run create_conda_env.sh
 conda activate triton_shared_mlir_nv
-Debug=1 TRITON_BUILD_WITH_CLANG_LLD=true TRITON_BUILD_WITH_CCACHE=true LLVM_INCLUDE_DIRS=$LLVM_BUILD_DIR/include   LLVM_LIBRARY_DIR=$LLVM_BUILD_DIR/lib   LLVM_SYSPATH=$LLVM_BUILD_DIR   TRITON_BUILD_WITH_CLANG_LLD=true pip install -e triton/python --no-build-isolation
+export LLVM_BUILD_DIR=$(pwd)/third_party/llvm-project/build
+export TRITON_PLUGIN_DIRS=$(pwd)
+export DEBUG=1
+export TRITON_BUILD_WITH_CLANG_LLD=true 
+export TRITON_BUILD_WITH_CCACHE=true
+LLVM_INCLUDE_DIRS=$LLVM_BUILD_DIR/include   LLVM_LIBRARY_DIR=$LLVM_BUILD_DIR/lib   LLVM_SYSPATH=$LLVM_BUILD_DIR   TRITON_BUILD_WITH_CLANG_LLD=true pip install -e triton/python --no-build-isolation
 ```
 
 
@@ -74,9 +79,9 @@ We also include an experimental reference CPU backend that leverages all existin
 ```python
 
 import triton
-from triton.backends.tts_nv.driver import CPUDriver
+from triton.backends.tts_nv.driver import KzxCudaDriver
 
-triton.runtime.driver.set_active(CPUDriver())
+triton.runtime.driver.set_active(KzxCudaDriver())
 ```
 
 For more examples, please refer to `python/examples`.
