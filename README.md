@@ -79,9 +79,9 @@ We also include an experimental reference CPU backend that leverages all existin
 ```python
 
 import triton
-from triton.backends.tts_nv.driver import CPUDriver
+from triton.backends.tts_nv.driver import KzxCudaDriver
 
-triton.runtime.driver.set_active(CPUDriver())
+triton.runtime.driver.set_active(KzxCudaDriver())
 ```
 
 For more examples, please refer to `python/examples`.

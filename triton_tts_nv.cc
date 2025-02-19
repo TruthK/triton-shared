@@ -6,6 +6,7 @@
 #include "mlir/Conversion/Passes.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
@@ -21,7 +22,7 @@
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/Passes.h"
-#include "passes.h"
+
 #include "triton-shared/Conversion/StructuredToMemref/Passes.h"
 #include "triton-shared/Conversion/TritonArithToLinalg/Passes.h"
 #include "triton-shared/Conversion/TritonPtrToMemref/Passes.h"
@@ -32,69 +33,84 @@
 #include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 #include "triton-shared/Dialect/TritonTilingExt/IR/TritonTilingExtDialect.h"
 
-#include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
-#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
-#include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
-#include "mlir/Dialect/Linalg/IR/Linalg.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "llvm/IR/Constants.h"
 
-#include "mlir/Pass/PassManager.h"
-#include "mlir/Transforms/Passes.h"
+#include "passes.h"
 #include <pybind11/pybind11.h>
-
+#include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
 namespace py = pybind11;
-using namespace mlir;
+
 void init_triton_triton_shared(py::module &&m) {
   ADD_PASS_WRAPPER_0("triton_to_structured",
-                     triton::createTritonToStructuredPass);
+                     mlir::triton::createTritonToStructuredPass);
   ADD_PASS_WRAPPER_0("triton_to_unstructured",
-                     triton::createTritonToUnstructuredPass);
+                     mlir::triton::createTritonToUnstructuredPass);
   ADD_PASS_WRAPPER_0("triton_arith_to_linalg",
-                     triton::createTritonArithToLinalgPass);
+                     mlir::triton::createTritonArithToLinalgPass);
   ADD_PASS_WRAPPER_0("structured_to_memref",
-                     triton::createStructuredToMemrefPass);
+                     mlir::triton::createStructuredToMemrefPass);
   ADD_PASS_WRAPPER_0("unstructured_to_memref",
-                     triton::createUnstructuredToMemrefPass);
+                     mlir::triton::createUnstructuredToMemrefPass);
   ADD_PASS_WRAPPER_0("triton_ptr_to_memref",
-                     triton::createTritonPtrToMemrefPass);
+                     mlir::triton::createTritonPtrToMemrefPass);
   ADD_PASS_WRAPPER_0("reconcile_unrealized_casts",
-                     createReconcileUnrealizedCastsPass);
+                     mlir::createReconcileUnrealizedCastsPass);
 }
 
 void init_triton_triton_shared_to_llvmir(py::module &&m) {
   ADD_PASS_WRAPPER_0("linalg_to_affine_loops",
-                     createConvertLinalgToAffineLoopsPass);
+                     mlir::createConvertLinalgToAffineLoopsPass);
   ADD_PASS_WRAPPER_0("empty_tensor_to_alloc_tensor",
-                     bufferization::createEmptyTensorToAllocTensorPass);
+                     mlir::bufferization::createEmptyTensorToAllocTensorPass);
   ADD_PASS_WRAPPER_0("one_shot_bufferize",
-                     bufferization::createOneShotBufferizePass);
-  ADD_PASS_WRAPPER_0("lower_affine", createLowerAffinePass);
-  ADD_PASS_WRAPPER_0("linalg_to_loops", createConvertLinalgToLoopsPass);
+                     mlir::bufferization::createOneShotBufferizePass);
+  ADD_PASS_WRAPPER_0("lower_affine", mlir::createLowerAffinePass);
+  ADD_PASS_WRAPPER_0("linalg_to_loops", mlir::createConvertLinalgToLoopsPass);
   ADD_PASS_WRAPPER_0("expand_strided_metadata",
-                     memref::createExpandStridedMetadataPass);
-  ADD_PASS_WRAPPER_0("convert_scf_to_cf", createConvertSCFToCFPass);
+                     mlir::memref::createExpandStridedMetadataPass);
+  ADD_PASS_WRAPPER_0("convert_scf_to_cf", mlir::createConvertSCFToCFPass);
 
-  ADD_PASS_WRAPPER_0("convert_complex_to_llvm", createConvertComplexToLLVMPass);
-  ADD_PASS_WRAPPER_0("convert_arith_to_llvm", createArithToLLVMConversionPass);
-  ADD_PASS_WRAPPER_0("convert_math_to_llvm", createConvertMathToLLVMPass);
-  ADD_PASS_WRAPPER_0("convert_vector_to_llvm", createConvertVectorToLLVMPass);
-  ADD_PASS_WRAPPER_0("convert_index_to_llvm", createConvertIndexToLLVMPass);
-  ADD_PASS_WRAPPER_0("convert_func_to_llvm", createConvertFuncToLLVMPass);
-  ADD_PASS_WRAPPER_0("memref_expand", memref::createExpandOpsPass);
+  ADD_PASS_WRAPPER_0("convert_complex_to_llvm",
+                     mlir::createConvertComplexToLLVMPass);
+  ADD_PASS_WRAPPER_0("convert_arith_to_llvm",
+                     mlir::createArithToLLVMConversionPass);
+  ADD_PASS_WRAPPER_0("convert_math_to_llvm", mlir::createConvertMathToLLVMPass);
+  ADD_PASS_WRAPPER_0("convert_vector_to_llvm",
+                     mlir::createConvertVectorToLLVMPass);
+  ADD_PASS_WRAPPER_0("convert_index_to_llvm",
+                     mlir::createConvertIndexToLLVMPass);
+  ADD_PASS_WRAPPER_0("convert_func_to_llvm", mlir::createConvertFuncToLLVMPass);
+  ADD_PASS_WRAPPER_0("memref_expand", mlir::memref::createExpandOpsPass);
 
   ADD_PASS_WRAPPER_0("finalize_mem_ref_to_llvm",
-                     createFinalizeMemRefToLLVMConversionPass);
+                     mlir::createFinalizeMemRefToLLVMConversionPass);
   ADD_PASS_WRAPPER_0("convert_control_flow_to_llvm",
-                     createConvertControlFlowToLLVMPass);
+                     mlir::createConvertControlFlowToLLVMPass);
 }
 
 void init_triton_tts_nv(py::module &&m) {
   m.doc() = "Python bindings to the TTS_NVIDIA Triton backend";
   auto passes = m.def_submodule("passes");
   init_triton_triton_shared(passes.def_submodule("tts"));
-
+  init_triton_triton_shared_to_llvmir(passes.def_submodule("convert"));
   // load dialects
   m.def("load_dialects",
-        [](MLIRContext &context) { registerAllDialects(context); });
+        [](mlir::MLIRContext &context) { mlir::registerAllDialects(context); });
+
+  // TODO: could be done in python if we had a generic interface to set metadata
+  m.def("set_nvvm_reflect_ftz", [](llvm::Module *mod) {
+    // please check https://llvm.org/docs/NVPTXUsage.html#reflection-parameters
+    // this will enable fast math path in libdevice
+    // for example, when enable nvvm-reflect-ftz, sqrt.approx.f32 will change to
+    // sqrt.approx.ftz.f32
+    using namespace llvm;
+    auto &ctx = mod->getContext();
+    Type *i32 = Type::getInt32Ty(ctx);
+    auto *mdFour = ConstantAsMetadata::get(ConstantInt::getSigned(i32, 4));
+    auto *mdName = MDString::get(ctx, "nvvm-reflect-ftz");
+    auto *mdOne = ConstantAsMetadata::get(ConstantInt::getSigned(i32, 1));
+    auto *reflect = MDNode::get(ctx, {mdFour, mdName, mdOne});
+    mod->addModuleFlag(reflect);
+  });
 }
