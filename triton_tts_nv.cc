@@ -18,10 +18,13 @@
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/Pass/PassManager.h"
+#include "mlir/Pass/PassOptions.h"
 #include "mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/Passes.h"
+
+#include "triton-shared/Conversion/LinalgToLLVM/Passes.h"
 #include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 #include "triton-shared/Dialect/TritonTilingExt/IR/TritonTilingExtDialect.h"
 
@@ -40,34 +43,10 @@ void init_triton_triton_shared(py::module &&m) {
 }
 
 void init_triton_triton_shared_to_llvmir(py::module &&m) {
-  ADD_PASS_WRAPPER_0("linalg_to_affine_loops",
-                     mlir::createConvertLinalgToAffineLoopsPass);
-  ADD_PASS_WRAPPER_0("empty_tensor_to_alloc_tensor",
-                     mlir::bufferization::createEmptyTensorToAllocTensorPass);
-  ADD_PASS_WRAPPER_0("one_shot_bufferize",
-                     mlir::bufferization::createOneShotBufferizePass);
-  ADD_PASS_WRAPPER_0("lower_affine", mlir::createLowerAffinePass);
-  ADD_PASS_WRAPPER_0("linalg_to_loops", mlir::createConvertLinalgToLoopsPass);
-  ADD_PASS_WRAPPER_0("expand_strided_metadata",
-                     mlir::memref::createExpandStridedMetadataPass);
-  ADD_PASS_WRAPPER_0("convert_scf_to_cf", mlir::createConvertSCFToCFPass);
-
-  ADD_PASS_WRAPPER_0("convert_complex_to_llvm",
-                     mlir::createConvertComplexToLLVMPass);
-  ADD_PASS_WRAPPER_0("convert_arith_to_llvm",
-                     mlir::createArithToLLVMConversionPass);
-  ADD_PASS_WRAPPER_0("convert_math_to_llvm", mlir::createConvertMathToLLVMPass);
-  ADD_PASS_WRAPPER_0("convert_vector_to_llvm",
-                     mlir::createConvertVectorToLLVMPass);
-  ADD_PASS_WRAPPER_0("convert_index_to_llvm",
-                     mlir::createConvertIndexToLLVMPass);
-  ADD_PASS_WRAPPER_0("convert_func_to_llvm", mlir::createConvertFuncToLLVMPass);
-  ADD_PASS_WRAPPER_0("memref_expand", mlir::memref::createExpandOpsPass);
-
-  ADD_PASS_WRAPPER_0("finalize_mem_ref_to_llvm",
-                     mlir::createFinalizeMemRefToLLVMConversionPass);
-  ADD_PASS_WRAPPER_0("convert_control_flow_to_llvm",
-                     mlir::createConvertControlFlowToLLVMPass);
+  m.def("linalg_to_llvm", [](mlir::PassManager &pm) {
+    // mlir::tts::LinalgToLLVMOptions options;
+    mlir::tts::buildLinalgToLLVMPipelinePass(pm);
+  });
 }
 
 void init_triton_tts_nv(py::module &&m) {

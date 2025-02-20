@@ -21,19 +21,13 @@
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
-#include "mlir/Pass/PassOptions.h"
 #include "mlir/Transforms/Passes.h"
 
 #include "triton-shared/Conversion/LinalgToLLVM/Passes.h"
 #include "triton-shared/Utils/PassUtils.h"
 
 namespace mlir::tts {
-struct LinalgToLLVMOptions : public PassPipelineOptions<LinalgToLLVMOptions> {
-  PassOptions::Option<bool> reassociateFPReductions{
-      *this, "reassociate-fp-reductions",
-      llvm::cl::desc("Allow reassociation og FP reductions"),
-      llvm::cl::init(false)};
-};
+
 
 using FunctionLikeNest = MultiOpNest<func::FuncOp>;
 
@@ -46,8 +40,9 @@ static void addCleanupPatterns(OpPassManager &passManager) {
       .addPass(mlir::createCanonicalizerPass)
       .addPass(mlir::createCSEPass);
 }
-
-void buildLinalgToLLVM(OpPassManager &pm, const LinalgToLLVMOptions &options) {
+// void buildLinalgToLLVMPipelinePass(OpPassManager &pm,
+//   const LinalgToLLVMOptions &options)
+void buildLinalgToLLVMPipelinePass(OpPassManager &pm) {
   pm.addPass(createConvertLinalgToAffineLoopsPass());
   pm.addPass(bufferization::createEmptyTensorToAllocTensorPass());
   pm.addPass(bufferization::createOneShotBufferizePass());
@@ -65,11 +60,8 @@ void buildLinalgToLLVM(OpPassManager &pm, const LinalgToLLVMOptions &options) {
   pm.addNestedPass<func::FuncOp>(createConvertComplexToLLVMPass());
   addCleanupPatterns(pm);
 
-  pm.addPass(createConvertVectorToLLVMPass(
-      // TODO: add more options on a per-need basis.
-      ConvertVectorToLLVMPassOptions{options.reassociateFPReductions}));
+  pm.addPass(createConvertVectorToLLVMPass());
   pm.addPass(createConvertIndexToLLVMPass());
-
 
   pm.addPass(memref::createExpandOpsPass());
   // Convert MemRef to LLVM (always needed).
@@ -93,11 +85,11 @@ void buildLinalgToLLVM(OpPassManager &pm, const LinalgToLLVMOptions &options) {
 namespace mlir {
 namespace tts {
 void registerLinalgToLLVM() {
-  PassPipelineRegistration<LinalgToLLVMOptions>(
+  PassPipelineRegistration<>(
       "linalg-to-llvm",
       "An  pipeline to lower the main dialects (arith, linalg, "
       "memref, scf, vector) down to LLVM.",
-      buildLinalgToLLVM);
+      buildLinalgToLLVMPipelinePass);
 }
 } // namespace tts
 } // namespace mlir

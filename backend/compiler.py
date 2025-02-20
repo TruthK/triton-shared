@@ -208,30 +208,7 @@ class KzxCUDABackend(BaseBackend):
         pm = ir.pass_manager(mod.context)
         pm.enable_debug()
         
-        tts_nv.passes.convert.linalg_to_affine_loops(pm)
-        tts_nv.passes.convert.empty_tensor_to_alloc_tensor(pm)
-        tts_nv.passes.convert.one_shot_bufferize(pm)
-        passes.common.add_canonicalizer(pm)
-        passes.common.add_cse(pm)
-        passes.common.add_symbol_dce(pm)
-        tts_nv.passes.convert.lower_affine(pm)   
-        tts_nv.passes.convert.linalg_to_loops(pm)
-        tts_nv.passes.convert.expand_strided_metadata(pm)
-        tts_nv.passes.convert.convert_scf_to_cf(pm)
-        
-        tts_nv.passes.convert.convert_arith_to_llvm(pm)
-        tts_nv.passes.convert.convert_math_to_llvm(pm)
-        tts_nv.passes.convert.convert_complex_to_llvm(pm)
-        tts_nv.passes.convert.convert_vector_to_llvm(pm)
-        tts_nv.passes.convert.convert_index_to_llvm(pm)
-        
-        tts_nv.passes.convert.memref_expand(pm)
-        tts_nv.passes.convert.finalize_mem_ref_to_llvm(pm)
-        tts_nv.passes.convert.convert_func_to_llvm(pm)
-        tts_nv.passes.convert.convert_control_flow_to_llvm(pm)
-        tts_nv.passes.convert.lower_affine(pm)
-        tts_nv.passes.convert.convert_arith_to_llvm(pm)
-        tts_nv.passes.tts.reconcile_unrealized_casts(pm)
+        tts_nv.passes.convert.linalg_to_llvm(pm)
         
         pm.run(mod)
         

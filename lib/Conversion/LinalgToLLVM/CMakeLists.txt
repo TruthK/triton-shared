@@ -4,6 +4,7 @@ add_triton_library(TTSNVLinalgToLLVM
 
   DEPENDS
   TTSUtils
+  LinalgToLLVMConversionPassIncGen
 
   LINK_LIBS PUBLIC
   MLIRAffineToStandard
@@ -24,4 +25,5 @@ add_triton_library(TTSNVLinalgToLLVM
   MLIRVectorToSCF
   MLIRComplexToLLVM
   MLIRComplexToStandard
+  MLIRSupport
   )

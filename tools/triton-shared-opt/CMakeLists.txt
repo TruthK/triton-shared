@@ -11,6 +11,7 @@ target_link_libraries(triton-shared-opt PRIVATE
   TritonTransforms
   TritonGPUTransforms
   TritonSharedAnalysis
+  TTSNVLinalgToLLVM
   ${dialect_libs}
   ${conversion_libs}
   ${extension_libs}
@@ -20,7 +21,6 @@ target_link_libraries(triton-shared-opt PRIVATE
   MLIROptLib
   MLIRPass
   MLIRTransforms
-  TTSNVLinalgToLLVM
 )
 
 mlir_check_all_link_libraries(triton-shared-opt)
