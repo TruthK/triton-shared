@@ -21,6 +21,7 @@ if (TRITON_SHARED_BUILD_TTS_NV_BACKEND)
     TritonSharedAnalysis 
     TritonToLinalg 
     TritonTilingExtIR
+    TTSUtils
     ${dialect_libs}
     ${conversion_libs}
     ${extension_libs}

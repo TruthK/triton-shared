@@ -197,17 +197,7 @@ class KzxCUDABackend(BaseBackend):
     def make_ttsharedir(mod, metadata, opt, capability):
         pm = ir.pass_manager(mod.context)
         pm.enable_debug()
-        tts_nv.passes.tts.triton_to_structured(pm)
-        passes.common.add_cse(pm)
-        passes.common.add_canonicalizer(pm)
-        tts_nv.passes.tts.triton_to_unstructured(pm)
-        tts_nv.passes.tts.triton_arith_to_linalg(pm)
-        tts_nv.passes.tts.structured_to_memref(pm)   
-        tts_nv.passes.tts.unstructured_to_memref(pm)  
-        tts_nv.passes.tts.triton_ptr_to_memref(pm)
-        tts_nv.passes.tts.reconcile_unrealized_casts(pm)
-        passes.common.add_cse(pm)
-        passes.common.add_canonicalizer(pm)
+        tts_nv.passes.tts.triton_to_linalg(pm)
         pm.run(mod)
         return mod
 
