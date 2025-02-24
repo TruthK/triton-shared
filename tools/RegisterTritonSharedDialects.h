@@ -7,6 +7,7 @@
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
+#include "mlir/InitAllExtensions.h"
 
 #include "triton-shared/Conversion/StructuredToMemref/Passes.h"
 #include "triton-shared/Conversion/TritonArithToLinalg/Passes.h"
@@ -57,4 +58,5 @@ inline void registerTritonSharedDialects(mlir::DialectRegistry &registry) {
                   mlir::tts::TritonStructuredDialect,
                   mlir::triton::TritonDialect>();
   mlir::registerAllDialects(registry);
+  mlir::registerAllExtensions(registry);
 }

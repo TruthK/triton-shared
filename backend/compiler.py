@@ -11,6 +11,7 @@ import signal
 import subprocess
 import functools
 from pathlib import Path
+import shutil
 
 currentDirname = os.path.dirname(os.path.realpath(__file__))
 parent_dir = os.path.dirname(currentDirname)
@@ -207,7 +208,8 @@ class KzxCUDABackend(BaseBackend):
         # Get tts-MLIR as string
         pm = ir.pass_manager(mod.context)
         pm.enable_debug()
-        
+      
+        Path(".vscode/core_dump_llir.mlir").write_text(str(mod))
         tts_nv.passes.convert.linalg_to_llvm(pm)
         
         pm.run(mod)
@@ -251,6 +253,7 @@ class KzxCUDABackend(BaseBackend):
         triple = 'nvptx64-nvidia-cuda'
         proc = 'sm_90a' if capability == 90 else f'sm_{capability}'
         features = get_features(opt)
+        Path(".vscode/core_dump.ir").write_text(str(src))
         ret = llvm.translate_to_asm(src, triple, proc, features, ['nvptx-short-ptr'], opt.enable_fp_fusion, False)
         # Find kernel names (there should only be one)
         names = re.findall(r".visible .entry ([a-zA-Z_][a-zA-Z0-9_]*)", ret)

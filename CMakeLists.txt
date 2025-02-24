@@ -14,6 +14,7 @@ add_subdirectory(tools)
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
+get_property(translation_libs GLOBAL PROPERTY MLIR_TRANSLATION_LIBS)
 
 if (TRITON_SHARED_BUILD_TTS_NV_BACKEND)
     add_triton_plugin(TritonTTSNV ${CMAKE_CURRENT_SOURCE_DIR}/triton_tts_nv.cc 
@@ -26,6 +27,7 @@ if (TRITON_SHARED_BUILD_TTS_NV_BACKEND)
     ${dialect_libs}
     ${conversion_libs}
     ${extension_libs}
+    ${translation_libs}
     MLIRAnalysis
     MLIRBuiltinToLLVMIRTranslation
     MLIRCallInterfaces

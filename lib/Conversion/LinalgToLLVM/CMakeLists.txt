@@ -1,4 +1,7 @@
-# Exclude tests from libMLIR.so
+get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
+get_property(translation_libs GLOBAL PROPERTY MLIR_TRANSLATION_LIBS)
+
 add_triton_library(TTSNVLinalgToLLVM
   LinalgToLLVM.cpp
 
@@ -26,4 +29,11 @@ add_triton_library(TTSNVLinalgToLLVM
   MLIRComplexToLLVM
   MLIRComplexToStandard
   MLIRSupport
+  MLIRControlFlowToLLVM
+  MLIRSCFToGPU
+  MLIRGPUPipelines
+  MLIRNVVMToLLVM
+  MLIRVectorToGPU
+  ${conversion_libs}
+  ${extension_libs}
   )

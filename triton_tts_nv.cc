@@ -17,13 +17,15 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/InitAllDialects.h"
+#include "mlir/InitAllExtensions.h"
+#include "mlir/InitAllPasses.h"
+#include "mlir/InitAllTranslations.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassOptions.h"
 #include "mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/Passes.h"
-
 #include "triton-shared/Conversion/LinalgToLLVM/Passes.h"
 #include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 #include "triton-shared/Dialect/TritonTilingExt/IR/TritonTilingExtDialect.h"
@@ -43,10 +45,7 @@ void init_triton_triton_shared(py::module &&m) {
 }
 
 void init_triton_triton_shared_to_llvmir(py::module &&m) {
-  m.def("linalg_to_llvm", [](mlir::PassManager &pm) {
-    // mlir::tts::LinalgToLLVMOptions options;
-    mlir::tts::buildLinalgToLLVMPipelinePass(pm);
-  });
+  ADD_PASS_WRAPPER_0("linalg_to_llvm", mlir::tts::createLinalgToLLVMPass);
 }
 
 void init_triton_tts_nv(py::module &&m) {
@@ -61,6 +60,9 @@ void init_triton_tts_nv(py::module &&m) {
                     mlir::tts::TritonStructuredDialect,
                     mlir::triton::TritonDialect>();
     mlir::registerAllDialects(registry);
+    mlir::registerAllExtensions(registry);
+    mlir::registerAllPasses();
+    mlir::registerAllTranslations();
     context.appendDialectRegistry(registry);
   });
 
