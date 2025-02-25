@@ -4,7 +4,8 @@ get_property(translation_libs GLOBAL PROPERTY MLIR_TRANSLATION_LIBS)
 
 add_triton_library(TTSNVLinalgToLLVM
   LinalgToLLVM.cpp
-
+  MemrefCopyToLinalg.cpp
+  
   DEPENDS
   TTSUtils
   LinalgToLLVMConversionPassIncGen

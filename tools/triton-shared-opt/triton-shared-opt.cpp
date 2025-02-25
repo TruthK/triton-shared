@@ -13,7 +13,8 @@
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
   registerTritonSharedDialects(registry);
-    mlir::tts::registerLinalgToLLVM();
+  mlir::tts::registerLinalgToLLVMPass();
+  mlir::tts::registerMemrefCopyToLinalgPass();
 
   return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "Triton-Shared test driver\n", registry));

@@ -1,11 +1,15 @@
-#ifndef TRITON_TO_LINALG_EXPERIMENTAL_CONVERSION_PASSES
-#define TRITON_TO_LINALG_EXPERIMENTAL_CONVERSION_PASSES
+#ifndef LINALG_TO_LLVM_CONVERSION_PASSES
+#define LINALG_TO_LLVM_CONVERSION_PASSES
 
 include "mlir/Pass/PassBase.td"
 
-def LinalgToLLVM : Pass<"linalg-to-llvm", "mlir::ModuleOp"> {
+def LinalgToLLVMPass : Pass<"linalg-to-llvm", "mlir::ModuleOp"> {
   let summary = "An pipeline to lower the main dialects (arith, linalg, memref, scf, vector) down to LLVM.";
-  let constructor = "mlir::tts::createLinalgToLLVMPass()";
+}
+
+def MemrefCopyToLinalgPass :
+    InterfacePass<"memrefcopy-to-linalg", "mlir::FunctionOpInterface"> {
+  let summary = "Convert memref.copy to linalg op";
 }
 
 #endif

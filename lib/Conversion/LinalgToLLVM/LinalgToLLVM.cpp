@@ -39,10 +39,9 @@
 #include "triton-shared/Dialect/TritonTilingExt/IR/TritonTilingExtDialect.h"
 #include "triton-shared/Utils/PassUtils.h"
 
-using namespace mlir;
-using namespace tts;
+namespace mlir::tts {
 
-#define GEN_PASS_CLASSES
+#define GEN_PASS_DEF_LINALGTOLLVMPASS
 #include "triton-shared/Conversion/LinalgToLLVM/Passes.h.inc"
 
 namespace {
@@ -53,34 +52,68 @@ static void addCleanupPatterns(OpPassManager &passManager) {
   FunctionLikeNest(passManager)
       .addPass(mlir::createCanonicalizerPass)
       .addPass(mlir::createCSEPass);
+  passManager.addPass(mlir::createSymbolDCEPass());
 }
 
-class LinalgToLLVMPass : public LinalgToLLVMBase<LinalgToLLVMPass> {
+//===----------------------------------------------------------------------===//
+// Common pipeline
+//===----------------------------------------------------------------------===//
+static void
+buildCommonPassPipeline(OpPassManager &pm,
+                        const mlir::gpu::GPUToNVVMPipelineOptions &options) {
+  pm.addPass(createConvertNVGPUToNVVMPass());
+  pm.addPass(createGpuKernelOutliningPass());
+  pm.addPass(createConvertVectorToSCFPass());
+  pm.addPass(createConvertSCFToCFPass());
+  pm.addPass(createConvertNVVMToLLVMPass());
+  pm.addPass(createConvertFuncToLLVMPass());
+  pm.addPass(memref::createExpandStridedMetadataPass());
+
+  GpuNVVMAttachTargetOptions nvvmTargetOptions;
+  nvvmTargetOptions.triple = options.cubinTriple;
+  nvvmTargetOptions.chip = options.cubinChip;
+  nvvmTargetOptions.features = options.cubinFeatures;
+  nvvmTargetOptions.optLevel = options.optLevel;
+  pm.addPass(createGpuNVVMAttachTarget(nvvmTargetOptions));
+  pm.addPass(createLowerAffinePass());
+  pm.addPass(createArithToLLVMConversionPass());
+  ConvertIndexToLLVMPassOptions convertIndexToLLVMPassOpt;
+  convertIndexToLLVMPassOpt.indexBitwidth = options.indexBitWidth;
+  pm.addPass(createConvertIndexToLLVMPass(convertIndexToLLVMPassOpt));
+  pm.addPass(createCanonicalizerPass());
+  pm.addPass(createCSEPass());
+}
+
+//===----------------------------------------------------------------------===//
+// GPUModule-specific stuff.
+//===----------------------------------------------------------------------===//
+static void
+buildGpuPassPipeline(OpPassManager &pm,
+                     const mlir::gpu::GPUToNVVMPipelineOptions &options) {
+  pm.addNestedPass<gpu::GPUModuleOp>(createStripDebugInfoPass());
+  ConvertGpuOpsToNVVMOpsOptions opt;
+  opt.useBarePtrCallConv = options.kernelUseBarePtrCallConv;
+  opt.indexBitwidth = options.indexBitWidth;
+  pm.addNestedPass<gpu::GPUModuleOp>(createConvertGpuOpsToNVVMOps(opt));
+  pm.addNestedPass<gpu::GPUModuleOp>(createCanonicalizerPass());
+  pm.addNestedPass<gpu::GPUModuleOp>(createCSEPass());
+  pm.addNestedPass<gpu::GPUModuleOp>(createReconcileUnrealizedCastsPass());
+}
+
+
+class LinalgToLLVMPass : public impl::LinalgToLLVMPassBase<LinalgToLLVMPass> {
 
 public:
   void getDependentDialects(DialectRegistry &registry) const override {
-    registry.insert<mlir::ttx::TritonTilingExtDialect,
-                    mlir::tts::TritonStructuredDialect,
-                    mlir::triton::TritonDialect,
-                  affine::AffineDialect,
-                  arith::ArithDialect,
-                  bufferization::BufferizationDialect,
-                  cf::ControlFlowDialect,
-                  complex::ComplexDialect,
-                  func::FuncDialect,
-                  gpu::GPUDialect,
-                  index::IndexDialect,
-                  linalg::LinalgDialect,
-                  LLVM::LLVMDialect,
-                  math::MathDialect,
-                  memref::MemRefDialect,
-                  nvgpu::NVGPUDialect,
-                  NVVM::NVVMDialect,
-                  scf::SCFDialect,
-                  tensor::TensorDialect,
-                  ub::UBDialect,
-                  vector::VectorDialect
-                 >();
+    registry.insert<
+        mlir::ttx::TritonTilingExtDialect, mlir::tts::TritonStructuredDialect,
+        mlir::triton::TritonDialect, affine::AffineDialect, arith::ArithDialect,
+        bufferization::BufferizationDialect, cf::ControlFlowDialect,
+        complex::ComplexDialect, func::FuncDialect, gpu::GPUDialect,
+        index::IndexDialect, linalg::LinalgDialect, LLVM::LLVMDialect,
+        math::MathDialect, memref::MemRefDialect, nvgpu::NVGPUDialect,
+        NVVM::NVVMDialect, scf::SCFDialect, tensor::TensorDialect,
+        ub::UBDialect, vector::VectorDialect>();
   }
   void runOnOperation() override {
     auto moduleOp = getOperation();
@@ -91,6 +124,7 @@ public:
     bufferization::OneShotBufferizationOptions bufferoptions;
     bufferoptions.allowReturnAllocsFromLoops = true;
     pm.addPass(bufferization::createOneShotBufferizePass(bufferoptions));
+    addCleanupPatterns(pm);
 
     pm.addPass(createConvertLinalgToLoopsPass());
     pm.addPass(createLowerAffinePass());
@@ -100,13 +134,17 @@ public:
     pm.addPass(createConvertVectorToGPUPass(true));
     pm.addNestedPass<func::FuncOp>(createGpuMapParallelLoopsPass());
     pm.addPass(createParallelLoopToGpuPass());
+    addCleanupPatterns(pm);
 
     gpu::GPUToNVVMPipelineOptions nvvmOptions;
     nvvmOptions.cubinChip = "sm_89";
     nvvmOptions.cubinFeatures = "+ptx83";
     nvvmOptions.optLevel = 3;
-    gpu::buildLowerToNVVMPassPipeline(pm, nvvmOptions);
+    nvvmOptions.cubinFormat ="binary";
+    buildCommonPassPipeline(pm, nvvmOptions);
+    buildGpuPassPipeline(pm, nvvmOptions);
 
+    addCleanupPatterns(pm);
     pm.addPass(createConvertSCFToCFPass());
     // Convert Func to LLVM (always needed).
     pm.addPass(createConvertFuncToLLVMPass());
@@ -121,6 +159,7 @@ public:
 
     pm.addPass(createConvertIndexToLLVMPass());
     pm.addPass(memref::createExpandOpsPass());
+    pm.addNestedPass<func::FuncOp>(tts::createMemrefCopyToLinalgPass());
     // Convert MemRef to LLVM (always needed).
     pm.addPass(createFinalizeMemRefToLLVMConversionPass());
 
@@ -139,6 +178,4 @@ public:
 };
 } // namespace
 
-std::unique_ptr<OperationPass<ModuleOp>> mlir::tts::createLinalgToLLVMPass() {
-  return std::make_unique<LinalgToLLVMPass>();
-}
+} // namespace mlir::tts

@@ -253,8 +253,9 @@ class KzxCUDABackend(BaseBackend):
         triple = 'nvptx64-nvidia-cuda'
         proc = 'sm_90a' if capability == 90 else f'sm_{capability}'
         features = get_features(opt)
-        Path(".vscode/core_dump.ir").write_text(str(src))
         ret = llvm.translate_to_asm(src, triple, proc, features, ['nvptx-short-ptr'], opt.enable_fp_fusion, False)
+        Path(".vscode/core_dump.ir").write_text(str(ret))
+        
         # Find kernel names (there should only be one)
         names = re.findall(r".visible .entry ([a-zA-Z_][a-zA-Z0-9_]*)", ret)
         assert len(names) == 1

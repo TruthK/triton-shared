@@ -45,6 +45,10 @@ void init_triton_triton_shared(py::module &&m) {
 }
 
 void init_triton_triton_shared_to_llvmir(py::module &&m) {
+  m.def("memref_copy_to_linalg", [](mlir::PassManager &pm) {
+    pm.addNestedPass<mlir::func::FuncOp>(
+        mlir::tts::createMemrefCopyToLinalgPass());
+  });
   ADD_PASS_WRAPPER_0("linalg_to_llvm", mlir::tts::createLinalgToLLVMPass);
 }
 
