@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.4.1-cuda12.1-cudnn9-devel
+FROM pytorch/pytorch:2.6.0-cuda12.6-cudnn9-devel
 
 # Set non-interactive mode to avoid prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -38,9 +38,16 @@ RUN apt-get install -y --fix-missing \
     zlib1g-dev \
     libzstd-dev \
     clang \
-    lld
+    lld openssh-server
 
 RUN ccache -M 30G
+
+RUN mkdir /var/run/sshd
+RUN sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+RUN sed -i 's/#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+# Expose SSH port
+EXPOSE 20001
 
 # Set the root password
 RUN echo "root:passwd" | chpasswd
@@ -56,5 +63,7 @@ WORKDIR /workspace/triton-shared
 RUN git config --global http.postBuffer 524288000
 RUN git submodule update --init
 
-# CCreate a development conda environment with packages such as torch2.4.1 pybind11 (environment name :triton_shared_mlir_nv). If there is no torch in the base environment, the script default pytorch-cuda version is 12.1. If other versions are required, modify the input parameters
-RUN bash create_conda_env.sh 12.1
+# CCreate a development conda environment with packages such as torch2.6.0 pybind11 (environment name :triton_shared_mlir_nv). If there is no torch in the base environment, the script default pytorch-cuda version is 12.1. If other versions are required, modify the input parameters
+
+# Start SSH service when container launches
+CMD ["/usr/sbin/sshd", "-D"]

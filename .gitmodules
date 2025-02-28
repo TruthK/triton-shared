@@ -1,11 +1,11 @@
 [submodule "triton"]
 	path = triton
 	url = https://github.com/triton-lang/triton.git
-	commit = 310405647df51a909943bed71c5a6fd9a3e402b4
+	commit = c75c6b034756629b891e7b2df406f634552331d5
 [submodule "third_party/googletest"]
 	path = third_party/googletest
 	url = https://github.com/google/googletest.git
 [submodule "third_party/llvm-project"]
 	path = third_party/llvm-project
 	url = https://github.com/llvm/llvm-project.git
-	commit = c08c6a71cfc536e22fb7ad733fb8181a9e84e62a
+	commit = c118864223c6309378cd704f3406533474c2759f

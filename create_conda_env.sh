@@ -6,7 +6,7 @@ set -e
 # Define the environment name
 ENV_NAME="triton_shared_mlir_nv"
 # Default CUDA version if not provided as an argument
-CUDA_VERSION=${1:-12.1}
+CUDA_VERSION=${1:-cu126}
 
 # Check if conda is installed
 if ! command -v conda &> /dev/null; then
@@ -25,8 +25,8 @@ install_dependencies() {
 
 # Function to install torch
 install_torch() {
-    echo "Installing pytorch 2.4.1+$CUDA_VERSION with CUDA..."
-    conda install -n "$ENV_NAME" pytorch=2.4.1 torchvision==0.19.1 torchaudio==2.4.1 pytorch-cuda="$CUDA_VERSION" -c pytorch -c nvidia -y || {
+    echo "Installing pytorch 2.6.0+$CUDA_VERSION with CUDA..."
+    pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/"$CUDA_VERSION" || {
         echo "Failed to install pytorch."
         exit 1
     }
@@ -45,9 +45,10 @@ if conda info --envs | grep -q "^$ENV_NAME\s"; then
     fi
 fi
 
-# Check if torch 2.4.* exists in base environment
+
+# Check if torch 2.6.* exists in base environment
 TORCH_VERSION=$(conda list -n base torch | grep torch | awk '{print $2}')
-if [[ "$TORCH_VERSION" =~ .*2\.4.* ]]; then
+if [[ "$TORCH_VERSION" =~ .*2\.6.* ]]; then
     echo "Found torch $TORCH_VERSION in base environment."
 
     # Clone base environment
