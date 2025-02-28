@@ -16,6 +16,7 @@
 #include "triton-shared/Conversion/TritonToLinalgExperimental/Passes.h"
 #include "triton-shared/Conversion/TritonToStructured/Passes.h"
 #include "triton-shared/Conversion/TritonToUnstructured/Passes.h"
+#include "triton-shared/Conversion/TritonToUnstructured/Passes.h"
 #include "triton-shared/Conversion/UnstructuredToMemref/Passes.h"
 #include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 #include "triton-shared/Dialect/TritonTilingExt/IR/TritonTilingExtDialect.h"
@@ -38,7 +39,6 @@ void registerTestMembarPass();
 inline void registerTritonSharedDialects(mlir::DialectRegistry &registry) {
   mlir::registerAllPasses();
   mlir::registerTritonPasses();
-  mlir::triton::gpu::registerTritonGPUPasses();
   mlir::registerLinalgPasses();
   mlir::test::registerTestAliasPass();
   mlir::test::registerTestAlignmentPass();
@@ -51,7 +51,6 @@ inline void registerTritonSharedDialects(mlir::DialectRegistry &registry) {
   mlir::triton::registerUnstructuredToMemref();
   mlir::triton::registerTritonToUnstructuredPasses();
   mlir::triton::registerTritonArithToLinalgPasses();
-  mlir::triton::registerConvertTritonToTritonGPUPass();
   mlir::triton::registerStructuredToMemrefPasses();
 
   registry.insert<mlir::ttx::TritonTilingExtDialect,

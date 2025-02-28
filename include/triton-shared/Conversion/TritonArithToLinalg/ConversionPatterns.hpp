@@ -215,8 +215,8 @@ struct MakeTensorPtrConverter
     SmallVector<Value> newOffsets;
     for (auto [offset, stride] :
          llvm::zip(pointerState.offsets, pointerState.strides)) {
-      auto mulOp = rewriter.create<arith::MulIOp>(loc, offset.get<Value>(),
-                                                  stride.get<Value>());
+      auto mulOp = rewriter.create<arith::MulIOp>(loc, cast<Value>(offset),
+                                                  cast<Value>(stride));
       newOffsets.push_back(mulOp.getResult());
     }
 
@@ -435,7 +435,7 @@ public:
         Value dimi = dyn_cast<Value>(mstate.dims[i]);
         if (!dimi) {
           dimi = rewriter.create<arith::ConstantOp>(
-              loc, cast<IntegerAttr>(mstate.dims[i].get<Attribute>()));
+              loc, cast<IntegerAttr>(cast<Attribute>(mstate.dims[i])));
         }
 
         auto cmpOp = rewriter.create<arith::CmpIOp>(
@@ -837,8 +837,7 @@ struct AssertConverter : public OpConversionPattern<triton::AssertOp> {
     }
 
     auto assertMessage =
-        llvm::formatv("{0}.py:{1}: {2} Assertion `{3}` failed", op.getFile(),
-                      op.getLine(), op.getFunc(), op.getMessage());
+        llvm::formatv("Assertion `{0}` failed", op.getMessage());
     rewriter.create<mlir::cf::AssertOp>(op.getLoc(), condVal,
                                         assertMessage.str());
 
@@ -853,6 +852,11 @@ struct BitcastConverter : public OpConversionPattern<triton::BitcastOp> {
   LogicalResult
   matchAndRewrite(triton::BitcastOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    // arith::bitcast does not support casting pointers
+    if (isa<triton::PointerType>(op.getSrc().getType())) {
+      return failure();
+    }
+
     auto arithBitcast = rewriter.create<arith::BitcastOp>(
         op.getLoc(), op.getType(), op.getOperand());
 
@@ -1237,9 +1241,10 @@ private:
   }
 
   bool requiresF32Conversion(const Type elemType, Operation *redOp) const {
+    unsigned width =
+	cast<FloatType>(Float32Type::get(elemType.getContext())).getWidth();
     return isa<FloatType>(elemType) &&
-           elemType.getIntOrFloatBitWidth() <
-               Float32Type::get(elemType.getContext()).getWidth() &&
+           elemType.getIntOrFloatBitWidth() < width &&
            isa<arith::AddFOp>(redOp);
   }
 

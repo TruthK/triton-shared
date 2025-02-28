@@ -654,6 +654,26 @@ LogicalResult PtrAnalysis::visitOperandForOp(scf::ForOp forOp, Value operand,
   return success();
 }
 
+LogicalResult PtrAnalysis::visitOperandIntToPtr(triton::IntToPtrOp op,
+                                                PtrState &state,
+                                                const Location loc,
+                                                OpBuilder &builder) {
+  state.source = op.getResult();
+  return success();
+}
+
+LogicalResult PtrAnalysis::visitOperandBitcast(triton::BitcastOp op,
+                                               PtrState &state,
+                                               const Location loc,
+                                               OpBuilder &builder) {
+  auto resType = op.getResult().getType();
+  if (isa<ShapedType>(resType)) {
+    return visitOperand(op.getSrc(), state, loc, builder);
+  }
+  state.source = op.getResult();
+  return success();
+}
+
 LogicalResult PtrAnalysis::visitOperand(Value operand, PtrState &state,
                                         const Location loc,
                                         OpBuilder &builder) {
@@ -684,6 +704,10 @@ LogicalResult PtrAnalysis::visitOperand(Value operand, PtrState &state,
       if (auto addPtrOp = dyn_cast<triton::AddPtrOp>(op)) {
         return visitOperandAddptr(cast<triton::AddPtrOp>(op), state, loc,
                                   builder);
+      } else if (auto castOp = dyn_cast<triton::BitcastOp>(op)) {
+        return visitOperandBitcast(castOp, state, loc, builder);
+      } else if (auto intToPtrOp = dyn_cast<triton::IntToPtrOp>(op)) {
+        return visitOperandIntToPtr(intToPtrOp, state, loc, builder);
       } else if (auto makeTensorOp = dyn_cast<triton::MakeTensorPtrOp>(op)) {
         llvm_unreachable("Unexpected operand defining operation tts.make_tptr");
       } else {
@@ -793,12 +817,12 @@ LogicalResult PtrAnalysis::rewriteAdvanceOp(triton::AdvanceOp op) {
           loc, builder.getIndexAttr(offsetIntAttr.value()));
       offsetValue = constOp.getResult();
     } else {
-      offsetValue = offset.get<Value>();
+      offsetValue = cast<Value>(offset);
     }
     auto castOp = builder.create<arith::IndexCastOp>(
         loc, builder.getIndexType(), increment);
     auto mulOp = builder.create<arith::MulIOp>(loc, castOp.getResult(),
-                                               stride.get<Value>());
+                                               cast<Value>(stride));
     auto addOp =
         builder.create<arith::AddIOp>(loc, mulOp.getResult(), offsetValue);
     newOffsets.push_back(addOp.getResult());
@@ -1029,7 +1053,7 @@ PtrAnalysis::rewriteGetStructuredStateOp(tts::GetStructuredStateOp op) {
             op.getLoc(), builder.getIndexAttr(sIntAttr.value()));
         replacements.push_back(constOp.getResult());
       } else {
-        replacements.push_back(s.get<Value>());
+        replacements.push_back(cast<Value>(s));
       }
     }
 
@@ -1040,7 +1064,7 @@ PtrAnalysis::rewriteGetStructuredStateOp(tts::GetStructuredStateOp op) {
             op.getLoc(), builder.getIndexAttr(sIntAttr.value()));
         replacements.push_back(constOp.getResult());
       } else {
-        replacements.push_back(s.get<Value>());
+        replacements.push_back(cast<Value>(s));
       }
     }
   }
