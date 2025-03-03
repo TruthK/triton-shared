@@ -6,7 +6,7 @@ set -e
 # Define the environment name
 ENV_NAME="triton_shared_mlir_nv"
 # Default CUDA version if not provided as an argument
-CUDA_VERSION=${1:-cu126}
+CUDA_VERSION=${1:-cu124}
 
 # Check if conda is installed
 if ! command -v conda &> /dev/null; then
@@ -17,7 +17,7 @@ fi
 # Function to install dependencies
 install_dependencies() {
     echo "Installing dependencies into environment $ENV_NAME..."
-    conda install -n "$ENV_NAME" scipy lit gcc_linux-64 gxx_linux-64 libgcc-ng libstdcxx-ng cmake pybind11 ninja pytest pandas matplotlib setuptools requests numpy wheel sympy  -y || {
+    conda install -n "$ENV_NAME" -c conda-forge scipy lit gcc_linux-64 gxx_linux-64 libgcc-ng libstdcxx-ng cmake pybind11 ninja pytest pandas matplotlib setuptools requests numpy wheel sympy  -y || {
         echo "Failed to install dependencies."
         exit 1
     }
@@ -61,7 +61,7 @@ if [[ "$TORCH_VERSION" =~ .*2\.6.* ]]; then
 else
     # Create a new Conda environment
     echo "Creating a new Conda environment: $ENV_NAME..."
-    conda create -n "$ENV_NAME" python=3.10 -y || { echo "Failed to create environment and install dependencies."; exit 1; }
+    conda create -n "$ENV_NAME" python=3.11 -y || { echo "Failed to create environment and install dependencies."; exit 1; }
 
     # Install dependencies and pytorch with CUDA
     install_dependencies

@@ -1,5 +1,6 @@
 from triton.backends.compiler import BaseBackend, GPUTarget
 from triton._C.libtriton import ir, passes,llvm,tts_nv
+from triton.runtime.errors import PTXASError
 from dataclasses import dataclass
 from typing import Any, Dict, Tuple, Optional
 from types import ModuleType
@@ -8,10 +9,10 @@ import tempfile
 import os
 import re
 import signal
-import subprocess
 import functools
+import subprocess
 from pathlib import Path
-import shutil
+import sysconfig
 
 currentDirname = os.path.dirname(os.path.realpath(__file__))
 parent_dir = os.path.dirname(currentDirname)
@@ -19,29 +20,48 @@ parent_dir = os.path.dirname(currentDirname)
 dirname = os.path.join(parent_dir, "triton", "python", "triton", "backends","nvidia")
 
 def min_dot_size(target: GPUTarget):
-    return lambda lhsType, rhsType: (16, 32, 16) if lhsType.is_int8() else (16, 16, 16)
 
+    def check_dot_compatibility(lhs_type, rhs_type) -> Tuple[int, int, int]:  # [m, n, k]
+        lhs_bitwidth = lhs_type.scalar.primitive_bitwidth
+        rhs_bitwidth = rhs_type.scalar.primitive_bitwidth
+        assert lhs_bitwidth == rhs_bitwidth, "lhs and rhs bitwidth must be the same"
+        if lhs_bitwidth == 8:
+            return (16, 16, 32)
+        else:
+            return (16, 16, 16)
+
+    return check_dot_compatibility
 
 @functools.lru_cache()
 def _path_to_binary(binary: str):
+    binary += sysconfig.get_config_var("EXE")
     paths = [
         os.environ.get(f"TRITON_{binary.upper()}_PATH", ""),
         os.path.join(dirname, "bin", binary),
     ]
 
-    for bin in paths:
-        if os.path.exists(bin) and os.path.isfile(bin):
-            result = subprocess.check_output([bin, "--version"], stderr=subprocess.STDOUT)
+    for path in paths:
+        if os.path.exists(path) and os.path.isfile(path):
+            result = subprocess.check_output([path, "--version"], stderr=subprocess.STDOUT)
             if result is not None:
                 version = re.search(r".*release (\d+\.\d+).*", result.decode("utf-8"), flags=re.MULTILINE)
                 if version is not None:
-                    return bin, version.group(1)
+                    return path, version.group(1)
     raise RuntimeError(f"Cannot find {binary}")
 
 
 @functools.lru_cache()
-def get_ptxas_version():
-    version = subprocess.check_output([_path_to_binary("ptxas")[0], "--version"]).decode("utf-8")
+def get_ptxas(arch: int):
+    name = "ptxas-blackwell" if arch >= 100 else "ptxas"
+    return _path_to_binary(name)
+
+
+@functools.lru_cache()
+def get_ptxas_version(arch: int):
+    mock_ver = os.environ.get('TRITON_MOCK_PTX_VERSION')
+    if mock_ver is not None:
+        return mock_ver  # This is not really a version of ptxas, but it is good enough for testing
+    version = subprocess.check_output([get_ptxas(arch)[0], "--version"]).decode("utf-8")
     return version
 
 
@@ -55,8 +75,8 @@ def ptx_get_version(cuda_version) -> int:
     if major == 12:
         if minor < 6:
             return 80 + minor
-        elif minor == 6:
-            return 85
+        else:
+            return 80 + minor - 1
     if major == 11:
         return 70 + minor
     if major == 10:
@@ -64,12 +84,17 @@ def ptx_get_version(cuda_version) -> int:
     raise RuntimeError("Triton only support CUDA 10.0 or higher, but got CUDA version: " + cuda_version)
 
 
-@functools.lru_cache()
-def get_features(options):
+def get_ptx_version_from_options(options, arch: int):
     ptx_version = options.ptx_version
     if ptx_version is None:
-        _, cuda_version = _path_to_binary("ptxas")
+        _, cuda_version = get_ptxas(arch)
         ptx_version = ptx_get_version(cuda_version)
+    return ptx_version
+
+
+@functools.lru_cache()
+def get_features(options, arch: int):
+    ptx_version = get_ptx_version_from_options(options, arch)
 
     # PTX 8.3 is the max version supported by llvm 3a83162168.
     #
@@ -98,6 +123,7 @@ class KzxCUDAOptions:
     cluster_dims: tuple = (1, 1, 1)
     ptx_version: int = None
     enable_fp_fusion: bool = True
+    launch_cooperative_grid: bool = False
     supported_fp8_dtypes: Tuple[str] = ("fp8e5", "fp8e4b15")
     deprecated_fp8_dtypes: Tuple[str] = ()
     default_dot_input_precision: str = "tf32"
@@ -106,6 +132,8 @@ class KzxCUDAOptions:
     extern_libs: dict = None
     debug: bool = False
     backend_name: str = 'cuda'
+    sanitize_overflow: bool = True
+    arch: str = None
 
     def __post_init__(self):
         default_libdir = os.path.join(dirname, "lib")
@@ -127,30 +155,39 @@ class KzxCUDABackend(BaseBackend):
 
     @staticmethod
     def supports_target(target: GPUTarget):
-        return target.backend == 'kzx_cuda'
+        return target.backend == 'cuda'
 
+    def _parse_arch(self, arch):
+        pattern = r"^sm(\d+)$"
+        match = re.fullmatch(pattern, arch)
+        if not match:
+            raise ValueError(f"TRITON_OVERRIDE_ARCH must have the form {pattern}")
+        return int(match.group(1))
     def __init__(self, target: GPUTarget) -> None:
         super().__init__(target)
-        self.capability = target.arch
-        assert isinstance(self.capability, int)
         self.binary_ext = "cubin"
 
     def parse_options(self, opts) -> Any:
-        args = {k: opts[k] for k in KzxCUDAOptions.__dataclass_fields__.keys() if k in opts}
+        args = {'arch': os.getenv("TRITON_OVERRIDE_ARCH", f"sm{self.target.arch}")}
+        args.update({k: opts[k] for k in CUDAOptions.__dataclass_fields__.keys() if k in opts if opts[k] is not None})
+        capability = int(self._parse_arch(args["arch"]))
+
         if "supported_fp8_dtypes" not in args:
-            supported_fp8_dtypes = set(KzxCUDAOptions.supported_fp8_dtypes)
-            if self.capability >= 89:
+            supported_fp8_dtypes = set(CUDAOptions.supported_fp8_dtypes)
+            if capability >= 89:
                 supported_fp8_dtypes.add("fp8e4nv")
             args["supported_fp8_dtypes"] = tuple(sorted(supported_fp8_dtypes))
 
         if "deprecated_fp8_dtypes" not in args:
-            if self.capability >= 90:
+            if capability >= 90:
                 args["deprecated_fp8_dtypes"] = ("fp8e4b15", )
 
         if "enable_fp_fusion" not in args:
             args["enable_fp_fusion"] = os.getenv("TRITON_DEFAULT_FP_FUSION", "1") == "1"
-        args["max_num_imprecise_acc_default"] = 2**30 if self.capability == 90 else 0
-        return KzxCUDAOptions(**args)
+
+        args["max_num_imprecise_acc_default"] = 2**30 if capability == 90 else 0
+
+        return CUDAOptions(**args)
 
     def pack_metadata(self, metadata):
         return (
@@ -162,12 +199,13 @@ class KzxCUDABackend(BaseBackend):
             metadata.cluster_dims[2],
         )
 
-    def get_codegen_implementation(self):
+    def get_codegen_implementation(self, options):
         import triton.language.extra.cuda as cuda
+        capability = int(self._parse_arch(options.arch))
         codegen_fns = {
             "convert_custom_types":
-            cuda.convert_custom_float8_sm80 if self.capability >= 80 else cuda.convert_custom_float8_sm70,
-            "min_dot_size": min_dot_size(self.target)
+            cuda.convert_custom_float8_sm80 if capability >= 80 else cuda.convert_custom_float8_sm70, "min_dot_size":
+            min_dot_size(self.target)
         }
         return codegen_fns
 
@@ -185,12 +223,14 @@ class KzxCUDABackend(BaseBackend):
         pm = ir.pass_manager(mod.context)
         pm.enable_debug()
         passes.common.add_inliner(pm)
-        passes.ttir.add_combine(pm)
+        passes.ttir.add_rewrite_tensor_pointer(pm)
         passes.common.add_canonicalizer(pm)
+        passes.ttir.add_combine(pm)
         passes.ttir.add_reorder_broadcast(pm)
         passes.common.add_cse(pm)
         passes.common.add_licm(pm)
         passes.common.add_symbol_dce(pm)
+        passes.ttir.add_loop_unroll(pm)
         pm.run(mod)
         return mod
     
@@ -203,8 +243,7 @@ class KzxCUDABackend(BaseBackend):
         return mod
 
 
-    @staticmethod
-    def make_llir(mod,metadata, options, capability):
+    def make_llir(self, src,metadata, options, capability):
         # Get tts-MLIR as string
         pm = ir.pass_manager(mod.context)
         pm.enable_debug()
@@ -217,14 +256,19 @@ class KzxCUDABackend(BaseBackend):
         # LLVM-IR (MLIR) -> LLVM-IR (LLVM)
         llvm.init_targets()
         context = llvm.context()
-
+        if os.environ.get("TRITON_ENABLE_ASAN", "0") == "1":
+            raise RuntimeError(
+                "Address Sanitizer Error: Address sanitizer is currently only supporteedd on the AMD backend")
         llvm_mod = llvm.to_module(mod, context)
         proc = 'sm_90a' if capability == 90 else f'sm_{capability}'
-        features = get_features(options)
+        # use sm_90a until sm_100 is open sourced in llvm.
+        if capability == 100:
+            proc = 'sm_90a'
+        features = get_features(options, self.target.arch)
         triple = 'nvptx64-nvidia-cuda'
         llvm.attach_datalayout(llvm_mod, triple, proc, features)
         tts_nv.set_nvvm_reflect_ftz(llvm_mod)
-        
+
         # Set maxnreg on all kernels, if it was provided.
         if options.maxnreg is not None:
             for k in llvm_mod.get_functions():
@@ -243,16 +287,15 @@ class KzxCUDABackend(BaseBackend):
         del context
         return ret
     
-    @staticmethod
-    def make_ptx(src, metadata, opt, capability):
-        ptx_version = opt.ptx_version
-        if ptx_version is None:
-            _, cuda_version = _path_to_binary("ptxas")
-            ptx_version = ptx_get_version(cuda_version)
+    def make_ptx(self, src, metadata, opt, capability):
+        ptx_version = get_ptx_version_from_options(opt, self.target.arch)
 
         triple = 'nvptx64-nvidia-cuda'
         proc = 'sm_90a' if capability == 90 else f'sm_{capability}'
-        features = get_features(opt)
+        # use sm_90a until sm_100 is open sourced in llvm.
+        if capability == 100:
+            proc = 'sm_90a'
+        features = get_features(opt, self.target.arch)
         ret = llvm.translate_to_asm(src, triple, proc, features, ['nvptx-short-ptr'], opt.enable_fp_fusion, False)
         Path(".vscode/core_dump.ir").write_text(str(ret))
         
@@ -263,6 +306,7 @@ class KzxCUDABackend(BaseBackend):
         # post-process
         ptx_version = f'{ptx_version//10}.{ptx_version%10}'
         ret = re.sub(r'\.version \d+\.\d+', f'.version {ptx_version}', ret, flags=re.MULTILINE)
+        ret = re.sub(r'\.target sm_\d+', f'.target sm_{capability}', ret, flags=re.MULTILINE)
         # Remove the debug flag that prevents ptxas from optimizing the code
         ret = re.sub(r",\s*debug|debug,\s*", "", ret)
         if os.environ.get("NVPTX_ENABLE_DUMP", "0") == "1":
@@ -270,18 +314,18 @@ class KzxCUDABackend(BaseBackend):
             print(ret)
         return ret
 
-    @staticmethod
-    def make_cubin(src, metadata, opt, capability):
-        ptxas, _ = _path_to_binary("ptxas")
+    def make_cubin(self, src, metadata, opt, capability):
+        ptxas, _ = get_ptxas(self.target.arch)
         with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.ptx') as fsrc, \
             tempfile.NamedTemporaryFile(delete=False, mode='r', suffix='.log') as flog:
             fsrc.write(src)
             fsrc.flush()
             fbin = fsrc.name + '.o'
 
-            line_info = [] if os.environ.get('TRITON_DISABLE_LINE_INFO') else ['-lineinfo']
+            line_info = ["-lineinfo", "-suppress-debug-info"] if os.environ.get("TRITON_DISABLE_LINE_INFO",
+                                                                                "0") == "1" else ["-lineinfo"]
             fmad = [] if opt.enable_fp_fusion else ['--fmad=false']
-            suffix = 'a' if capability == 90 else ''
+            suffix = 'a' if capability >= 90 else ''
             opt_level = ['--opt-level', '0'] if os.environ.get("DISABLE_PTXAS_OPT", "0") == "1" else []
             ptxas_cmd = [
                 ptxas, *line_info, *fmad, '-v', *opt_level, f'--gpu-name=sm_{capability}{suffix}', fsrc.name, '-o', fbin
@@ -305,9 +349,9 @@ class KzxCUDABackend(BaseBackend):
                 else:
                     error = f'`ptxas` failed with error code {e.returncode}'
 
-                raise RuntimeError(f'{error}\n'
-                                   f'`ptxas` stderr:\n{log}\n'
-                                   f'Repro command: {ptxas_cmd}\n')
+                raise PTXASError(f"{error}\n"
+                                 f"`ptxas` stderr:\n{log}\n"
+                                 f'Repro command: {" ".join(ptxas_cmd)}\n')
 
             with open(fbin, 'rb') as f:
                 cubin = f.read()
@@ -317,6 +361,7 @@ class KzxCUDABackend(BaseBackend):
 
 
     def add_stages(self, stages, options):
+        capability = self._parse_arch(options.arch)
         stages["ttir"] = lambda src, metadata: self.make_ttir(src, metadata, options)
         stages["ttsharedir"] = lambda src, metadata: self.make_ttsharedir(src, metadata, options,self.capability)
         stages["llir"] = lambda src, metadata: self.make_llir(src,metadata, options,self.capability)
@@ -326,5 +371,5 @@ class KzxCUDABackend(BaseBackend):
 
     @functools.lru_cache()
     def hash(self):
-        version = get_ptxas_version()
-        return f'{version}-{self.capability}'
+        version = get_ptxas_version(self.target.arch)
+        return f'{version}-{self.target.arch}'

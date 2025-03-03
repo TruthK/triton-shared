@@ -33,7 +33,7 @@ To build with Clang:
 ```sh
 
 chmod +x create_conda_env.sh
-// ${cud_version} set cuda version,e.g:11.8 ,defualt 12.1
+// ${cud_version} set cuda version,e.g:cu118 ,defualt cu124
 bash create_conda_env.sh ${cud_version}
 
 sudo apt-get update -y
@@ -46,7 +46,7 @@ cmake -G Ninja -DCMAKE_BUILD_TYPE=Release  -DCMAKE_C_COMPILER=clang       -DCMAK
 ninja
 
 // Return to the root directory of the project
-cd ../../.. 
+cd ../../../..
 export LLVM_BUILD_DIR=$(pwd)/third_party/llvm-project/build
 export TRITON_PLUGIN_DIRS=$(pwd)
 //make sure had run create_conda_env.sh
@@ -59,6 +59,19 @@ export TRITON_BUILD_WITH_CCACHE=true
 LLVM_INCLUDE_DIRS=$LLVM_BUILD_DIR/include   LLVM_LIBRARY_DIR=$LLVM_BUILD_DIR/lib   LLVM_SYSPATH=$LLVM_BUILD_DIR   TRITON_BUILD_WITH_CLANG_LLD=true pip install -e triton/python --no-build-isolation
 ```
 
+
+```
+cmake -G Ninja \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  -DCMAKE_C_COMPILER=clang \
+  -DCMAKE_CXX_COMPILER=clang++ \
+  -DCMAKE_LINKER=lld \
+  -DLLVM_ENABLE_ASSERTIONS=ON \
+  -DLLVM_ENABLE_PROJECTS="mlir;llvm" \
+  -DLLVM_TARGETS_TO_BUILD="host;NVPTX;AMDGPU" \
+  ../llvm
+
+```
 
 The resulting `triton-shared` binaries will be placed under `triton/python/build/{current_cmake_version}/third_party/triton_shared`
 
