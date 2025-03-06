@@ -1,0 +1,225 @@
+#ifndef TTS_COMPILER_CODEGEN_DIALECT_GPU_TRANSFORMEXTENSIONS_TTSGPUEXTENSIONS
+#define TTS_COMPILER_CODEGEN_DIALECT_GPU_TRANSFORMEXTENSIONS_TTSGPUEXTENSIONS
+
+include "triton-shared/Codegen/Dialect/GPU/IR/TTSGPUInterfaces.td"
+include "mlir/Dialect/Transform/IR/TransformAttrs.td"
+include "mlir/Dialect/Transform/IR/TransformAttrs.td"
+include "mlir/Dialect/Transform/IR/TransformDialect.td"
+include "mlir/Dialect/Transform/IR/TransformTypes.td"
+include "mlir/Dialect/Transform/Interfaces/TransformInterfaces.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/IR/OpBase.td"
+
+def ApplyDropMultiMmaOpUnitDims : Op<Transform_Dialect,
+    "apply_patterns.tts.drop_multi_mma_unit_dims",
+    [DeclareOpInterfaceMethods<PatternDescriptorOpInterface>,
+     ReportTrackingListenerFailuresOpTrait]> {
+  let description = [{
+    Populate patterns to drop the unit dims from multi_mma ops with
+    only unit iteration bounds.
+  }];
+
+  let cppNamespace = "mlir::tts::transform_dialect";
+  let assemblyFormat = "attr-dict";
+}
+
+def ApplyLowerMultiMmaOp : Op<Transform_Dialect,
+    "apply_patterns.tts.lower_multi_mma",
+    [DeclareOpInterfaceMethods<PatternDescriptorOpInterface>,
+     ReportTrackingListenerFailuresOpTrait]> {
+  let description = [{
+    Populate patterns to lowering multi_mma ops to the intrinsic specified by
+    the |kind| attribute.
+  }];
+
+  let cppNamespace = "mlir::tts::transform_dialect";
+  let assemblyFormat = "attr-dict";
+}
+
+def ApplyLowerBarrierRegionPatternsOp : Op<Transform_Dialect,
+    "apply_patterns.tts.lower_barrier_region",
+    [DeclareOpInterfaceMethods<PatternDescriptorOpInterface>,
+     ReportTrackingListenerFailuresOpTrait]> {
+  let description = [{
+    Populate patterns that lowers tts_gpu.barrier_region ops to allocations
+    and copies.
+  }];
+
+  let cppNamespace = "mlir::tts::transform_dialect";
+  let assemblyFormat = "attr-dict";
+}
+
+def ApplyLowerValueBarrierOp : Op<Transform_Dialect,
+    "apply_patterns.tts.lower_value_barrier",
+    [DeclareOpInterfaceMethods<PatternDescriptorOpInterface>,
+     ReportTrackingListenerFailuresOpTrait]> {
+  let description = [{
+    Populate patterns to convert value barriers on vectors into gpu.barrier ops.
+    Barriers on tensors are ignored.
+  }];
+
+  let cppNamespace = "mlir::tts::transform_dialect";
+  let assemblyFormat = "attr-dict";
+}
+
+def ApplyUnrollMultiMmaOp : Op<Transform_Dialect,
+    "apply_patterns.tts.unroll_multi_mma",
+    [DeclareOpInterfaceMethods<PatternDescriptorOpInterface>,
+     ReportTrackingListenerFailuresOpTrait]> {
+  let description = [{
+    Populate patterns to unroll tts_gpu.multi_mma ops to a single intrinsic.
+  }];
+
+  let cppNamespace = "mlir::tts::transform_dialect";
+  let assemblyFormat = "attr-dict";
+}
+
+def ApplyVectorizeTTSGPUOp : Op<Transform_Dialect,
+    "apply_patterns.tts.vectorize_tts_gpu",
+    [DeclareOpInterfaceMethods<PatternDescriptorOpInterface>,
+     ReportTrackingListenerFailuresOpTrait]> {
+  let description = [{
+    Populate patterns to vectorize various tts_gpu ops. Expected to run
+    before or as a part of a larger vectorization pass.
+  }];
+
+  let cppNamespace = "mlir::tts::transform_dialect";
+  let assemblyFormat = "attr-dict";
+}
+
+def ConvertToMultiMmaOp : Op<Transform_Dialect, "tts.convert_to_multi_mma",
+    [TransformEachOpTrait,
+     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     TransformOpInterface,
+     ReportTrackingListenerFailuresOpTrait]> {
+  let description = [{
+    Converts the target linalg op to a multi_mma operation based on the
+    given intrinsic kind.
+
+    #### Return modes
+    Emits a definite failure if the target is not a contraction like linalg
+    op or the conversion to the target mma fails.
+  }];
+
+  let arguments = (ins
+    TransformHandleTypeInterface:$target,
+    TTSGPU_AnyMmaAttr:$intrinsic_kind);
+  let results = (outs TransformHandleTypeInterface:$result);
+
+  let assemblyFormat = [{
+    $target `,` `kind` `(` $intrinsic_kind `)` attr-dict
+    `:` functional-type(operands, results)
+  }];
+  let cppNamespace = "mlir::tts::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::transform::TransformRewriter &rewriter,
+        ::mlir::linalg::LinalgOp target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DistributeMultiMmaOp : Op<Transform_Dialect, "tts.distribute_multi_mma",
+    [TransformEachOpTrait,
+     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     TransformOpInterface,
+     ReportTrackingListenerFailuresOpTrait]> {
+  let description = [{
+    Distributes the target multi_mma op to lanes.
+
+    #### Return modes
+    Emits a definite failure if the target is not an tts_gpu.multi_mma op or
+    if it fails to distribute.
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs TransformHandleTypeInterface:$result);
+
+  let assemblyFormat = [{
+    $target attr-dict `:` functional-type(operands, results)
+  }];
+  let cppNamespace = "mlir::tts::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::transform::TransformRewriter &rewriter,
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def ForallToLanesOp : Op<Transform_Dialect,
+    "tts.forall_to_lanes",
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     TransformEachOpTrait,
+     TransformOpInterface,
+     ReportTrackingListenerFailuresOpTrait]> {
+  let description = [{
+    Collect all of the scf.forall ops in the target that are distributed to
+    lanes.
+
+    Only scf.forall distributed to exactly a single lane id are currently
+    supported.
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs);
+
+  let assemblyFormat = "$target attr-dict `:` functional-type($target, results)";
+  let cppNamespace = "mlir::tts::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::transform::TransformRewriter &rewriter,
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def FuseForallOp : Op<Transform_Dialect, "tts.fuse_forall",
+    [FunctionalStyleTransformOpTrait,
+     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     DeclareOpInterfaceMethods<TransformOpInterface>,
+     ReportTrackingListenerFailuresOpTrait]> {
+  let description = [{
+    Fuses a producer-consumer pair of scf.forall ops that share the same
+    iterator mapping types and trip counts. An allocation is created to
+    bridge the `parallel.insert_slice` of the producer with the per-thread
+    `extract_slice` of the consumer. If specified, uses |address_space| for
+    the intermediate allocation.
+
+    The mapping attributes of both the producer and consumer `scf.forall` ops
+    must be in a relative descending order, for example:
+     [#gpu.thread<z>, #gpu.thread<y>, #gpu.thread<x>]
+    or
+     [#gpu.thread<linear_dim_1>, #gpu.thread<linear_dim_0>]
+
+    NOTE: This pattern implicitly REQUIRES that the resulting scf.forall
+    is capable of synchronizing all threads at the point of fusion (i.e.
+    inserting a barrier). This invalidates certain kinds of lowerings of
+    scf.forall ops such as lowering it to loops.
+
+    #### Return modes
+    Emits a definite failure if either the producer or consumer are not
+    scf.forall ops.
+  }];
+
+  let arguments = (
+      ins TransformHandleTypeInterface:$producer,
+          TransformHandleTypeInterface:$consumer,
+          OptionalAttr<AnyAttr>:$address_space
+  );
+  let results = (outs TransformHandleTypeInterface:$result);
+
+  let assemblyFormat = [{
+    $producer `into` $consumer attr-dict
+    `:` functional-type(operands, results)
+  }];
+  let cppNamespace = "mlir::tts::transform_dialect";
+}
+
+#endif 

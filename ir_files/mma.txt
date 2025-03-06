@@ -475,7 +475,7 @@ module @module {
 }
 
 
-// -----// IR Dump Before mlir::iree_compiler::IREE::ABI::ConvertStreamableOpsPass (iree-abi-convert-streamable-ops) //----- //
+// -----// IR Dump Before mlir::tts::ABI::ConvertStreamableOpsPass (iree-abi-convert-streamable-ops) //----- //
 module @module {
   util.func public @main$async(%arg0: !hal.buffer_view, %arg1: !hal.buffer_view, %arg2: !hal.fence, %arg3: !hal.fence) -> !hal.buffer_view attributes {inlining_policy = #util.inline.never, iree.abi.model = "coarse-fences", iree.abi.stub} {
     %cst = arith.constant 0.000000e+00 : f32
@@ -501,7 +501,7 @@ module @module {
 }
 
 
-// -----// IR Dump Before mlir::iree_compiler::IREE::ABI::WrapEntryPointsPass (iree-abi-wrap-entry-points) //----- //
+// -----// IR Dump Before mlir::tts::ABI::WrapEntryPointsPass (iree-abi-wrap-entry-points) //----- //
 module @module {
   util.func public @main$async(%arg0: !hal.buffer_view, %arg1: !hal.buffer_view, %arg2: !hal.fence, %arg3: !hal.fence) -> !hal.buffer_view attributes {inlining_policy = #util.inline.never, iree.abi.model = "coarse-fences", iree.abi.stub} {
     %cst = arith.constant 0.000000e+00 : f32
@@ -45906,7 +45906,7 @@ module @module {
 }
 
 
-// -----// IR Dump Before mlir::iree_compiler::IREE::VM::ConversionPass (iree-vm-conversion) //----- //
+// -----// IR Dump Before mlir::tts::VM::ConversionPass (iree-vm-conversion) //----- //
 module @module {
   util.global private @__device_0 : !hal.device
   util.initializer {
@@ -46031,7 +46031,7 @@ module @module {
 }
 
 
-// -----// IR Dump Before mlir::iree_compiler::IREE::VM::ReifyRodataTablesPass (iree-vm-reify-rodata-tables) //----- //
+// -----// IR Dump Before mlir::tts::VM::ReifyRodataTablesPass (iree-vm-reify-rodata-tables) //----- //
 vm.module public @module {
   vm.global.ref private @__device_0 : !vm.ref<!hal.device>
   vm.initializer {
@@ -46252,7 +46252,7 @@ vm.module public @module {
   vm.export @main attributes {iree.abi.stub}
 }
 
-// -----// IR Dump Before mlir::iree_compiler::IREE::VM::HoistInlinedRodataPass (iree-vm-hoist-inlined-rodata) //----- //
+// -----// IR Dump Before mlir::tts::VM::HoistInlinedRodataPass (iree-vm-hoist-inlined-rodata) //----- //
 vm.module public @module {
   vm.global.ref private @__device_0 : !vm.ref<!hal.device>
   vm.initializer {
@@ -46473,7 +46473,7 @@ vm.module public @module {
   vm.export @main attributes {iree.abi.stub}
 }
 
-// -----// IR Dump Before mlir::iree_compiler::IREE::VM::DeduplicateRodataPass (iree-vm-deduplicate-rodata) //----- //
+// -----// IR Dump Before mlir::tts::VM::DeduplicateRodataPass (iree-vm-deduplicate-rodata) //----- //
 vm.module public @module {
   vm.global.ref private @__device_0 : !vm.ref<!hal.device>
   vm.rodata private @_utf8_hal_device_id_771A89ED468708BE {alignment = 1 : i64} "hal.device.id"
@@ -46706,7 +46706,7 @@ vm.module public @module {
   vm.export @main attributes {iree.abi.stub}
 }
 
-// -----// IR Dump Before mlir::iree_compiler::IREE::VM::DropUnusedCallsPass (iree-vm-drop-unused-calls) //----- //
+// -----// IR Dump Before mlir::tts::VM::DropUnusedCallsPass (iree-vm-drop-unused-calls) //----- //
 vm.module public @module {
   vm.global.ref private @__device_0 : !vm.ref<!hal.device>
   vm.rodata private @_utf8_hal_device_id_771A89ED468708BE {alignment = 1 : i64} "hal.device.id"
@@ -47471,7 +47471,7 @@ module @module attributes {vm.toplevel} {
 }
 
 
-// -----// IR Dump Before mlir::iree_compiler::IREE::VM::ResolveRodataLoadsPass (iree-vm-resolve-rodata-loads) //----- //
+// -----// IR Dump Before mlir::tts::VM::ResolveRodataLoadsPass (iree-vm-resolve-rodata-loads) //----- //
 vm.module public @module {
   vm.global.ref private @__device_0 : !vm.ref<!hal.device>
   vm.rodata private @_utf8_hal_device_id_771A89ED468708BE {alignment = 1 : i64} "hal.device.id"
@@ -48105,7 +48105,7 @@ module @module attributes {vm.toplevel} {
 }
 
 
-// -----// IR Dump Before mlir::iree_compiler::IREE::VM::DropUnusedCallsPass (iree-vm-drop-unused-calls) //----- //
+// -----// IR Dump Before mlir::tts::VM::DropUnusedCallsPass (iree-vm-drop-unused-calls) //----- //
 vm.module public @module {
   vm.global.ref private @__device_0 : !vm.ref<!hal.device>
   vm.rodata private @_utf8_hal_device_id_771A89ED468708BE {alignment = 1 : i64} "hal.device.id"
@@ -48766,7 +48766,7 @@ module @module attributes {vm.toplevel} {
 }
 
 
-// -----// IR Dump Before mlir::iree_compiler::IREE::VM::GlobalInitializationPass (iree-vm-global-initialization) //----- //
+// -----// IR Dump Before mlir::tts::VM::GlobalInitializationPass (iree-vm-global-initialization) //----- //
 vm.module public @module {
   vm.global.ref private @__device_0 : !vm.ref<!hal.device>
   vm.rodata private @_utf8_hal_device_id_771A89ED468708BE {alignment = 1 : i64} "hal.device.id"
@@ -49440,7 +49440,7 @@ module @module attributes {vm.toplevel} {
 }
 
 
-// -----// IR Dump Before mlir::iree_compiler::IREE::VM::DropEmptyModuleInitializersPass (iree-vm-drop-empty-module-initializers) //----- //
+// -----// IR Dump Before mlir::tts::VM::DropEmptyModuleInitializersPass (iree-vm-drop-empty-module-initializers) //----- //
 vm.module public @module {
   vm.global.ref private mutable @__device_0 : !vm.ref<!hal.device>
   vm.rodata private @_utf8_hal_device_id_771A89ED468708BE {alignment = 1 : i64} "hal.device.id"
@@ -49767,7 +49767,7 @@ module @module attributes {vm.toplevel} {
 }
 
 
-// -----// IR Dump Before mlir::iree_compiler::IREE::VM::GlobalInitializationPass (iree-vm-global-initialization) //----- //
+// -----// IR Dump Before mlir::tts::VM::GlobalInitializationPass (iree-vm-global-initialization) //----- //
 vm.module public @module {
   vm.global.ref private mutable @__device_0 : !vm.ref<!hal.device>
   vm.rodata private @_utf8_hal_device_id_771A89ED468708BE {alignment = 1 : i64} "hal.device.id"
@@ -49927,7 +49927,7 @@ vm.module public @module {
   }
 }
 
-// -----// IR Dump Before mlir::iree_compiler::IREE::VM::DropEmptyModuleInitializersPass (iree-vm-drop-empty-module-initializers) //----- //
+// -----// IR Dump Before mlir::tts::VM::DropEmptyModuleInitializersPass (iree-vm-drop-empty-module-initializers) //----- //
 vm.module public @module {
   vm.global.ref private mutable @__device_0 : !vm.ref<!hal.device>
   vm.rodata private @_utf8_hal_device_id_771A89ED468708BE {alignment = 1 : i64} "hal.device.id"
@@ -50872,7 +50872,7 @@ vm.module public @module {
   }
 }
 
-// -----// IR Dump Before mlir::iree_compiler::IREE::VM::OrdinalAllocationPass (iree-vm-ordinal-allocation) //----- //
+// -----// IR Dump Before mlir::tts::VM::OrdinalAllocationPass (iree-vm-ordinal-allocation) //----- //
 vm.module public @module {
   vm.global.ref private mutable @__device_0 : !vm.ref<!hal.device>
   vm.rodata private @_utf8_hal_device_id_771A89ED468708BE {alignment = 1 : i64} "hal.device.id"
