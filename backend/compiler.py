@@ -169,11 +169,11 @@ class KzxCUDABackend(BaseBackend):
 
     def parse_options(self, opts) -> Any:
         args = {'arch': os.getenv("TRITON_OVERRIDE_ARCH", f"sm{self.target.arch}")}
-        args.update({k: opts[k] for k in CUDAOptions.__dataclass_fields__.keys() if k in opts if opts[k] is not None})
+        args.update({k: opts[k] for k in KzxCUDAOptions.__dataclass_fields__.keys() if k in opts if opts[k] is not None})
         capability = int(self._parse_arch(args["arch"]))
 
         if "supported_fp8_dtypes" not in args:
-            supported_fp8_dtypes = set(CUDAOptions.supported_fp8_dtypes)
+            supported_fp8_dtypes = set(KzxCUDAOptions.supported_fp8_dtypes)
             if capability >= 89:
                 supported_fp8_dtypes.add("fp8e4nv")
             args["supported_fp8_dtypes"] = tuple(sorted(supported_fp8_dtypes))
@@ -187,7 +187,7 @@ class KzxCUDABackend(BaseBackend):
 
         args["max_num_imprecise_acc_default"] = 2**30 if capability == 90 else 0
 
-        return CUDAOptions(**args)
+        return KzxCUDAOptions(**args)
 
     def pack_metadata(self, metadata):
         return (
@@ -236,6 +236,7 @@ class KzxCUDABackend(BaseBackend):
     
     @staticmethod
     def make_ttsharedir(mod, metadata, opt, capability):
+        Path(".vscode/01_other.mlir").write_text(str(mod))
         pm = ir.pass_manager(mod.context)
         pm.enable_debug()
         tts_nv.passes.tts.triton_to_linalg(pm)
@@ -243,7 +244,7 @@ class KzxCUDABackend(BaseBackend):
         return mod
 
 
-    def make_llir(self, src,metadata, options, capability):
+    def make_llir(self, mod,metadata, options, capability):
         # Get tts-MLIR as string
         pm = ir.pass_manager(mod.context)
         pm.enable_debug()
@@ -363,10 +364,10 @@ class KzxCUDABackend(BaseBackend):
     def add_stages(self, stages, options):
         capability = self._parse_arch(options.arch)
         stages["ttir"] = lambda src, metadata: self.make_ttir(src, metadata, options)
-        stages["ttsharedir"] = lambda src, metadata: self.make_ttsharedir(src, metadata, options,self.capability)
-        stages["llir"] = lambda src, metadata: self.make_llir(src,metadata, options,self.capability)
-        stages["ptx"] = lambda src, metadata: self.make_ptx(src, metadata, options, self.capability)
-        stages["cubin"] = lambda src, metadata: self.make_cubin(src, metadata, options, self.capability)
+        stages["ttsharedir"] = lambda src, metadata: self.make_ttsharedir(src, metadata, options,capability)
+        stages["llir"] = lambda src, metadata: self.make_llir(src,metadata, options,capability)
+        stages["ptx"] = lambda src, metadata: self.make_ptx(src, metadata, options, self.target.arch)
+        stages["cubin"] = lambda src, metadata: self.make_cubin(src, metadata, options, self.target.arch)
 
 
     @functools.lru_cache()

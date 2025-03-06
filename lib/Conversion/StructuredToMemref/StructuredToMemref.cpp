@@ -5,6 +5,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/IR/Value.h"
+#include "mlir/IR/ValueRange.h"
 #include "triton/Dialect/Triton/IR/Types.h"
 
 #include "triton-shared/Analysis/OpFoldResultUtils.h"
@@ -205,17 +208,17 @@ private:
     Value clampedOffset =
         rewriter.create<arith::MinSIOp>(loc, nextOffset, modN);
     Value d1 = rewriter.create<arith::SubIOp>(loc, clampedOffset, x);
-    SmallVector<Value> sizes1{rowSize, d1};
 
     auto cast1 = rewriter.create<memref::ReinterpretCastOp>(
-        loc, resultType, adaptor.getBase(), targetOffset, sizes1, strideVals);
+        loc, resultType, adaptor.getBase(), targetOffset,
+        ValueRange{rowSize, d1}, strideVals);
 
     // Second chunk
     Value d2 = rewriter.create<arith::SubIOp>(loc, colSize, d1);
-    SmallVector<Value> sizes2{rowSize, d2};
 
     auto cast2 = rewriter.create<memref::ReinterpretCastOp>(
-        loc, resultType, adaptor.getBase(), y, sizes2, strideVals);
+        loc, resultType, adaptor.getBase(), y, ValueRange{rowSize, d2},
+        strideVals);
 
     return {cast1, cast2};
   }
@@ -309,19 +312,17 @@ private:
     Value d1 = rewriter.create<arith::SubIOp>(loc, clampedOff, targetOffset);
     d1 = rewriter.create<arith::DivSIOp>(loc, d1, strideRow);
 
-    SmallVector<Value> sizes1{d1, colSize};
     memref::ReinterpretCastOp cast1 =
         rewriter.create<memref::ReinterpretCastOp>(
-            loc, resultType, adaptor.getBase(), targetOffset, sizes1,
-            ValueRange{strideRow, strideCol});
+            loc, resultType, adaptor.getBase(), targetOffset,
+            ValueRange{d1, colSize}, ValueRange{strideRow, strideCol});
 
     // Second chunk
     Value d2 = rewriter.create<arith::SubIOp>(loc, rowSize, d1);
-    SmallVector<Value> sizes2{d2, colSize};
     memref::ReinterpretCastOp cast2 =
         rewriter.create<memref::ReinterpretCastOp>(
-            loc, resultType, adaptor.getBase(), wrappedAroundOff, sizes2,
-            ValueRange{strideRow, strideCol});
+            loc, resultType, adaptor.getBase(), wrappedAroundOff,
+            ValueRange{d2, colSize}, ValueRange{strideRow, strideCol});
 
     return {cast1, cast2};
   }
@@ -430,266 +431,266 @@ public:
   }
 };
 
+/// Handles conversion of Triton's structured LoadOp to Memref-based operations.
+/// This includes support for both contiguous memory accesses and wrapped memory
+/// patterns (side-by-side and stacked layouts).
 struct LoadConverter : public OpConversionPattern<tts::LoadOp> {
 private:
   using OpConversionPattern<tts::LoadOp>::OpConversionPattern;
 
-  void createSideBySideCopies(Value block1, Value block2, Value dst,
-                              Location loc,
-                              ConversionPatternRewriter &rewriter) const {
+  /// Creates a new tensor by copying two memory blocks in side-by-side layout.
+  /// This handles cases where valid data wraps around column boundaries.
+  ///
+  /// @param block1 First memory block (left side)
+  /// @param block2 Second memory block (right side)
+  /// @param dst Destination tensor to write combined data
+  /// @param loc Operation location for IR generation
+  /// @param rewriter Pattern rewriter for IR modification
+  /// @returns Combined tensor with data from both blocks
+  Value createSideBySideCopies(Value block1, Value block2, Value dst,
+                               Location loc,
+                               ConversionPatternRewriter &rewriter) const {
+    // Initialize constants for index operations
+    auto zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+    auto one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
 
-    auto zero =
-        rewriter.create<arith::ConstantOp>(loc, rewriter.getIndexAttr(0));
-
-    auto one =
-        rewriter.create<arith::ConstantOp>(loc, rewriter.getIndexAttr(1));
-
+    // Extract dimensions from memory blocks
     Value block1Row = rewriter.create<memref::DimOp>(loc, block1, 0);
     Value block1Col = rewriter.create<memref::DimOp>(loc, block1, 1);
+    Value block2Col = rewriter.create<memref::DimOp>(loc, block2, 1);
 
+    // Convert memory blocks to tensors for insertion
+    Value tensor1 = rewriter.create<bufferization::ToTensorOp>(loc, block1);
+    Value tensor2 = rewriter.create<bufferization::ToTensorOp>(loc, block2);
+
+    Value inserted1 = rewriter.create<tensor::InsertSliceOp>(
+        loc, tensor1, dst, ValueRange{zero, zero},
+        ValueRange{block1Row, block1Col},
+        ValueRange{one, one}); // Stride 1 for both dimensions
+
+    // Insert second block at right half starting after first block's columns
+    Value colOffset = rewriter.create<arith::AddIOp>(loc, zero, block1Col);
+    Value inserted2 = rewriter.create<tensor::InsertSliceOp>(
+        loc, tensor2, inserted1, ValueRange{zero, colOffset},
+        ValueRange{block1Row, block2Col}, ValueRange{one, one});
+    return inserted2;
+  }
+
+  /// Creates a new tensor by copying two memory blocks in stacked layout.
+  /// This handles cases where valid data wraps around row boundaries.
+  ///
+  /// @param block1 First memory block (upper half)
+  /// @param block2 Second memory block (lower half)
+  /// @param dst Destination tensor to write combined data
+  /// @param loc Operation location for IR generation
+  /// @param rewriter Pattern rewriter for IR modification
+  /// @returns Combined tensor with data from both blocks
+  Value createStackedCopies(Value block1, Value block2, Value dst, Location loc,
+                            ConversionPatternRewriter &rewriter) const {
+    // Initialize constants for index operations
+    auto zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+    auto one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+
+    // Extract dimensions from memory blocks
+    Value block1Row = rewriter.create<memref::DimOp>(loc, block1, 0);
+    Value block1Col = rewriter.create<memref::DimOp>(loc, block1, 1);
     Value block2Row = rewriter.create<memref::DimOp>(loc, block2, 0);
     Value block2Col = rewriter.create<memref::DimOp>(loc, block2, 1);
 
-    auto block1Dst =
-        rewriter.create<memref::SubViewOp>(loc, dst, /* offsets */
-                                           ValueRange{zero, zero},
-                                           /* sizes */
-                                           ValueRange{block1Row, block1Col},
-                                           /* strides */
-                                           ValueRange{one, one});
+    // Convert memory blocks to tensors for insertion
+    Value tensor1 = rewriter.create<bufferization::ToTensorOp>(loc, block1);
+    Value tensor2 = rewriter.create<bufferization::ToTensorOp>(loc, block2);
 
-    auto block2Dst =
-        rewriter.create<memref::SubViewOp>(loc, dst,
-                                           /* offsets */
-                                           ValueRange{zero, block1Col},
-                                           /* sizes */
-                                           ValueRange{block2Row, block2Col},
-                                           /* strides */
-                                           ValueRange{one, one});
+    // Insert first block at upper half (row 0 to block1Row)
+    Value inserted1 = rewriter.create<tensor::InsertSliceOp>(
+        loc, tensor1, dst, ValueRange{zero, zero},
+        ValueRange{block1Row, block1Col}, ValueRange{one, one});
 
-    rewriter.create<memref::CopyOp>(loc, block1, block1Dst);
-    rewriter.create<memref::CopyOp>(loc, block2, block2Dst);
+    // Insert second block at lower half starting after first block's rows
+    Value rowOffset = rewriter.create<arith::AddIOp>(loc, zero, block1Row);
+    Value inserted2 = rewriter.create<tensor::InsertSliceOp>(
+        loc, tensor2, inserted1, ValueRange{rowOffset, zero},
+        ValueRange{block2Row, block2Col}, ValueRange{one, one});
+
+    return inserted2;
   }
 
-  void createStackedCopies(Value block1, Value block2, Value dst, Location loc,
-                           ConversionPatternRewriter &rewriter) const {
-
-    auto zero =
-        rewriter.create<arith::ConstantOp>(loc, rewriter.getIndexAttr(0));
-    auto one =
-        rewriter.create<arith::ConstantOp>(loc, rewriter.getIndexAttr(1));
-
-    Value block1Row = rewriter.create<memref::DimOp>(loc, block1, 0);
-    Value block1Col = rewriter.create<memref::DimOp>(loc, block1, 1);
-
-    Value block2Row = rewriter.create<memref::DimOp>(loc, block2, 0);
-    Value block2Col = rewriter.create<memref::DimOp>(loc, block2, 1);
-
-    auto block1Dst =
-        rewriter.create<memref::SubViewOp>(loc, dst, /* offsets */
-                                           ValueRange{zero, zero},
-                                           /* sizes */
-                                           ValueRange{block1Row, block1Col},
-                                           /* strides */
-                                           ValueRange{one, one});
-
-    auto block2Dst =
-        rewriter.create<memref::SubViewOp>(loc, dst,
-                                           /* offsets */
-                                           ValueRange{block1Row, zero},
-                                           /* sizes */
-                                           ValueRange{block2Row, block2Col},
-                                           /* strides */
-                                           ValueRange{one, one});
-
-    rewriter.create<memref::CopyOp>(loc, block1, block1Dst);
-    rewriter.create<memref::CopyOp>(loc, block2, block2Dst);
-  }
-
+  /// Creates a subview operation for the specified memory region.
+  ///
+  /// @param src Source memref to create subview from
+  /// @param offsets Starting indices for the subview
+  /// @param sizes Dimensions of the subview
+  /// @param loc Operation location for IR generation
+  /// @param rewriter Pattern rewriter for IR modification
+  /// @returns Memref subview operation
   memref::SubViewOp createSubview(Value src, ArrayRef<OpFoldResult> offsets,
-                                  ArrayRef<OpFoldResult> sizes,
-                                  ArrayRef<OpFoldResult> strides, Location loc,
+                                  ArrayRef<OpFoldResult> sizes, Location loc,
                                   ConversionPatternRewriter &rewriter) const {
     auto srcType = cast<MemRefType>(src.getType());
+    SmallVector<OpFoldResult> strides(offsets.size(), rewriter.getIndexAttr(1));
     auto dstType =
         memref::SubViewOp::inferResultType(srcType, offsets, sizes, strides);
     return rewriter.create<memref::SubViewOp>(loc, cast<MemRefType>(dstType),
                                               src, offsets, sizes, strides);
   }
 
+  /// Creates subviews for side-by-side wrapped memory case.
+  /// @param dims Target dimensions for the final tensor
+  /// @param block1 First memory block (left side)
+  /// @param block2 Second memory block (right side)
+  /// @returns Pair of subviews covering valid data regions
   std::pair<memref::SubViewOp, memref::SubViewOp>
   getSideBySideSubviews(ArrayRef<OpFoldResult> dims, Value block1, Value block2,
                         Location loc,
                         ConversionPatternRewriter &rewriter) const {
-    OpFoldResult subviewRowFull = dims[0];
-    OpFoldResult subviewColFull = dims[1];
+    // Calculate valid column ranges
     OpFoldResult col1 =
-        rewriter.create<memref::DimOp>(loc, block1, 1).getResult();
-    OpFoldResult subviewCol1 = minOFRs(col1, subviewColFull, loc, rewriter);
-    OpFoldResult subviewCol2 =
-        subOFRs(subviewColFull, subviewCol1, loc, rewriter);
+        getAsOpFoldResult(rewriter.create<memref::DimOp>(loc, block1, 1));
+    OpFoldResult validCol1 = minOFRs(col1, dims[1], loc, rewriter);
+    OpFoldResult validCol2 = subOFRs(dims[1], validCol1, loc, rewriter);
 
-    SmallVector<OpFoldResult> offsets(dims.size(), rewriter.getIndexAttr(0));
-    SmallVector<OpFoldResult> strides(dims.size(), rewriter.getIndexAttr(1));
-    auto sv1 = createSubview(block1, offsets, {subviewRowFull, subviewCol1},
-                             strides, loc, rewriter);
-    auto sv2 = createSubview(block2, offsets, {subviewRowFull, subviewCol2},
-                             strides, loc, rewriter);
-
+    // Create subviews covering valid data regions
+    auto sv1 = createSubview(block1, {rewriter.getIndexAttr(0), 0},
+                             {dims[0], validCol1}, loc, rewriter);
+    auto sv2 = createSubview(block2, {rewriter.getIndexAttr(0), 0},
+                             {dims[0], validCol2}, loc, rewriter);
     return {sv1, sv2};
   }
 
+  /// Creates subviews for stacked wrapped memory case.
+  /// @param dims Target dimensions for the final tensor
+  /// @param block1 First memory block (upper half)
+  /// @param block2 Second memory block (lower half)
+  /// @returns Pair of subviews covering valid data regions
   std::pair<memref::SubViewOp, memref::SubViewOp>
   getStackedSubviews(ArrayRef<OpFoldResult> dims, Value block1, Value block2,
-                     const Location loc,
-                     ConversionPatternRewriter &rewriter) const {
-    OpFoldResult subviewRowFull = dims[0];
-    OpFoldResult subviewColFull = dims[1];
+                     Location loc, ConversionPatternRewriter &rewriter) const {
+    // Calculate valid row ranges
     OpFoldResult row1 =
-        rewriter.create<memref::DimOp>(loc, block1, 0).getResult();
-    OpFoldResult subviewRow1 = minOFRs(row1, subviewRowFull, loc, rewriter);
-    OpFoldResult subviewRow2 =
-        subOFRs(subviewRowFull, subviewRow1, loc, rewriter);
+        getAsOpFoldResult(rewriter.create<memref::DimOp>(loc, block1, 0));
+    OpFoldResult validRow1 = minOFRs(row1, dims[0], loc, rewriter);
+    OpFoldResult validRow2 = subOFRs(dims[0], validRow1, loc, rewriter);
 
-    SmallVector<OpFoldResult> offsets(dims.size(), rewriter.getIndexAttr(0));
-    SmallVector<OpFoldResult> strides(dims.size(), rewriter.getIndexAttr(1));
-    auto sv1 = createSubview(block1, offsets, {subviewRow1, subviewColFull},
-                             strides, loc, rewriter);
-    auto sv2 = createSubview(block2, offsets, {subviewRow2, subviewColFull},
-                             strides, loc, rewriter);
+    // Create subviews covering valid data regions
+    auto sv1 = createSubview(block1, {0, rewriter.getIndexAttr(0)},
+                             {validRow1, dims[1]}, loc, rewriter);
+    auto sv2 = createSubview(block2, {0, rewriter.getIndexAttr(0)},
+                             {validRow2, dims[1]}, loc, rewriter);
     return {sv1, sv2};
   }
 
+  /// Handles conversion for structured loads without mask.
   LogicalResult
   rewriteStructuredLoad(tts::LoadOp op, OpAdaptor adaptor,
                         ConversionPatternRewriter &rewriter) const {
-    assert(!op.hasMask());
-
     auto loc = op->getLoc();
-    auto ptr = adaptor.getPtr();
-    auto other = op.getOther();
-
+    Value ptr = adaptor.getPtr();
     auto tensorType = cast<RankedTensorType>(op.getType());
-    auto elemType = tensorType.getElementType();
 
-    auto alloc = rewriter.create<memref::AllocOp>(
-        loc, MemRefType::get(tensorType.getShape(), elemType));
+    // Create empty tensor initialized with zeros
+    auto emptyOp = rewriter.create<tensor::EmptyOp>(
+        loc, tensorType.getShape(), tensorType.getElementType());
+    Value zeroVal = rewriter.create<arith::ConstantOp>(
+        loc, rewriter.getZeroAttr(tensorType.getElementType()));
+    Value filledTensor =
+        rewriter.create<linalg::FillOp>(loc, zeroVal, emptyOp.getResult())
+            .getResult(0);
 
-    // No mask
-    assert(!other && "other value used in non-masked load");
+    // Handle wrapped memory cases
+    if (auto castOp = ptr.getDefiningOp<UnrealizedConversionCastOp>()) {
+      auto memrefs = castOp.getOperands();
+      assert(memrefs.size() == 2 && "Expected two memrefs for wrapped case");
 
-    auto ptrDefiningOp = ptr.getDefiningOp();
-    if (ptrDefiningOp->hasAttr(WRAP_SIDE_BY_SIDE) ||
-        ptrDefiningOp->hasAttr(WRAP_STACKED)) {
-
-      auto unrealizedCast = cast<UnrealizedConversionCastOp>(ptrDefiningOp);
-      auto memrefs = unrealizedCast.getOperands();
-      assert(memrefs.size() == 2);
-      auto block1 = memrefs[0];
-      auto block2 = memrefs[1];
-
-      if (unrealizedCast->hasAttr(WRAP_SIDE_BY_SIDE)) {
-        createSideBySideCopies(block1, block2, alloc, loc, rewriter);
-      } else if (unrealizedCast->hasAttr(WRAP_STACKED)) {
-        createStackedCopies(block1, block2, alloc, loc, rewriter);
-      } else {
-        llvm_unreachable("unexpected wraparound type");
+      if (castOp->hasAttr(WRAP_SIDE_BY_SIDE)) {
+        Value result = createSideBySideCopies(memrefs[0], memrefs[1], emptyOp,
+                                              loc, rewriter);
+        rewriter.replaceOp(op, result);
+      } else if (castOp->hasAttr(WRAP_STACKED)) {
+        Value result =
+            createStackedCopies(memrefs[0], memrefs[1], emptyOp, loc, rewriter);
+        rewriter.replaceOp(op, result);
       }
     } else {
-      rewriter.create<memref::CopyOp>(loc, ptr, alloc);
+      // Simple contiguous memory case
+      Value srcTensor = rewriter.create<bufferization::ToTensorOp>(loc, ptr);
+
+      SmallVector<OpFoldResult> sizes;
+      for (auto dim : tensorType.getShape()) {
+        sizes.push_back(rewriter.getIndexAttr(dim));
+      }
+      Value inserted = rewriter.create<tensor::InsertSliceOp>(
+          loc, srcTensor, filledTensor,
+          SmallVector<OpFoldResult>(tensorType.getRank(),
+                                    rewriter.getIndexAttr(0)),
+          sizes, // 使用转换后的sizes
+          SmallVector<OpFoldResult>(tensorType.getRank(),
+                                    rewriter.getIndexAttr(1)));
+      rewriter.replaceOp(op, inserted);
     }
-
-    Value tensor = rewriter.create<bufferization::ToTensorOp>(
-        loc, tensorType, alloc, true /* restrict */, true /* writable */);
-    rewriter.replaceOp(op, tensor);
-
     return success();
   }
 
+  /// Handles conversion for masked loads with boundary checks.
   LogicalResult rewriteMaskedLoad(tts::LoadOp op, OpAdaptor adaptor,
                                   ConversionPatternRewriter &rewriter) const {
-    assert(op.hasMask());
-
     auto loc = op->getLoc();
-    auto ptr = adaptor.getPtr();
-
+    Value ptr = adaptor.getPtr();
     auto tensorType = cast<RankedTensorType>(op.getType());
-    auto elemType = tensorType.getElementType();
 
-    auto alloc = rewriter.create<memref::AllocOp>(
-        loc, MemRefType::get(tensorType.getShape(), elemType));
+    // Create padded tensor initialized with out-of-bound values
+    auto emptyOp = rewriter.create<tensor::EmptyOp>(
+        loc, tensorType.getShape(), tensorType.getElementType());
+    Value paddingVal =
+        op.getOther()
+            ? op.getOther()
+            : rewriter.create<arith::ConstantOp>(
+                  loc, rewriter.getZeroAttr(tensorType.getElementType()));
+    Value emptyTensor = emptyOp.getResult();
 
-    SmallVector<OpFoldResult> mixedDims = op.getMixedMaskDims();
+    Value paddedTensor =
+        rewriter.create<linalg::FillOp>(loc, paddingVal, emptyTensor)
+            .getResult(0);
 
-    // Fill load destination with other value
-    if (op.getOther()) {
-      // For each dimension check if dims[i] < shape[i], or-accumulate
-      // the result
-      auto shape = tensorType.getShape();
-      auto accBase =
-          rewriter.create<arith::ConstantOp>(loc, rewriter.getBoolAttr(false))
-              .getResult();
-      for (size_t i = 0; i < shape.size(); i++) {
-        auto shapei = rewriter.create<arith::ConstantOp>(
-            loc, rewriter.getIndexAttr(shape[i]));
+    // Handle wrapped memory cases
+    if (auto castOp = ptr.getDefiningOp<UnrealizedConversionCastOp>()) {
+      auto memrefs = castOp.getOperands();
+      assert(memrefs.size() == 2 && "Expected two memrefs for wrapped case");
+      auto mixedDims = op.getMixedMaskDims();
 
-        Value dimi = dyn_cast<Value>(mixedDims[i]);
-        if (!dimi) {
-          dimi = rewriter.create<arith::ConstantOp>(
-              loc, rewriter.getIndexAttr(op.getStaticMaskDims()[i]));
-        }
-
-        Value cmp = rewriter.create<arith::CmpIOp>(
-            loc, arith::CmpIPredicate::slt, dimi, shapei);
-        accBase = rewriter.create<arith::OrIOp>(loc, accBase, cmp);
+      // Create valid-range subviews and insert into padded tensor
+      if (castOp->hasAttr(WRAP_SIDE_BY_SIDE)) {
+        auto [sv1, sv2] = getSideBySideSubviews(mixedDims, memrefs[0],
+                                                memrefs[1], loc, rewriter);
+        Value result =
+            createSideBySideCopies(sv1, sv2, paddedTensor, loc, rewriter);
+        rewriter.replaceOp(op, result);
+      } else if (castOp->hasAttr(WRAP_STACKED)) {
+        auto [sv1, sv2] = getStackedSubviews(mixedDims, memrefs[0], memrefs[1],
+                                             loc, rewriter);
+        Value result =
+            createStackedCopies(sv1, sv2, paddedTensor, loc, rewriter);
+        rewriter.replaceOp(op, result);
       }
-
-      // condition the memset on the or-accumulation
-      // initialize with padding prior to CopyOp
-      rewriter.create<scf::IfOp>(loc, accBase, [&](OpBuilder &b, Location loc) {
-        b.create<linalg::FillOp>(loc, ValueRange{op.getOther()},
-                                 ValueRange{alloc});
-        b.create<scf::YieldOp>(loc);
-      });
-    }
-
-    auto ptrDefiningOp = ptr.getDefiningOp();
-    if (ptrDefiningOp->hasAttr(WRAP_SIDE_BY_SIDE) ||
-        ptrDefiningOp->hasAttr(WRAP_STACKED)) {
-
-      auto unrealizedCast = cast<UnrealizedConversionCastOp>(ptrDefiningOp);
-
-      auto memrefs = unrealizedCast.getOperands();
-      assert(memrefs.size() == 2);
-      auto block1 = memrefs[0];
-      auto block2 = memrefs[1];
-
-      if (unrealizedCast->hasAttr(WRAP_SIDE_BY_SIDE)) {
-        auto [subview1, subview2] =
-            getSideBySideSubviews(mixedDims, block1, block2, loc, rewriter);
-        createSideBySideCopies(subview1, subview2, alloc, loc, rewriter);
-      } else if (unrealizedCast->hasAttr(WRAP_STACKED)) {
-        auto [subview1, subview2] =
-            getStackedSubviews(mixedDims, block1, block2, loc, rewriter);
-        createStackedCopies(subview1, subview2, alloc, loc, rewriter);
-      } else {
-        llvm_unreachable("unexpected wraparound type");
-      }
-
-      rewriter.eraseOp(unrealizedCast);
-
+      rewriter.eraseOp(castOp);
     } else {
+      // Simple masked load with single memref
+      auto mixedDims = op.getMixedMaskDims();
       memref::SubViewOp srcSubview =
-          getSubview(tensorType.getRank(), mixedDims, ptr, loc, rewriter);
-      memref::SubViewOp dstSubview =
-          getSubview(tensorType.getRank(), mixedDims, alloc, loc, rewriter);
-      rewriter.create<memref::CopyOp>(loc, srcSubview, dstSubview);
+          createSubview(ptr,
+                        SmallVector<OpFoldResult>(tensorType.getRank(),
+                                                  rewriter.getIndexAttr(0)),
+                        mixedDims, loc, rewriter);
+      Value srcTensor =
+          rewriter.create<bufferization::ToTensorOp>(loc, srcSubview);
+      Value inserted = rewriter.create<tensor::InsertSliceOp>(
+          loc, srcTensor, paddedTensor,
+          SmallVector<OpFoldResult>(tensorType.getRank(),
+                                    rewriter.getIndexAttr(0)),
+          mixedDims,
+          SmallVector<OpFoldResult>(tensorType.getRank(),
+                                    rewriter.getIndexAttr(1)));
+      rewriter.replaceOp(op, inserted);
     }
-
-    Value tensor = rewriter.create<bufferization::ToTensorOp>(
-        loc, tensorType, alloc, true /* restrict */, true /* writable */);
-    rewriter.replaceOp(op, tensor);
-
     return success();
   }
 
@@ -700,11 +701,8 @@ public:
   LogicalResult
   matchAndRewrite(tts::LoadOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    if (op.hasMask()) {
-      return rewriteMaskedLoad(op, adaptor, rewriter);
-    } else {
-      return rewriteStructuredLoad(op, adaptor, rewriter);
-    }
+    return op.hasMask() ? rewriteMaskedLoad(op, adaptor, rewriter)
+                        : rewriteStructuredLoad(op, adaptor, rewriter);
   }
 };
 
