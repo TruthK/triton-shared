@@ -1,8 +1,18 @@
-#include "triton-shared/Codegen/Dialect/GPU/IR/TTSGPUOps.h"
+// Copyright 2024 The IREE Authors
+//
+// Licensed under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinTypes.h"
 
-namespace mlir::tts::GPU {
+namespace mlir::tts::IREE::GPU {
+
+//===----------------------------------------------------------------------===//
+// MultiMmaOp
+//===----------------------------------------------------------------------===//
 
 SmallVector<utils::IteratorType> MultiMmaOp::getLoopIteratorTypes() {
   return getIteratorTypesArray();
@@ -14,22 +24,27 @@ SmallVector<Range> MultiMmaOp::getIterationDomain(OpBuilder &builder) {
   Value one = builder.create<arith::ConstantIndexOp>(loc, 1);
   SmallVector<Range> ranges;
   SmallVector<AffineMap> indexingMaps = getIndexingMapsArray();
-  
   for (const auto &it : llvm::enumerate(getIteratorTypes())) {
+    // Search lhs/rhs map results for 'targetExpr'.
     auto targetExpr = getAffineDimExpr(it.index(), builder.getContext());
     auto iteratorType = llvm::cast<IteratorTypeAttr>(it.value()).getValue();
-    
     if (iteratorType == utils::IteratorType::reduction) {
-      std::optional<int64_t> lhsDimIndex = indexingMaps[0].getResultPosition(targetExpr);
+      // Get reduction dim size from lhs shape (same size in rhsShape).
+      std::optional<int64_t> lhsDimIndex =
+          indexingMaps[0].getResultPosition(targetExpr);
       assert(lhsDimIndex && "invalid lhs map");
-      OpFoldResult ub = tensor::getMixedSize(builder, loc, getLhs(), *lhsDimIndex);
+      OpFoldResult ub =
+          tensor::getMixedSize(builder, loc, getLhs(), *lhsDimIndex);
       ranges.emplace_back(Range{zero, ub, one});
-    } else {
-      std::optional<int64_t> resDimIndex = indexingMaps[2].getResultPosition(targetExpr);
-      assert(resDimIndex && "invalid result map");
-      OpFoldResult ub = tensor::getMixedSize(builder, loc, getAcc(), *resDimIndex);
-      ranges.emplace_back(Range{zero, ub, one});
+      continue;
     }
+    // Get parallel dimension size from result shape.
+    std::optional<int64_t> resDimIndex =
+        indexingMaps[2].getResultPosition(targetExpr);
+    assert(resDimIndex && "invalid result map");
+    OpFoldResult ub =
+        tensor::getMixedSize(builder, loc, getAcc(), *resDimIndex);
+    ranges.emplace_back(Range{zero, ub, one});
   }
   return ranges;
 }
@@ -40,20 +55,26 @@ static void populateSliceIndices(OpBuilder &b, Location loc, Value src,
                                  SmallVector<OpFoldResult> &resultOffsets,
                                  SmallVector<OpFoldResult> &resultSizes,
                                  AffineMap indexingMap) {
+  assert(offsets.size() == indexingMap.getNumDims() &&
+         offsets.size() == sizes.size() && "Invalid tile");
+
   int64_t srcRank = cast<RankedTensorType>(src.getType()).getRank();
+
   OpFoldResult zero = b.getIndexAttr(0);
-  
   resultOffsets.resize(srcRank, zero);
   resultSizes.resize(srcRank, zero);
 
+  /// Populate the outer offset indices from the iteration space slice.
   for (auto [idx, dim] : llvm::enumerate(indexingMap.getResults())) {
     int64_t dimPos = cast<AffineDimExpr>(dim).getPosition();
     resultOffsets[idx] = offsets[dimPos];
     resultSizes[idx] = sizes[dimPos];
   }
 
-  for (int64_t i = indexingMap.getNumResults(); i < srcRank; ++i)
+  /// Populate the inner dim sizes based on the shape of the operand.
+  for (int64_t i = indexingMap.getNumResults(), e = srcRank; i < e; ++i) {
     resultSizes[i] = tensor::getMixedSize(b, loc, src, i);
+  }
 }
 
 static tensor::ExtractSliceOp extractSlice(OpBuilder &b, Location loc,
@@ -61,68 +82,102 @@ static tensor::ExtractSliceOp extractSlice(OpBuilder &b, Location loc,
                                            ArrayRef<OpFoldResult> offsets,
                                            ArrayRef<OpFoldResult> sizes,
                                            AffineMap indexingMap) {
+  assert(offsets.size() == indexingMap.getNumDims() &&
+         offsets.size() == sizes.size() && "Invalid tile");
+
   int64_t srcRank = cast<RankedTensorType>(src.getType()).getRank();
-  SmallVector<OpFoldResult> fullOffsets(srcRank, b.getIndexAttr(0));
-  SmallVector<OpFoldResult> fullSizes(srcRank, b.getIndexAttr(0));
-  
-  populateSliceIndices(b, loc, src, offsets, sizes, fullOffsets, fullSizes, indexingMap);
-  
-  SmallVector<OpFoldResult> fullStrides(srcRank, b.getIndexAttr(1));
-  return b.create<tensor::ExtractSliceOp>(loc, src, fullOffsets, fullSizes, fullStrides);
+
+  OpFoldResult zero = b.getIndexAttr(0);
+  SmallVector<OpFoldResult> fullOffsets(srcRank, zero);
+  SmallVector<OpFoldResult> fullSizes(srcRank, zero);
+  populateSliceIndices(b, loc, src, offsets, sizes, fullOffsets, fullSizes,
+                       indexingMap);
+
+  OpFoldResult one = b.getIndexAttr(1);
+  SmallVector<OpFoldResult> fullStrides(srcRank, one);
+  return b.create<tensor::ExtractSliceOp>(loc, src, fullOffsets, fullSizes,
+                                          fullStrides);
 }
 
 FailureOr<TilingResult>
 MultiMmaOp::getTiledImplementation(OpBuilder &builder,
                                    ArrayRef<OpFoldResult> offsets,
                                    ArrayRef<OpFoldResult> sizes) {
-  if (!hasTensorSemantics() || 
-      offsets.size() != getIndexingMapsArray()[0].getNumDims() ||
-      offsets.size() != sizes.size())
+  if (!hasTensorSemantics()) {
     return failure();
+  }
+
+  SmallVector<AffineMap, 4> indexingMaps = getIndexingMapsArray();
+  if (offsets.size() != indexingMaps[0].getNumDims() ||
+      offsets.size() != sizes.size()) {
+    return failure();
+  }
 
   Location loc = getLoc();
   SmallVector<Value> tiledOperands;
   SmallVector<Operation *> slices;
 
-  // Process LHS operand
-  if (Operation *lhsSlice = extractSlice(builder, loc, getLhs(), offsets, sizes, 
-                                        getIndexingMapsArray()[0])) {
-    tiledOperands.push_back(lhsSlice->getResult(0));
+  // LHS
+  {
+    Operation *lhsSlice =
+        extractSlice(builder, loc, getLhs(), offsets, sizes, indexingMaps[0]);
+    if (!lhsSlice) {
+      return emitOpError("failed to get lhs slice");
+    }
+    tiledOperands.emplace_back(lhsSlice->getResult(0));
     slices.push_back(lhsSlice);
-  } else return emitOpError("failed to get lhs slice");
+  }
 
-  // Process RHS operand  
-  if (Operation *rhsSlice = extractSlice(builder, loc, getRhs(), offsets, sizes,
-                                        getIndexingMapsArray()[1])) {
-    tiledOperands.push_back(rhsSlice->getResult(0));
+  // RHS
+  {
+    Operation *rhsSlice =
+        extractSlice(builder, loc, getRhs(), offsets, sizes, indexingMaps[1]);
+    if (!rhsSlice) {
+      return emitOpError("failed to get rhs slice");
+    }
+    tiledOperands.emplace_back(rhsSlice->getResult(0));
     slices.push_back(rhsSlice);
-  } else return emitOpError("failed to get rhs slice");
+  }
 
-  // Process Accumulator
-  if (Operation *accSlice = extractSlice(builder, loc, getAcc(), offsets, sizes,
-                                        getIndexingMapsArray()[2])) {
-    tiledOperands.push_back(accSlice->getResult(0));
+  // Acc
+  {
+    Operation *accSlice =
+        extractSlice(builder, loc, getAcc(), offsets, sizes, indexingMaps[2]);
+    if (!accSlice) {
+      return emitOpError("failed to get accumulator slice");
+    }
+    tiledOperands.emplace_back(accSlice->getResult(0));
     slices.push_back(accSlice);
-  } else return emitOpError("failed to get accumulator slice");
+  }
 
-  SmallVector<Type> resultTypes{tiledOperands.back().getType()};
-  Operation *tiledMmaOp = mlir::clone(builder, getOperation(), resultTypes, tiledOperands);
+  SmallVector<Type, 4> resultTypes;
+  resultTypes.push_back(tiledOperands.back().getType());
 
-  return TilingResult{{tiledMmaOp}, {tiledMmaOp->getResults()}, slices};
+  Operation *tiledMmaOp =
+      mlir::clone(builder, getOperation(), resultTypes, tiledOperands);
+
+  return TilingResult{
+      {tiledMmaOp}, SmallVector<Value>(tiledMmaOp->getResults()), slices};
 }
 
 LogicalResult MultiMmaOp::getResultTilePosition(
     OpBuilder &builder, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
     ArrayRef<OpFoldResult> sizes, SmallVector<OpFoldResult> &resultOffsets,
     SmallVector<OpFoldResult> &resultSizes) {
-  if (resultNumber != 0 || !hasTensorSemantics() ||
-      getIndexingMapsArray()[2].getNumDims() != offsets.size() ||
-      offsets.size() != sizes.size())
+  assert(resultNumber == 0);
+  if (!hasTensorSemantics()) {
     return failure();
+  }
+
+  AffineMap resultMap = getIndexingMapsArray()[2];
+  if (resultMap.getNumDims() != offsets.size() ||
+      offsets.size() != sizes.size()) {
+    return failure();
+  }
 
   populateSliceIndices(builder, getLoc(), getAcc(), offsets, sizes,
-                      resultOffsets, resultSizes, getIndexingMapsArray()[2]);
+                       resultOffsets, resultSizes, resultMap);
   return success();
 }
 
-} // namespace mlir::tts::GPU
+} // namespace mlir::tts::IREE::GPU

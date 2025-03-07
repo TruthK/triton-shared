@@ -1,0 +1,38 @@
+add_triton_library(IREECodegenDialectUtils
+    GPUUtils.cpp
+    LinalgOpInfo.cpp
+    LinkingUtils.cpp
+    MarkerUtils.cpp
+    Utils.cpp
+
+  LINK_LIBS PUBLIC
+    LLVMSupport
+    LLVMTargetParser
+    MLIRAffineDialect
+    MLIRAnalysis
+    MLIRArithDialect
+    MLIRArithUtils
+    MLIRFuncDialect
+    MLIRFunctionInterfaces
+    MLIRGPUDialect
+    MLIRIR
+    MLIRLinalgDialect
+    MLIRLinalgTransforms
+    MLIRLinalgUtils
+    MLIRMemRefDialect
+    MLIRMemRefTransforms
+    MLIRSCFDialect
+    MLIRSCFTransforms
+    MLIRSideEffectInterfaces
+    MLIRSupport
+    MLIRTensorDialect
+    MLIRTilingInterface
+    MLIRTransformUtils
+    MLIRVectorDialect
+    MLIRVectorTransforms
+    MLIRViewLikeInterface
+    IREECodegenDialect
+    IREEGPUDialect
+    iree::compiler::Codegen::Dialect::GPU::TargetUtils::KnownTargets
+    IREECodegenInterfaces
+)

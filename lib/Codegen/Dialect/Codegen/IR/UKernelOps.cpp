@@ -1,7 +1,12 @@
+// Copyright 2023 The IREE Authors
+//
+// Licensed under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include "triton-shared/Codegen/Dialect/Codegen/IR/UKernelOps.h"
 
-#include "triton-shared/Codegen/Dialect/Codegen/IR/TTSCodegenDialect.h"
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenDialect.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -17,7 +22,7 @@
 #include "triton-shared/Codegen/Dialect/Codegen/IR/UKernelOps.cpp.inc" // IWYU pragma: keep
 // clang-format on
 
-namespace mlir::tts::GPU {
+namespace mlir::tts::IREE::Codegen {
 
 //===---------------------------------------------------------------------===//
 // Helpers
@@ -68,7 +73,7 @@ createFunctionCall(RewriterBase &rewriter, Operation *op, StringRef fnName,
 // UKernelGenericOp
 //===---------------------------------------------------------------------===//
 
-/// Map type of operand of a `tts_gpu.ukernel.generic` operation to
+/// Map type of operand of a `iree_codegen.ukernel.generic` operation to
 /// the type(s) of the function call arguments(s) it lowers to.
 static LogicalResult getCallOpType(MLIRContext *context,
                                    Type microKernelOpOperandType,
@@ -130,7 +135,7 @@ static LogicalResult lowerToCallOperands(Location loc, RewriterBase &rewriter,
 }
 
 static FailureOr<func::CallOp> lowerUKernelGenericToFunctionCall(
-    RewriterBase &rewriter, tts::GPU::UKernelGenericOp op,
+    RewriterBase &rewriter, IREE::Codegen::UKernelGenericOp op,
     StringRef fnName, IntegerAttr stridedOuterDimsAttr) {
   // Create the function type based on the operands and results.
   SmallVector<Type> callArgumentTypes;
@@ -206,7 +211,7 @@ void UKernelGenericOp::getEffects(
   }
 }
 
-} // namespace mlir::tts::GPU
+} // namespace mlir::tts::IREE::Codegen
 
 namespace mlir::tts {
 
@@ -282,7 +287,7 @@ struct RegisterUKernelOpsBufferizationInterface {
 
 void registerUKernelBufferizationInterface(DialectRegistry &registry) {
   registry.addExtension(
-      +[](MLIRContext *context, tts::GPU::IREECodegenDialect *dialect) {
+      +[](MLIRContext *context, IREE::Codegen::IREECodegenDialect *dialect) {
         RegisterUKernelOpsBufferizationInterface<
 #define GET_OP_LIST
 #include "triton-shared/Codegen/Dialect/Codegen/IR/UKernelOps.cpp.inc"

@@ -1,4 +1,10 @@
-#include "triton-shared/Codegen/Dialect/Codegen/Utils/Utils.h"
+// Copyright 2024 The IREE Authors
+//
+// Licensed under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+#include "iree/compiler/Codegen/Dialect/Codegen/Utils/Utils.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Debug.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -10,9 +16,9 @@
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
 
-#define DEBUG_TYPE "tts-gpu-dialect-codegen-utils"
+#define DEBUG_TYPE "iree-codegen-dialect-codegen-utils"
 
-namespace mlir::tts::GPU {
+namespace mlir::iree_compiler::IREE::Codegen {
 
 //===----------------------------------------------------------------------===//
 // Relational operator and IOstream implementations for Layout Structs.
@@ -242,6 +248,9 @@ deserializeEncodingInfo(DictionaryAttr attr) {
 }
 
 bool isIdentityLayout(const MaterializeEncodingInfo &info) {
+  // It is not an identity layout if swizzle is present. The swizzle is an
+  // optional variable. User should not set the field when they do not need
+  // swizzle.
   return info.innerDimsPos.empty() && info.innerTileSizes.empty() &&
          info.outerDimsPerm.empty() && !info.swizzle;
 }
@@ -261,6 +270,7 @@ MaterializeEncodingInfo
 getEncodingInfoForMatmul(Encoding::EncodingAttr encoding, TileMxNxK tileMxNxK) {
   MaterializeEncodingInfo encodingInfo;
   auto cDims = getEncodingContractionDims(encoding);
+  // The following expects M, N, K, and Batch sizes of at most 1 for now
   assert(cDims->m.size() <= 1 && cDims->n.size() <= 1 && cDims->k.size() == 1 &&
          cDims->batch.size() <= 1 &&
          "Expected at most one M, N, K, and Batch dimension");
@@ -295,4 +305,4 @@ getEncodingInfoForMatmul(Encoding::EncodingAttr encoding, TileMxNxK tileMxNxK) {
   return encodingInfo;
 }
 
-} // namespace mlir::tts::GPU
+} // namespace mlir::iree_compiler::IREE::Codegen

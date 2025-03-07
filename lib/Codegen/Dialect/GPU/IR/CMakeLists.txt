@@ -1,0 +1,40 @@
+add_triton_library(IREEGPUDialect
+  DerivedConfigUtils.cpp
+  GPULoweringConfigUtils.cpp
+  GPUTileSwizzleUtils.cpp
+  IREEGPUAttrs.cpp
+  IREEGPUDialect.cpp
+  IREEGPUInterfaces.cpp
+  IREEGPUOps.cpp
+  TilingInterfaceImpl.cpp
+
+  DEPENDS
+    IREEGPUAttrs
+    IREEGPUDialectGen
+    IREEGPUEnums
+    IREEGPUInterfaces
+    IREEGPUOpsGen
+
+  LINK_LIBS PUBLIC
+    LLVMSupport
+    MLIRAMDGPUDialect
+    MLIRAffineDialect
+    MLIRArithDialect
+    MLIRArithUtils
+    MLIRCAPIIR
+    MLIRControlFlowInterfaces
+    MLIRIR
+    MLIRLinalgDialect
+    MLIRParser
+    MLIRSCFDialect
+    MLIRSideEffectInterfaces
+    MLIRSupport
+    MLIRTensorDialect
+    MLIRTilingInterface
+    MLIRVectorDialect
+    MLIRVectorInterfaces
+    IREECodegenDialect
+    IREEDialectEncoding
+    iree::compiler::Codegen::Dialect::VectorExt::IR::IREEVectorExtDialect
+    iree::compiler::Codegen::Utils::VectorOpUtils
+)

@@ -1,28 +1,36 @@
+// Copyright 2024 The IREE Authors
+//
+// Licensed under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 #include "triton-shared/Codegen/Dialect/GPU/IR/GPULoweringConfigUtils.h"
 
-namespace mlir::tts::GPU {
+namespace mlir::tts::IREE::GPU {
 
 static std::optional<SmallVector<int64_t>> getIntegerVector(ArrayAttr array) {
   if (!array || !llvm::all_of(array.getValue(), llvm::IsaPred<IntegerAttr>)) {
     return std::nullopt;
   }
-  return llvm::map_to_vector(array.getValue(),
-                             [](Attribute s) -> int64_t {
-                               return cast<IntegerAttr>(s).getInt();
-                             });
+  return llvm::map_to_vector(array.getValue(), [](Attribute s) -> int64_t {
+    return cast<IntegerAttr>(s).getInt();
+  });
 }
 
 constexpr StringLiteral kMmaKindName = "mma_kind";
 
-MmaInterfaceAttr getMmaKind(LoweringConfigAttr config) {
-  return config.getAttributes().getAs<MmaInterfaceAttr>(kMmaKindName);
+IREE::GPU::MmaInterfaceAttr getMmaKind(LoweringConfigAttr config) {
+  return config.getAttributes().getAs<IREE::GPU::MmaInterfaceAttr>(
+      kMmaKindName);
 }
 
-void setMmaKind(MLIRContext* context, SmallVectorImpl<NamedAttribute>& attrs,
-                MmaInterfaceAttr kind) {
+void setMmaKind(MLIRContext *context, SmallVectorImpl<NamedAttribute> &attrs,
+                IREE::GPU::MmaInterfaceAttr kind) {
   attrs.emplace_back(StringAttr::get(context, kMmaKindName), kind);
 }
 
+// TODO: Merge subgroup counts functionality into subgroup tiling level
+//       lowering, when we have it implemented.
 constexpr StringLiteral kSubgroupMCountName = "subgroup_m_count";
 constexpr StringLiteral kSubgroupNCountName = "subgroup_n_count";
 
@@ -44,16 +52,16 @@ std::optional<int64_t> getSubgroupNCount(LoweringConfigAttr config) {
   return subgroup_n_count_attr.getInt();
 }
 
-void setSubgroupMCount(MLIRContext* context,
-                       SmallVectorImpl<NamedAttribute>& attrs,
+void setSubgroupMCount(MLIRContext *context,
+                       SmallVectorImpl<NamedAttribute> &attrs,
                        int64_t subgroup_m_count) {
   attrs.emplace_back(
       StringAttr::get(context, kSubgroupMCountName),
       IntegerAttr::get(IntegerType::get(context, 64), subgroup_m_count));
 }
 
-void setSubgroupNCount(MLIRContext* context,
-                       SmallVectorImpl<NamedAttribute>& attrs,
+void setSubgroupNCount(MLIRContext *context,
+                       SmallVectorImpl<NamedAttribute> &attrs,
                        int64_t subgroup_n_count) {
   attrs.emplace_back(
       StringAttr::get(context, kSubgroupNCountName),
@@ -63,27 +71,28 @@ void setSubgroupNCount(MLIRContext* context,
 const StringLiteral kSubgroupBasisName = "subgroup_basis";
 const StringLiteral kThreadBasisName = "thread_basis";
 
-static StringLiteral getBasisLevelName(TilingLevel level) {
+static StringLiteral getBasisLevelName(IREE::GPU::TilingLevel level) {
   switch (level) {
-    case TilingLevel::Thread:
-      return kThreadBasisName;
-    case TilingLevel::Subgroup:
-      return kSubgroupBasisName;
-    default:
-      assert(false && "Unknown tiling level for distribution");
-      return "";
+  case GPU::TilingLevel::Thread:
+    return kThreadBasisName;
+  case GPU::TilingLevel::Subgroup:
+    return kSubgroupBasisName;
+  default:
+    assert(false && "Unknown tiling level for distribution");
+    return "";
   }
 }
 
-void setBasis(MLIRContext* context, SmallVector<NamedAttribute>& attrs,
-              TilingLevel level, const Basis& basis) {
+void setBasis(MLIRContext *context, SmallVector<NamedAttribute> &attrs,
+              IREE::GPU::TilingLevel level, const Basis &basis) {
   Builder b(context);
   ArrayAttr basisAttr = b.getArrayAttr(
       {b.getI64ArrayAttr(basis.counts), b.getI64ArrayAttr(basis.mapping)});
   attrs.emplace_back(b.getNamedAttr(getBasisLevelName(level), basisAttr));
 }
 
-FailureOr<Basis> getBasis(LoweringConfigAttr config, TilingLevel level) {
+FailureOr<Basis> getBasis(IREE::GPU::LoweringConfigAttr config,
+                          IREE::GPU::TilingLevel level) {
   auto basisAttr = dyn_cast_or_null<ArrayAttr>(
       config.getAttributes().get(getBasisLevelName(level)));
   if (!basisAttr) {
@@ -109,8 +118,8 @@ FailureOr<Basis> getBasis(LoweringConfigAttr config, TilingLevel level) {
 
 constexpr StringLiteral kPromoteOperandsName = "promote_operands";
 
-std::optional<SmallVector<int64_t>> getPromotedOperandList(
-    LoweringConfigAttr config) {
+std::optional<SmallVector<int64_t>>
+getPromotedOperandList(LoweringConfigAttr config) {
   auto array = config.getAttributes().getAs<ArrayAttr>(kPromoteOperandsName);
   if (!array) {
     return std::nullopt;
@@ -118,8 +127,8 @@ std::optional<SmallVector<int64_t>> getPromotedOperandList(
   return getIntegerVector(array);
 }
 
-void setPromotedOperandList(MLIRContext* context,
-                            SmallVectorImpl<NamedAttribute>& attrs,
+void setPromotedOperandList(MLIRContext *context,
+                            SmallVectorImpl<NamedAttribute> &attrs,
                             ArrayRef<int64_t> operands) {
   Builder b(context);
   attrs.emplace_back(StringAttr::get(context, kPromoteOperandsName),
@@ -136,8 +145,9 @@ std::optional<SmallVector<int64_t>> getPaddingList(LoweringConfigAttr config) {
   return getIntegerVector(array);
 }
 
-UKernelConfigAttr getUkernelSpec(LoweringConfigAttr config) {
-  return config.getAttributes().getAs<UKernelConfigAttr>("ukernel");
+IREE::GPU::UKernelConfigAttr
+getUkernelSpec(IREE::GPU::LoweringConfigAttr config) {
+  return config.getAttributes().getAs<IREE::GPU::UKernelConfigAttr>("ukernel");
 }
 
-}  // namespace mlir::tts::GPU
+} // namespace mlir::tts::IREE::GPU

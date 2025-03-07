@@ -1,9 +1,15 @@
-#ifndef TTS_COMPILER_CODEGEN_DIALECT_GPU_IR_GPULOWERINGCONFIGUTILS_H_
-#define TTS_COMPILER_CODEGEN_DIALECT_GPU_IR_GPULOWERINGCONFIGUTILS_H_
+// Copyright 2024 The IREE Authors
+//
+// Licensed under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "triton-shared/Codegen/Dialect/GPU/IR/TTSGPUAttrs.h"
+#ifndef TTS_CODEGEN_DIALECT_GPU_IR_GPULOWERINGCONFIGUTILS_H_
+#define TTS_CODEGEN_DIALECT_GPU_IR_GPULOWERINGCONFIGUTILS_H_
 
-namespace mlir::tts::GPU {
+#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUAttrs.h"
+
+namespace mlir::tts::IREE::GPU {
 
 /// Helper to retrieve/set a target mma intrinsic.
 MmaInterfaceAttr getMmaKind(LoweringConfigAttr config);
@@ -38,10 +44,10 @@ struct Basis {
 };
 
 // Helper to retrieve/set distribution basis.
-FailureOr<Basis> getBasis(tts::GPU::LoweringConfigAttr config,
-                          tts::GPU::TilingLevel level);
+FailureOr<Basis> getBasis(IREE::GPU::LoweringConfigAttr config,
+                          IREE::GPU::TilingLevel level);
 void setBasis(MLIRContext *context, SmallVector<NamedAttribute> &attrs,
-              tts::GPU::TilingLevel level, const Basis &basis);
+              IREE::GPU::TilingLevel level, const Basis &basis);
 
 /// Helper to retrieve/set a list of operand indices to promote.
 std::optional<SmallVector<int64_t>>
@@ -53,9 +59,9 @@ void setPromotedOperandList(MLIRContext *context,
 /// Helper to retrieve  list of operand to pad.
 std::optional<SmallVector<int64_t>> getPaddingList(LoweringConfigAttr config);
 
-tts::GPU::UKernelConfigAttr
-getUkernelSpec(tts::GPU::LoweringConfigAttr config);
+IREE::GPU::UKernelConfigAttr
+getUkernelSpec(IREE::GPU::LoweringConfigAttr config);
 
-} // namespace mlir::tts::GPU
+} // namespace mlir::tts::IREE::GPU
 
-#endif // TTS_COMPILER_CODEGEN_DIALECT_GPU_IR_GPULOWERINGCONFIGUTILS_H_
+#endif // TTS_CODEGEN_DIALECT_GPU_IR_GPULOWERINGCONFIGUTILS_H_

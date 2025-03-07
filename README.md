@@ -47,10 +47,11 @@ ninja
 
 // Return to the root directory of the project
 cd ../../../..
-export LLVM_BUILD_DIR=$(pwd)/third_party/llvm-project/build
-export TRITON_PLUGIN_DIRS=$(pwd)
+
+
 //make sure had run create_conda_env.sh
 conda activate triton_shared_mlir_nv
+
 export LLVM_BUILD_DIR=$(pwd)/third_party/llvm-project/build
 export TRITON_PLUGIN_DIRS=$(pwd)
 export DEBUG=1
