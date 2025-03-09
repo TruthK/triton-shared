@@ -4,17 +4,10 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "iree/compiler/Codegen/Interfaces/Interfaces.h"
-#include "iree/compiler/Codegen/Dialect/GPU/TransformExtensions/IREEGPUExtensions.h"
-#include "iree/compiler/Codegen/ExternalInterfaces/Interfaces.h"
-#include "iree/compiler/Codegen/Interfaces/BufferizationInterfaces.h"
-#include "iree/compiler/Codegen/Interfaces/PartitionableLoopsInterface.h"
-#include "iree-dialects/Dialect/LinalgTransform/StructuredTransformOpsExt.h"
-#include "iree/compiler/Codegen/Common/TransformExtensions/CommonExtensions.h"
-#include "iree/compiler/Codegen/LLVMCPU/TransformExtensions/LLVMCPUExtensions.h"
-#include "iree/compiler/Codegen/LLVMGPU/TransformExtensions/LLVMGPUExtensions.h"
-#include "iree/compiler/Dialect/Flow/TransformExtensions/FlowExtensions.h"
-#include "iree/compiler/Dialect/LinalgExt/TransformExtensions/LinalgExtExtensionsOps.h"
+#include "triton-shared/Codegen/Interfaces/Interfaces.h"
+#include "triton-shared/Codegen/ExternalInterfaces/Interfaces.h"
+#include "triton-shared/Codegen/Interfaces/BufferizationInterfaces.h"
+#include "triton-shared/Codegen/Interfaces/PartitionableLoopsInterface.h"
 
 #include "mlir/Dialect/Affine/IR/ValueBoundsOpInterfaceImpl.h"
 #include "mlir/Dialect/Affine/TransformOps/AffineTransformOps.h"
@@ -38,7 +31,7 @@
 #include "mlir/Dialect/Vector/TransformOps/VectorTransformOps.h"
 #include "mlir/Dialect/Vector/Transforms/SubsetOpInterfaceImpl.h"
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 void registerCodegenInterfaces(DialectRegistry &registry) {
   // registerProcessorOpInterfaceExternalModels(registry);
@@ -47,8 +40,8 @@ void registerCodegenInterfaces(DialectRegistry &registry) {
   // TODO: Remove this dependency once the transform dialect extensions
   // have a better registration mechanism.
   // TODO: when warranted, move to its own file.
-  registry.addExtensions<IREE::LinalgExt::LinalgExtTransformOpsExtension,
-                         transform_ext::StructuredTransformOpsExtension>();
+  // registry.addExtensions<IREE::LinalgExt::LinalgExtTransformOpsExtension,
+  //                        transform_ext::StructuredTransformOpsExtension>();
   registerPartitionableLoopsInterfaceModels(registry);
   // registerTransformDialectCommonExtension(registry);
   // registerTransformDialectIREEGPUExtension(registry);
@@ -77,4 +70,4 @@ void registerCodegenInterfaces(DialectRegistry &registry) {
   vector::registerValueBoundsOpInterfaceExternalModels(registry);
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

@@ -12,5 +12,5 @@ add_triton_library(IREECodegenExternalModels
     IREECodegenDialectUtils
     IREEGPUDialect
     IREEEncodingDialect
-  PUBLIC
-)
+    IREECodegenUtils
+    )

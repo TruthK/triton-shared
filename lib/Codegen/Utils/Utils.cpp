@@ -4,15 +4,15 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "iree/compiler/Codegen/Utils/Utils.h"
+#include "triton-shared/Codegen/Utils/Utils.h"
+#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUAttrs.h"
 
-#include "iree/compiler/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
-#include "iree/compiler/Codegen/Interfaces/UKernelOpInterface.h"
 #include "mlir/Analysis/SliceAnalysis.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/Linalg/IR/LinalgInterfaces.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -28,6 +28,8 @@
 #include "mlir/Interfaces/TilingInterface.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/RegionUtils.h"
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
+#include "triton-shared/Codegen/Interfaces/UKernelOpInterface.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -35,8 +37,19 @@
 
 #define DEBUG_TYPE "iree-codegen-utils"
 
-namespace mlir::iree_compiler {
-
+namespace mlir::tts {
+// Returns the bit-width of the scalar type. If the type is complex, it returns
+// the type of individual elements * 2 (1 for real and 1 for complex).
+static inline unsigned getTypeBitWidth(mlir::Type type) {
+  if (auto complexType = dyn_cast<mlir::ComplexType>(type)) {
+    return 2 * complexType.getElementType().getIntOrFloatBitWidth();
+  }
+  if (auto vectorType = dyn_cast<mlir::VectorType>(type)) {
+    return vectorType.getNumElements() *
+           getTypeBitWidth(vectorType.getElementType());
+  }
+  return type.getIntOrFloatBitWidth();
+}
 //===----------------------------------------------------------------------===//
 // Utility functions to get entry points
 //===----------------------------------------------------------------------===//
@@ -46,7 +59,7 @@ std::optional<StringAttr> getConfigStringAttr(Attribute srcAttr,
   if (!srcAttr) {
     return std::nullopt;
   }
-  auto targetAttr = dyn_cast<IREE::Codegen::ExecutableTargetAttr>(srcAttr);
+  auto targetAttr = dyn_cast<IREE::GPU::ExecutableTargetAttr>(srcAttr);
   DictionaryAttr config;
   if (targetAttr) {
     config = targetAttr.getConfiguration();
@@ -68,7 +81,7 @@ std::optional<IntegerAttr> getConfigIntegerAttr(Attribute srcAttr,
   if (!srcAttr) {
     return std::nullopt;
   }
-  auto targetAttr = dyn_cast<IREE::Codegen::ExecutableTargetAttr>(srcAttr);
+  auto targetAttr = dyn_cast<IREE::GPU::ExecutableTargetAttr>(srcAttr);
   DictionaryAttr config;
   if (targetAttr) {
     config = targetAttr.getConfiguration();
@@ -90,7 +103,7 @@ std::optional<BoolAttr> getConfigBoolAttr(Attribute srcAttr,
   if (!srcAttr) {
     return std::nullopt;
   }
-  auto targetAttr = dyn_cast<IREE::Codegen::ExecutableTargetAttr>(srcAttr);
+  auto targetAttr = dyn_cast<IREE::GPU::ExecutableTargetAttr>(srcAttr);
   DictionaryAttr config;
   if (targetAttr) {
     config = targetAttr.getConfiguration();
@@ -137,24 +150,12 @@ const char *getIreeArchNameForTargetTriple(llvm::Triple triple) {
   return "unknown";
 }
 
-bool isLLVMCPUBackend(IREE::Codegen::ExecutableTargetAttr targetAttr) {
-  return targetAttr && targetAttr.getBackend().getValue() == "llvm-cpu";
-}
-
-bool isVMVXBackend(IREE::Codegen::ExecutableTargetAttr targetAttr) {
-  return targetAttr && targetAttr.getBackend().getValue().starts_with("vmvx");
-}
-
-bool isROCMBackend(IREE::Codegen::ExecutableTargetAttr targetAttr) {
-  return targetAttr && targetAttr.getBackend().getValue().starts_with("rocm");
-}
-
 static const char *getDefaultEnabledUkernels(Attribute attr) {
   const char *kNone = "none";
   if (!attr) {
     return kNone;
   }
-  auto targetAttr = dyn_cast<IREE::Codegen::ExecutableTargetAttr>(attr);
+  auto targetAttr = dyn_cast<IREE::GPU::ExecutableTargetAttr>(attr);
   if (!targetAttr) {
     return kNone;
   }
@@ -321,218 +322,229 @@ getNonConstantValuesDefinedFromAbove(Region &region) {
   return {constants, valuesDefinedFromAbove};
 }
 
-/// Listener to track mapping from operations in the body of a cloned custom op
-/// back to the original operations in the body of the original custom op.
-class CustomOpConfigListener : public RewriterBase::Listener {
-public:
-  CustomOpConfigListener(IREE::LinalgExt::CustomOp origCustomOp,
-                         IREE::LinalgExt::CustomOp clonedCustomOp) {
-    for (auto [origOp, clonedOp] :
-         llvm::zip_equal(origCustomOp.getBody()->without_terminator(),
-                         clonedCustomOp.getBody()->without_terminator())) {
-      clonedOpToOrigOp[&clonedOp] = &origOp;
-    }
-  }
-  void notifyOperationErased(Operation *op) override {
-    clonedOpToOrigOp.erase(op);
-  }
-  void notifyOperationReplaced(Operation *op, Operation *replacement) override {
-    auto it = clonedOpToOrigOp.find(op);
-    if (it != clonedOpToOrigOp.end()) {
-      Operation *origOp = it->second;
-      clonedOpToOrigOp.erase(it);
-      clonedOpToOrigOp[replacement] = origOp;
-    }
-  }
-  void notifyOperationReplaced(Operation *op,
-                               ValueRange replacements) override {
-    Operation *replacementOp = nullptr;
-    for (auto val : replacements) {
-      Operation *definingOp = getDefiningOp(val);
-      if (!definingOp) {
-        // One of the replacements is definitely not from an op. Bail
-        // immediately.
-        return;
-      }
-      if (replacementOp) {
-        if (definingOp != replacementOp) {
-          // No consistent replacementOp. Bail.
-          return;
-        }
-      } else {
-        replacementOp = definingOp;
-      }
-    }
-    if (replacementOp && replacementOp->getName() == op->getName()) {
-      notifyOperationReplaced(op, replacementOp);
-    }
-  }
+// /// Listener to track mapping from operations in the body of a cloned custom
+// op
+// /// back to the original operations in the body of the original custom op.
+// class CustomOpConfigListener : public RewriterBase::Listener {
+// public:
+//   CustomOpConfigListener(IREE::LinalgExt::CustomOp origCustomOp,
+//                          IREE::LinalgExt::CustomOp clonedCustomOp) {
+//     for (auto [origOp, clonedOp] :
+//          llvm::zip_equal(origCustomOp.getBody()->without_terminator(),
+//                          clonedCustomOp.getBody()->without_terminator())) {
+//       clonedOpToOrigOp[&clonedOp] = &origOp;
+//     }
+//   }
+//   void notifyOperationErased(Operation *op) override {
+//     clonedOpToOrigOp.erase(op);
+//   }
+//   void notifyOperationReplaced(Operation *op, Operation *replacement)
+//   override {
+//     auto it = clonedOpToOrigOp.find(op);
+//     if (it != clonedOpToOrigOp.end()) {
+//       Operation *origOp = it->second;
+//       clonedOpToOrigOp.erase(it);
+//       clonedOpToOrigOp[replacement] = origOp;
+//     }
+//   }
+//   void notifyOperationReplaced(Operation *op,
+//                                ValueRange replacements) override {
+//     Operation *replacementOp = nullptr;
+//     for (auto val : replacements) {
+//       Operation *definingOp = getDefiningOp(val);
+//       if (!definingOp) {
+//         // One of the replacements is definitely not from an op. Bail
+//         // immediately.
+//         return;
+//       }
+//       if (replacementOp) {
+//         if (definingOp != replacementOp) {
+//           // No consistent replacementOp. Bail.
+//           return;
+//         }
+//       } else {
+//         replacementOp = definingOp;
+//       }
+//     }
+//     if (replacementOp && replacementOp->getName() == op->getName()) {
+//       notifyOperationReplaced(op, replacementOp);
+//     }
+//   }
 
-  // Helper methods to get back the orig op for the cloned op.
-  std::optional<Operation *> getOrigOp(Operation *clonedOp) {
-    auto it = clonedOpToOrigOp.find(clonedOp);
-    if (it == clonedOpToOrigOp.end()) {
-      return std::nullopt;
-    }
-    return it->second;
-  }
+//   // Helper methods to get back the orig op for the cloned op.
+//   std::optional<Operation *> getOrigOp(Operation *clonedOp) {
+//     auto it = clonedOpToOrigOp.find(clonedOp);
+//     if (it == clonedOpToOrigOp.end()) {
+//       return std::nullopt;
+//     }
+//     return it->second;
+//   }
 
-private:
-  llvm::MapVector<Operation *, Operation *> clonedOpToOrigOp;
+// private:
+//   llvm::MapVector<Operation *, Operation *> clonedOpToOrigOp;
 
-  /// On cast propagation, the replacement value used is not the
-  /// actual op that is used for replacement. Walk back the replacement
-  /// value use-def chain to get to the real replacement. This is a
-  /// bit of a hack, but the lowering config propagation is really
-  /// best effort, so not incorrect.
-  Operation *getDefiningOp(Value v) {
-    Operation *definingOp = v.getDefiningOp();
-    while (definingOp) {
-      if (auto castOp = dyn_cast<tensor::CastOp>(definingOp)) {
-        definingOp = castOp.getSource().getDefiningOp();
-        continue;
-      }
-      // Default is to break out of the loop.
-      break;
-    }
-    return definingOp;
-  }
-};
+//   /// On cast propagation, the replacement value used is not the
+//   /// actual op that is used for replacement. Walk back the replacement
+//   /// value use-def chain to get to the real replacement. This is a
+//   /// bit of a hack, but the lowering config propagation is really
+//   /// best effort, so not incorrect.
+//   Operation *getDefiningOp(Value v) {
+//     Operation *definingOp = v.getDefiningOp();
+//     while (definingOp) {
+//       if (auto castOp = dyn_cast<tensor::CastOp>(definingOp)) {
+//         definingOp = castOp.getSource().getDefiningOp();
+//         continue;
+//       }
+//       // Default is to break out of the loop.
+//       break;
+//     }
+//     return definingOp;
+//   }
+// };
 
-LogicalResult setDefaultCustomOpLoweringConfig(
-    FunctionOpInterface funcOp, IREE::LinalgExt::CustomOp customOp,
-    std::function<LogicalResult(FunctionOpInterface)> configFn) {
+// LogicalResult setDefaultCustomOpLoweringConfig(
+//     FunctionOpInterface funcOp, IREE::LinalgExt::CustomOp customOp,
+//     std::function<LogicalResult(FunctionOpInterface)> configFn) {
 
-  MLIRContext *context = funcOp.getContext();
-  IRRewriter rewriter(context);
-  rewriter.setInsertionPoint(funcOp);
+//   MLIRContext *context = funcOp.getContext();
+//   IRRewriter rewriter(context);
+//   rewriter.setInsertionPoint(funcOp);
 
-  // 1. Get values captured from above in the custom op region.
-  llvm::SetVector<Value> valuesDefinedAbove;
-  SmallVector<Operation *> constantOps;
-  std::tie(constantOps, valuesDefinedAbove) =
-      getNonConstantValuesDefinedFromAbove(customOp.getRegion());
+//   // 1. Get values captured from above in the custom op region.
+//   llvm::SetVector<Value> valuesDefinedAbove;
+//   SmallVector<Operation *> constantOps;
+//   std::tie(constantOps, valuesDefinedAbove) =
+//       getNonConstantValuesDefinedFromAbove(customOp.getRegion());
 
-  // 2. Create an empty function with arguments being the operands of the custom
-  // op and values captured from above in the custom op.
-  auto operandTypes = llvm::to_vector(customOp->getOperandTypes());
-  auto valuesDefinedAboveTypes =
-      llvm::map_range(valuesDefinedAbove, [](Value v) { return v.getType(); });
-  operandTypes.append(valuesDefinedAboveTypes.begin(),
-                      valuesDefinedAboveTypes.end());
-  auto dummyFuncType =
-      FunctionType::get(context, operandTypes, customOp->getResultTypes());
-  std::string dummyFuncName =
-      std::string("__") + funcOp.getName().str() + "_config_setting__";
-  auto dummyFuncOp = rewriter.create<func::FuncOp>(
-      customOp.getLoc(), dummyFuncName, dummyFuncType);
-  auto targetAttr = IREE::Codegen::ExecutableTargetAttr::lookup(funcOp);
-  if (targetAttr) {
-    dummyFuncOp->setAttr(IREE::Codegen::ExecutableTargetAttr::name, targetAttr);
-  }
+//   // 2. Create an empty function with arguments being the operands of the
+//   custom
+//   // op and values captured from above in the custom op.
+//   auto operandTypes = llvm::to_vector(customOp->getOperandTypes());
+//   auto valuesDefinedAboveTypes =
+//       llvm::map_range(valuesDefinedAbove, [](Value v) { return v.getType();
+//       });
+//   operandTypes.append(valuesDefinedAboveTypes.begin(),
+//                       valuesDefinedAboveTypes.end());
+//   auto dummyFuncType =
+//       FunctionType::get(context, operandTypes, customOp->getResultTypes());
+//   std::string dummyFuncName =
+//       std::string("__") + funcOp.getName().str() + "_config_setting__";
+//   auto dummyFuncOp = rewriter.create<func::FuncOp>(
+//       customOp.getLoc(), dummyFuncName, dummyFuncType);
+//   auto targetAttr = IREE::GPU::ExecutableTargetAttr::lookup(funcOp);
+//   if (targetAttr) {
+//     dummyFuncOp->setAttr(IREE::GPU::ExecutableTargetAttr::name,
+//     targetAttr);
+//   }
 
-  // 3. Clone the custom op into the function
-  SmallVector<Location> locs = llvm::map_to_vector(
-      customOp->getOperands(), [](Value v) { return v.getLoc(); });
-  auto valuesDefinedAboveLocs =
-      llvm::map_range(valuesDefinedAbove, [](Value v) { return v.getLoc(); });
-  locs.append(valuesDefinedAboveLocs.begin(), valuesDefinedAboveLocs.end());
-  Block *body =
-      rewriter.createBlock(&dummyFuncOp.getRegion(),
-                           dummyFuncOp.getRegion().begin(), operandTypes, locs);
-  rewriter.setInsertionPointToStart(body);
-  IRMapping map;
-  map.map(customOp.getOperands(),
-          body->getArguments().take_front(customOp.getNumOperands()));
-  map.map(valuesDefinedAbove.getArrayRef(),
-          body->getArguments().take_back(valuesDefinedAbove.size()));
-  for (auto op : constantOps) {
-    rewriter.clone(*op, map);
-  }
-  auto clonedCustomOp = cast<IREE::LinalgExt::CustomOp>(
-      rewriter.clone(*customOp.getOperation(), map));
-  rewriter.create<func::ReturnOp>(customOp.getLoc(),
-                                  clonedCustomOp->getResults());
-  CustomOpConfigListener customOpConfigListener(customOp, clonedCustomOp);
+//   // 3. Clone the custom op into the function
+//   SmallVector<Location> locs = llvm::map_to_vector(
+//       customOp->getOperands(), [](Value v) { return v.getLoc(); });
+//   auto valuesDefinedAboveLocs =
+//       llvm::map_range(valuesDefinedAbove, [](Value v) { return v.getLoc();
+//       });
+//   locs.append(valuesDefinedAboveLocs.begin(), valuesDefinedAboveLocs.end());
+//   Block *body =
+//       rewriter.createBlock(&dummyFuncOp.getRegion(),
+//                            dummyFuncOp.getRegion().begin(), operandTypes,
+//                            locs);
+//   rewriter.setInsertionPointToStart(body);
+//   IRMapping map;
+//   map.map(customOp.getOperands(),
+//           body->getArguments().take_front(customOp.getNumOperands()));
+//   map.map(valuesDefinedAbove.getArrayRef(),
+//           body->getArguments().take_back(valuesDefinedAbove.size()));
+//   for (auto op : constantOps) {
+//     rewriter.clone(*op, map);
+//   }
+//   auto clonedCustomOp = cast<IREE::LinalgExt::CustomOp>(
+//       rewriter.clone(*customOp.getOperation(), map));
+//   rewriter.create<func::ReturnOp>(customOp.getLoc(),
+//                                   clonedCustomOp->getResults());
+//   CustomOpConfigListener customOpConfigListener(customOp, clonedCustomOp);
 
-  // 4. Inline the cloned custom op.
-  rewriter.setInsertionPoint(clonedCustomOp);
-  FailureOr<SmallVector<Value>> replacements =
-      clonedCustomOp.decomposeOperation(rewriter);
-  if (failed(replacements)) {
-    return customOp.emitOpError(
-        "failed to decompose op during custom op configuration setting");
-  }
-  rewriter.replaceOp(clonedCustomOp, replacements.value());
+//   // 4. Inline the cloned custom op.
+//   rewriter.setInsertionPoint(clonedCustomOp);
+//   FailureOr<SmallVector<Value>> replacements =
+//       clonedCustomOp.decomposeOperation(rewriter);
+//   if (failed(replacements)) {
+//     return customOp.emitOpError(
+//         "failed to decompose op during custom op configuration setting");
+//   }
+//   rewriter.replaceOp(clonedCustomOp, replacements.value());
 
-  // 5. Run canonicalizations on the created function to constant propagate the
-  // shape.
-  RewritePatternSet patterns(context);
-  auto addCanonicalizationPatterns = [&context,
-                                      &patterns](StringRef dialectName) {
-    context->getLoadedDialect(dialectName)
-        ->getCanonicalizationPatterns(patterns);
-  };
-  addCanonicalizationPatterns(linalg::LinalgDialect::getDialectNamespace());
-  addCanonicalizationPatterns(
-      IREE::LinalgExt::IREELinalgExtDialect::getDialectNamespace());
-  tensor::CastOp::getCanonicalizationPatterns(patterns, context);
-  addCanonicalizationPatterns(tensor::TensorDialect::getDialectNamespace());
-  memref::populateResolveRankedShapedTypeResultDimsPatterns(patterns);
-  GreedyRewriteConfig config;
-  config.listener = &customOpConfigListener;
-  if (failed(applyPatternsGreedily(dummyFuncOp, std::move(patterns), config))) {
-    return customOp.emitOpError(
-        "failed to canonicalize during custom op configuration setting");
-  }
+//   // 5. Run canonicalizations on the created function to constant propagate
+//   the
+//   // shape.
+//   RewritePatternSet patterns(context);
+//   auto addCanonicalizationPatterns = [&context,
+//                                       &patterns](StringRef dialectName) {
+//     context->getLoadedDialect(dialectName)
+//         ->getCanonicalizationPatterns(patterns);
+//   };
+//   addCanonicalizationPatterns(linalg::LinalgDialect::getDialectNamespace());
+//   addCanonicalizationPatterns(
+//       IREE::LinalgExt::IREELinalgExtDialect::getDialectNamespace());
+//   tensor::CastOp::getCanonicalizationPatterns(patterns, context);
+//   addCanonicalizationPatterns(tensor::TensorDialect::getDialectNamespace());
+//   memref::populateResolveRankedShapedTypeResultDimsPatterns(patterns);
+//   GreedyRewriteConfig config;
+//   config.listener = &customOpConfigListener;
+//   if (failed(applyPatternsGreedily(dummyFuncOp, std::move(patterns),
+//   config))) {
+//     return customOp.emitOpError(
+//         "failed to canonicalize during custom op configuration setting");
+//   }
 
-  // 6. Run set configuration on the new dummy function.
-  if (failed(configFn(dummyFuncOp))) {
-    return customOp.emitOpError("failed to set configuration for custom op");
-  }
+//   // 6. Run set configuration on the new dummy function.
+//   if (failed(configFn(dummyFuncOp))) {
+//     return customOp.emitOpError("failed to set configuration for custom op");
+//   }
 
-  // 7. Set translation info and lowering config for the custom op.
-  IREE::Codegen::TranslationInfoAttr translationInfo =
-      getTranslationInfo(dummyFuncOp);
-  // Move lowering config from ops in the cloned function to the ops
-  // within the body of the custom op.
-  // TODO: This logic needs to be made more robust (by account for indexing maps
-  // specified for operands on the custom op and the indexing maps of the
-  // operations within the region of the custom op). For now, just use the first
-  // operation with lowering config.
-  std::optional<SmallVector<int64_t>> workgroupTileSizes;
-  std::optional<SmallVector<int64_t>> workgroupInterchange;
-  for (Operation &op : dummyFuncOp.getBody().front()) {
-    auto currLoweringConfig =
-        getLoweringConfig<IREE::Codegen::LoweringConfigAttrInterface>(&op);
-    if (!currLoweringConfig)
-      continue;
+//   // 7. Set translation info and lowering config for the custom op.
+//   IREE::Codegen::TranslationInfoAttr translationInfo =
+//       getTranslationInfo(dummyFuncOp);
+//   // Move lowering config from ops in the cloned function to the ops
+//   // within the body of the custom op.
+//   // TODO: This logic needs to be made more robust (by account for indexing
+//   maps
+//   // specified for operands on the custom op and the indexing maps of the
+//   // operations within the region of the custom op). For now, just use the
+//   first
+//   // operation with lowering config.
+//   std::optional<SmallVector<int64_t>> workgroupTileSizes;
+//   std::optional<SmallVector<int64_t>> workgroupInterchange;
+//   for (Operation &op : dummyFuncOp.getBody().front()) {
+//     auto currLoweringConfig =
+//         getLoweringConfig<IREE::Codegen::LoweringConfigAttrInterface>(&op);
+//     if (!currLoweringConfig)
+//       continue;
 
-    // Translate the lowering config to the original operation.
-    if (std::optional<Operation *> originalOperation =
-            customOpConfigListener.getOrigOp(&op)) {
-      setLoweringConfig(originalOperation.value(), currLoweringConfig);
-    }
+//     // Translate the lowering config to the original operation.
+//     if (std::optional<Operation *> originalOperation =
+//             customOpConfigListener.getOrigOp(&op)) {
+//       setLoweringConfig(originalOperation.value(), currLoweringConfig);
+//     }
 
-    auto currWorkgroupTileSizes = currLoweringConfig.getWorkgroupTileSizes();
-    if (currWorkgroupTileSizes.empty())
-      continue;
-    workgroupTileSizes = currWorkgroupTileSizes;
-    workgroupInterchange = currLoweringConfig.getWorkgroupInterchange();
-  }
-  IREE::Codegen::LoweringConfigAttr loweringConfig;
-  if (workgroupTileSizes) {
-    loweringConfig = IREE::Codegen::LoweringConfigAttr::get(
-        context, workgroupTileSizes.value_or(SmallVector<int64_t>{}),
-        workgroupInterchange.value_or(SmallVector<int64_t>{}));
-  }
-  if (failed(setOpConfigAndEntryPointFnTranslation(
-          funcOp, customOp, loweringConfig, translationInfo))) {
-    return funcOp.emitOpError("failed to set custom op configuration");
-  }
-  rewriter.eraseOp(dummyFuncOp);
-  return success();
-}
+//     auto currWorkgroupTileSizes = currLoweringConfig.getWorkgroupTileSizes();
+//     if (currWorkgroupTileSizes.empty())
+//       continue;
+//     workgroupTileSizes = currWorkgroupTileSizes;
+//     workgroupInterchange = currLoweringConfig.getWorkgroupInterchange();
+//   }
+//   IREE::Codegen::LoweringConfigAttr loweringConfig;
+//   if (workgroupTileSizes) {
+//     loweringConfig = IREE::Codegen::LoweringConfigAttr::get(
+//         context, workgroupTileSizes.value_or(SmallVector<int64_t>{}),
+//         workgroupInterchange.value_or(SmallVector<int64_t>{}));
+//   }
+//   if (failed(setOpConfigAndEntryPointFnTranslation(
+//           funcOp, customOp, loweringConfig, translationInfo))) {
+//     return funcOp.emitOpError("failed to set custom op configuration");
+//   }
+//   rewriter.eraseOp(dummyFuncOp);
+//   return success();
+// }
 
 //===----------------------------------------------------------------------===//
 // Utility functions to set configurations
@@ -660,29 +672,31 @@ public:
   LogicalResult visitMulExpr(AffineBinaryOpExpr expr) {
     SmallVector<Value> vals;
     std::optional<unsigned> dimension;
+    assert(false && "visitMulExpr not implemented");
     // workgroupSizeOp may have been folded into a constant expression.
-    if (auto wgSize = dyn_cast<AffineConstantExpr>(expr.getRHS())) {
-      vals = getValuesForDimsOrSymbols(applyOp, {expr.getLHS()});
-      if (vals.size() != 1 || !vals[0]) {
-        return failure();
-      }
-      loopInfo.tileSize = wgSize.getValue();
-      dimension = checkDimensions<ProcessorIDInterface>(vals);
-    } else {
-      vals = getValuesForDimsOrSymbols(applyOp, {expr.getLHS(), expr.getRHS()});
-      if (vals.size() != 2 || !vals[0] || !vals[1]) {
-        return failure();
-      }
-      IntegerAttr tileSizeAttr;
-      if (matchPattern(vals[1], m_Constant(&tileSizeAttr))) {
-        loopInfo.tileSize = tileSizeAttr.getInt();
-        dimension = checkDimensions<ProcessorIDInterface>(vals[0]);
-      } else {
-        dimension =
-            checkDimensions<ProcessorIDInterface, ProcessorTileSizeInterface>(
-                vals);
-      }
-    }
+    // if (auto wgSize = dyn_cast<AffineConstantExpr>(expr.getRHS())) {
+    //   vals = getValuesForDimsOrSymbols(applyOp, {expr.getLHS()});
+    //   if (vals.size() != 1 || !vals[0]) {
+    //     return failure();
+    //   }
+    //   loopInfo.tileSize = wgSize.getValue();
+    //   dimension = checkDimensions<ProcessorIDInterface>(vals);
+    // } else {
+    //   vals = getValuesForDimsOrSymbols(applyOp, {expr.getLHS(),
+    //   expr.getRHS()}); if (vals.size() != 2 || !vals[0] || !vals[1]) {
+    //     return failure();
+    //   }
+    //   IntegerAttr tileSizeAttr;
+    //   if (matchPattern(vals[1], m_Constant(&tileSizeAttr))) {
+    //     loopInfo.tileSize = tileSizeAttr.getInt();
+    //     dimension = checkDimensions<ProcessorIDInterface>(vals[0]);
+    //   } else {
+    //     dimension =
+    //         checkDimensions<ProcessorIDInterface,
+    //         ProcessorTileSizeInterface>(
+    //             vals);
+    //   }
+    // }
     if (!dimension) {
       return failure();
     }
@@ -782,14 +796,16 @@ public:
       return failure();
     }
     SmallVector<Value> vals = getValuesForDimsOrSymbols(applyOp, sentinels);
-
-    if ((loopInfo.tileSize && !checkDimensions<ProcessorCountInterface>(
-                                  vals, loopInfo.processorDistributionDim)) ||
-        (!loopInfo.tileSize &&
-         !checkDimensions<ProcessorCountInterface, ProcessorTileSizeInterface>(
-             vals, loopInfo.processorDistributionDim))) {
-      return failure();
-    }
+    assert(false && "visitMulExpr not implemented");
+    // if ((loopInfo.tileSize && !checkDimensions<ProcessorCountInterface>(
+    //                               vals, loopInfo.processorDistributionDim))
+    //                               ||
+    //     (!loopInfo.tileSize &&
+    //      !checkDimensions<ProcessorCountInterface,
+    //      ProcessorTileSizeInterface>(
+    //          vals, loopInfo.processorDistributionDim))) {
+    //   return failure();
+    // }
     return success();
   }
 
@@ -849,16 +865,18 @@ isTiledAndDistributedLoop(scf::ForOp forOp) {
     // Try to see if this is a specical case where we have:
     //   scf.for %iv = %id to %ub step %count
     std::optional<unsigned> idDim;
-    if (auto ifx = dyn_cast_or_null<ProcessorIDInterface>(
-            forOp.getLowerBound().getDefiningOp())) {
-      idDim = ifx.getDimIndex();
-    }
+    assert(false && "isTiledAndDistributedLoop not implemented");
+    // if (auto ifx = dyn_cast_or_null<ProcessorIDInterface>(
+    //         forOp.getLowerBound().getDefiningOp())) {
+    //   idDim = ifx.getDimIndex();
+    // }
 
     std::optional<unsigned> countDim;
-    if (auto ifx = dyn_cast_or_null<ProcessorCountInterface>(
-            forOp.getStep().getDefiningOp())) {
-      countDim = ifx.getDimIndex();
-    }
+    assert(false && "isTiledAndDistributedLoop not implemented");
+    // if (auto ifx = dyn_cast_or_null<ProcessorCountInterface>(
+    //         forOp.getStep().getDefiningOp())) {
+    //   countDim = ifx.getDimIndex();
+    // }
 
     if (!idDim || !countDim)
       return std::nullopt;
@@ -978,7 +996,15 @@ Operation *createLinalgCopyOp(OpBuilder &b, Location loc, Value from, Value to,
 
 template <typename OpTy>
 static Value buildHALWorkgroupInfoOp(OpBuilder &b, unsigned dim) {
-  return b.template create<OpTy>(b.getInsertionPoint()->getLoc(), dim);
+  assert(false && "buildHALWorkgroupInfoOp not implemented");
+
+  std::array<gpu::Dimension, 3> dimAttr{gpu::Dimension::x, gpu::Dimension::y,
+                                        gpu::Dimension::z};
+  OpTy newOp =
+      b.template create<OpTy>(b.getInsertionPoint()->getLoc(), dimAttr[dim]);
+  if (IntegerAttr bound = newOp.getUpperBoundAttr())
+    newOp.setUpperBoundAttr(bound);
+  return newOp;
 }
 
 linalg::LinalgLoopDistributionOptions getIREELinalgLoopDistributionOptions(
@@ -1092,12 +1118,11 @@ int getReductionTilingFactor(int64_t dimSize) {
 int64_t getMinElementBitwidth(linalg::LinalgOp linalgOp) {
   unsigned bitwidth = std::numeric_limits<unsigned>::max();
   for (OpOperand *operand : linalgOp.getDpsInputOperands()) {
-    unsigned b =
-        IREE::Util::getTypeBitWidth(getElementTypeOrSelf(operand->get()));
+    unsigned b = getTypeBitWidth(getElementTypeOrSelf(operand->get()));
     bitwidth = std::min(bitwidth, b);
   }
   for (Value result : linalgOp.getDpsInits()) {
-    unsigned b = IREE::Util::getTypeBitWidth(getElementTypeOrSelf(result));
+    unsigned b = getTypeBitWidth(getElementTypeOrSelf(result));
     bitwidth = std::min(bitwidth, b);
   }
   return bitwidth;
@@ -1112,7 +1137,7 @@ OpFoldResult convertByteOffsetToElementOffset(RewriterBase &rewriter,
                                               OpFoldResult byteOffset,
                                               Type elementType) {
   if (isa<ComplexType, FloatType, IntegerType, VectorType>(elementType)) {
-    unsigned typeBitWidth = IREE::Util::getTypeBitWidth(elementType);
+    unsigned typeBitWidth = getTypeBitWidth(elementType);
     assert(llvm::isPowerOf2_32(typeBitWidth) &&
            "unhandled non powers of 2 bit width while converting byte offset "
            "to element offset");
@@ -1122,8 +1147,10 @@ OpFoldResult convertByteOffsetToElementOffset(RewriterBase &rewriter,
         rewriter, loc, (s0 * 8).floorDiv(typeBitWidth),
         {byteOffset, rewriter.getIndexAttr(typeBitWidth)});
   } else {
-    OpFoldResult elementByteSize =
-        rewriter.create<IREE::Util::SizeOfOp>(loc, elementType).getResult();
+    // OpFoldResult elementByteSize =
+    //     rewriter.create<IREE::Util::SizeOfOp>(loc, elementType).getResult();
+    assert(false && "convertByteOffsetToElementOffset not implemented");
+    OpFoldResult elementByteSize;
     AffineExpr s0, s1;
     bindSymbols(rewriter.getContext(), s0, s1);
     return affine::makeComposedFoldedAffineApply(rewriter, loc, s0.floorDiv(s1),
@@ -1469,17 +1496,18 @@ bool hasFusedLeadingOp(linalg::LinalgOp rootOp) {
   return llvm::any_of(backwardSlice, llvm::IsaPred<linalg::LinalgOp>);
 }
 
-std::optional<vector::VscaleRange>
-getDefaultVscaleRange(IREE::Codegen::ExecutableTargetAttr targetAttr) {
-  if (isAArch64(targetAttr)) {
-    // On AArch64 the scalable vector length will always be between 128-bit and
-    // 2048-bit. This works out as a vscale range of 1 to 16. See:
-    // https://developer.arm.com/Architectures/Scalable%20Vector%20Extensions
-    return vector::VscaleRange{1, 16};
-  }
-  // TODO: Implement for other architectures.
-  return std::nullopt;
-}
+// std::optional<vector::VscaleRange>
+// getDefaultVscaleRange(IREE::GPU::ExecutableTargetAttr targetAttr) {
+//   if (isAArch64(targetAttr)) {
+//     // On AArch64 the scalable vector length will always be between 128-bit
+//     and
+//     // 2048-bit. This works out as a vscale range of 1 to 16. See:
+//     // https://developer.arm.com/Architectures/Scalable%20Vector%20Extensions
+//     return vector::VscaleRange{1, 16};
+//   }
+//   // TODO: Implement for other architectures.
+//   return std::nullopt;
+// }
 
 FailureOr<DimBoundSize>
 computeDimUpperBound(Value shapedValue, unsigned dimNum,
@@ -1524,8 +1552,7 @@ computeDimUpperBound(Value shapedValue, unsigned dimNum,
 static bool isFullSlice(ArrayRef<OpFoldResult> mixedOffsets,
                         ArrayRef<OpFoldResult> mixedSizes,
                         ArrayRef<OpFoldResult> mixedStrides,
-                        mlir::TensorType tensorType,
-                        ValueRange dynamicDims) {
+                        mlir::TensorType tensorType, ValueRange dynamicDims) {
   OpBuilder builder(tensorType.getContext());
   SmallVector<int64_t> tensorShape = llvm::to_vector(tensorType.getShape());
   SmallVector<OpFoldResult> mixedTensorShape =
@@ -1536,11 +1563,10 @@ static bool isFullSlice(ArrayRef<OpFoldResult> mixedOffsets,
 }
 
 bool isFullSlice(OffsetSizeAndStrideOpInterface sliceLoadStoreOp,
-                 mlir::TensorType tensorType,
-                 ValueRange dynamicDims) {
+                 mlir::TensorType tensorType, ValueRange dynamicDims) {
   return isFullSlice(
       sliceLoadStoreOp.getMixedOffsets(), sliceLoadStoreOp.getMixedSizes(),
       sliceLoadStoreOp.getMixedStrides(), tensorType, dynamicDims);
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

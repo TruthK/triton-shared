@@ -1,6 +1,4 @@
-
-
-add_triton_library(IREEDialectVectorExt
+add_triton_library(IREEVectorExtDialect
   VectorExtAttrs.cpp
   VectorExtDialect.cpp
   VectorExtOps.cpp
@@ -20,5 +18,5 @@ add_triton_library(IREEDialectVectorExt
     MLIRSupport
     MLIRTensorDialect
     MLIRVectorDialect
-    iree::compiler::Codegen::Utils::VectorOpUtils
+    IREECodegenVectorOpUtils
 )

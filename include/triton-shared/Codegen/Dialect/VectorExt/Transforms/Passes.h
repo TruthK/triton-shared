@@ -15,9 +15,9 @@ namespace mlir::tts::IREE::VectorExt {
 #include "triton-shared/Codegen/Dialect/VectorExt/Transforms/Passes.h.inc" // IWYU pragma: keep
 } // namespace mlir::tts::IREE::VectorExt
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 /// Register VectorExt passes.
 void registerIREEVectorExtPasses();
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts
 
 #endif // IREE_COMPILER_CODEGEN_DIALECT_VECTOR_EXT_TRANSFORMS_PASSES_H_

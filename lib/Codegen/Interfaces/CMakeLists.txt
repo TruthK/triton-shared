@@ -1,31 +1,15 @@
-
-
 add_triton_library(IREECodegenInterfaces
-  Interfaces.cpp
-  BufferizationInterfaces.cpp
-  PartitionableLoopsInterface.cpp
-  UKernelOpInterface.cpp
-
+    Interfaces.cpp
   DEPENDS
-    BufferizationInterfaces
-    PartitionableLoopsInterface
-    ProcessorOpInterfaces
-    UKernelOpInterface
-    MLIRFunctionInterfaces
-    MLIRLinalgStructuredOpsIncGenLib
-    iree::compiler::Codegen::Dialect::GPU::Transforms::BufferizationInterfaces
-    IREECodegenExternalModels
-
+    IREECodegenBufferizationInterfaces
+    IREECodegenPartitionableLoopsInterface
+    IREECodegenUKernelOpInterface
   LINK_LIBS PUBLIC
     MLIRAMDGPUDialect
     MLIRAffineDialect
     MLIRAffineTransformOps
-    MLIRArithTransforms
     MLIRArithValueBoundsOpInterfaceImpl
-    MLIRBufferizationDialect
     MLIRBufferizationTransformOps
-    MLIRBufferizationTransforms
-    MLIRFuncTransforms
     MLIRGPUTransformOps
     MLIRIR
     MLIRLinalgDialect
@@ -35,9 +19,6 @@ add_triton_library(IREECodegenInterfaces
     MLIRMemRefTransformOps
     MLIRSCFDialect
     MLIRSCFTransformOps
-    MLIRSCFTransforms
-    MLIRSubsetOpInterface
-    MLIRSupport
     MLIRTensorDialect
     MLIRTensorTransformOps
     MLIRTensorTransforms
@@ -45,6 +26,49 @@ add_triton_library(IREECodegenInterfaces
     MLIRVectorDialect
     MLIRVectorTransformOps
     MLIRVectorTransforms
-    IREECodegenDialectUtils
-    TSSIREEGPUDialect
+    IREECodegenExternalModels
 )
+
+add_triton_library(IREECodegenBufferizationInterfaces
+    BufferizationInterfaces.cpp
+
+  LINK_LIBS PUBLIC
+    MLIRArithTransforms
+    MLIRBufferizationDialect
+    MLIRBufferizationTransforms
+    MLIRFuncTransforms
+    MLIRIR
+    MLIRLinalgTransforms
+    MLIRMemRefDialect
+    MLIRSCFTransforms
+    MLIRSubsetOpInterface
+    MLIRSupport
+    MLIRTensorDialect
+    MLIRTensorTransforms
+    MLIRVectorTransforms
+    IREEGPUDialectBufferizationInterfaces
+    IREECodegenUtils
+)
+
+add_triton_library(IREECodegenUKernelOpInterface
+    UKernelOpInterface.cpp
+  DEPENDS
+    UKernelOpInterfaceGen
+  LINK_LIBS PUBLIC
+    MLIRFunctionInterfaces
+    MLIRIR
+)
+
+
+add_triton_library(IREECodegenPartitionableLoopsInterface
+    PartitionableLoopsInterface.cpp
+  DEPENDS
+    PartitionableLoopsInterfaceGen
+  LINK_LIBS PUBLIC
+    LLVMSupport
+    MLIRIR
+    MLIRLinalgDialect
+    MLIRSupport
+    MLIRTensorDialect
+    IREEGPUDialect
+    )

@@ -1,4 +1,4 @@
-add_triton_library(IREEDialectEncoding
+add_triton_library(IREEEncodingDialect
   EncodingAttrs.cpp
   EncodingDialect.cpp
   EncodingOps.cpp

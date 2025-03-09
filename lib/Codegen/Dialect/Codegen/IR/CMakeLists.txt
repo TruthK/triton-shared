@@ -30,5 +30,5 @@ add_triton_library(IREECodegenDialect
     MLIRTransformDialect
     MLIRTransformDialectTransforms
     MLIRViewLikeInterface
-    iree::compiler::Codegen::Interfaces::UKernelOpInterface
+    IREECodegenUKernelOpInterface
 )

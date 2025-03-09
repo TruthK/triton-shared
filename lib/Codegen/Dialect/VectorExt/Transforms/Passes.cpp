@@ -6,7 +6,7 @@
 
 #include "triton-shared/Codegen/Dialect/VectorExt/Transforms/Passes.h"
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 namespace IREE::VectorExt {
 namespace {
@@ -19,4 +19,4 @@ void registerIREEVectorExtPasses() {
   // Generated.
   IREE::VectorExt::registerPasses();
 }
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

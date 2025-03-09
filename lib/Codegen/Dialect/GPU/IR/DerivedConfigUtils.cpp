@@ -8,7 +8,6 @@
 #include <numeric>
 
 #include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
-#include "triton-shared/Dialect/LinalgExt/IR/LinalgExtOps.h"
 #include "llvm/ADT/STLExtras.h"
 #include "mlir/Dialect/Linalg/IR/LinalgInterfaces.h"
 #include "mlir/Dialect/Utils/StructuredOpsUtils.h"
@@ -121,21 +120,6 @@ SmallVector<int64_t> deriveLinalgOpThreadTileSizes(linalg::LinalgOp linalgOp,
   return tileSizes;
 }
 
-SmallVector<int64_t>
-deriveIm2colOpThreadTileSizes(IREE::LinalgExt::Im2colOp im2colOp,
-                              int64_t numThreads) {
-  if (!im2colOp.hasPureTensorSemantics()) {
-    return {};
-  }
-  SmallVector<int64_t> loopRanges(im2colOp.getOutputType().getShape());
-  int64_t vectorSize = kPreferredCopyNumBits /
-                       getElementTypeOrSelf(im2colOp->getResultTypes()[0])
-                           .getIntOrFloatBitWidth();
-  // Im2col cannot coalesce past the inner most dim so always default to only
-  // the inner most tile size being the vector size (or smaller).
-  return getVectorTileSizesFromLoopRanges(loopRanges, numThreads, vectorSize,
-                                          /*allowMultiDimCollapse=*/false);
-}
 
 SmallVector<int64_t> deriveThreadTileSizes(Operation *op) {
   std::optional<SmallVector<int64_t>> workgroupSize =
@@ -149,9 +133,6 @@ SmallVector<int64_t> deriveThreadTileSizes(Operation *op) {
   return TypeSwitch<Operation *, SmallVector<int64_t>>(op)
       .Case([&](linalg::LinalgOp linalgOp) -> SmallVector<int64_t> {
         return deriveLinalgOpThreadTileSizes(linalgOp, numThreads);
-      })
-      .Case([&](IREE::LinalgExt::Im2colOp im2colOp) -> SmallVector<int64_t> {
-        return deriveIm2colOpThreadTileSizes(im2colOp, numThreads);
       })
       .Default([](Operation *op) -> SmallVector<int64_t> { return {}; });
 }

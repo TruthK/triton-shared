@@ -1,0 +1,3 @@
+add_subdirectory(IR)
+add_subdirectory(TargetUtils)
+add_subdirectory(Transforms)

@@ -9,7 +9,7 @@
 
 #include "mlir/Dialect/Linalg/IR/LinalgInterfaces.h"
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 /// A class for querying information about a contract op.
 class VectorContractOpInfo {
@@ -63,6 +63,6 @@ private:
   linalg::ContractionDimensions contractionDims;
 };
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts
 
 #endif // IREE_COMPILER_CODEGEN_UTILS_VECTORUTILS_H_

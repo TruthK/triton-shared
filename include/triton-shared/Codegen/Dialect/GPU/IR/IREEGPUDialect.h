@@ -4,8 +4,8 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#ifndef TTS_CODEGEN_DIALECT_GPU_IREEGPUDIALECT_H_
-#define TTS_CODEGEN_DIALECT_GPU_IREEGPUDIALECT_H_
+#ifndef IREE_COMPILER_CODEGEN_DIALECT_GPU_IREEGPUDIALECT_H_
+#define IREE_COMPILER_CODEGEN_DIALECT_GPU_IREEGPUDIALECT_H_
 
 #include "mlir/IR/Dialect.h"
 #include "mlir/Support/LLVM.h"
@@ -15,4 +15,4 @@
 #include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUDialect.h.inc" // IWYU pragma: keep
 // clang-format on
 
-#endif // TTS_CODEGEN_DIALECT_GPU_IREEGPUDIALECT_H_
+#endif // IREE_COMPILER_CODEGEN_DIALECT_GPU_IREEGPUDIALECT_H_

@@ -7,8 +7,8 @@
 //===- IREECodegenAttrs.h - Codegen dialect attributes --------------------===//
 //===----------------------------------------------------------------------===//
 
-#ifndef TTS_CODEGEN_DIALECT_LOWERINGCONFIG_H_
-#define TTS_CODEGEN_DIALECT_LOWERINGCONFIG_H_
+#ifndef IREE_COMPILER_CODEGEN_DIALECT_LOWERINGCONFIG_H_
+#define IREE_COMPILER_CODEGEN_DIALECT_LOWERINGCONFIG_H_
 
 #include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenInterfaces.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -228,4 +228,4 @@ void eraseCompilationInfo(Operation *op);
 
 } // namespace mlir::tts
 
-#endif // TTS_CODEGEN_DIALECT_LOWERINGCONFIG_H_
+#endif // IREE_COMPILER_CODEGEN_DIALECT_LOWERINGCONFIG_H_

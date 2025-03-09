@@ -15,7 +15,7 @@
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 static constexpr int32_t kNumGPUDims = 3;
 static constexpr int32_t kWarpSize = 32;
@@ -185,7 +185,7 @@ IREE::GPU::TargetAttr getCLGPUTarget(MLIRContext *context);
 
 /// Returns the GPU target attribute from executable |target| if found.
 /// Returns null TargetAttr othersise.
-IREE::GPU::TargetAttr getGPUTargetAttr(IREE::HAL::ExecutableTargetAttr target);
+IREE::GPU::TargetAttr getGPUTargetAttr(IREE::GPU::ExecutableTargetAttr target);
 /// Returns the GPU target attribute from the executable target wrapping |op|
 /// if found. Returns null TargetAttr othersise.
 IREE::GPU::TargetAttr getGPUTargetAttr(Operation *op);
@@ -195,17 +195,17 @@ IREE::GPU::TargetAttr getGPUTargetAttr(Operation *op);
 /// Returns std::nullopt if none found.
 std::optional<int> getGPUSubgroupSize(mlir::FunctionOpInterface func);
 
-// /// Returns all `IREE::HAL::ExecutableVariantOp` operations from the
+// /// Returns all `IREE::Codegen::ExecutableVariantOp` operations from the
 // /// given `mlir::ModuleOp`, ensuring they are returned in their original IR
 // /// order.
-// SmallVector<IREE::HAL::ExecutableVariantOp>
+// SmallVector<IREE::Codegen::ExecutableVariantOp>
 // getExecutableVariantOps(mlir::ModuleOp moduleOp);
 
 // // Returns the MMA intrinsics associated with the given
-// // `IREE::HAL::ExecutableVariantOp`.
+// // `IREE::Codegen::ExecutableVariantOp`.
 // SmallVector<IREE::GPU::MMAIntrinsic>
-// queryMMAIntrinsics(IREE::HAL::ExecutableVariantOp executableOp);
+// queryMMAIntrinsics(IREE::Codegen::ExecutableVariantOp executableOp);
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts
 
 #endif // IREE_COMPILER_CODEGEN_UTILS_GPUUTILS_H_

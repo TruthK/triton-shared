@@ -19,7 +19,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 static constexpr unsigned kNumMaxParallelDims = 3;
 
@@ -28,7 +28,7 @@ static constexpr unsigned kNumMaxParallelDims = 3;
 //===----------------------------------------------------------------------===//
 
 /// Returns the StringAttr with the name `stringAttr` in the `srcAttr`, if
-/// found. The `srcAttr` can be either IREE::Codegen::ExecutableTargetAttr or
+/// found. The `srcAttr` can be either IREE::GPU::ExecutableTargetAttr or
 /// DictionaryAttr.
 std::optional<StringAttr> getConfigStringAttr(Attribute srcAttr,
                                               StringRef stringAttr);
@@ -50,10 +50,10 @@ std::optional<llvm::Triple> getTargetTriple(Attribute attr);
 /// given target triple.
 const char *getIreeArchNameForTargetTriple(llvm::Triple triple);
 
-/// Methods to get target information.
-bool isLLVMCPUBackend(IREE::Codegen::ExecutableTargetAttr targetAttr);
-bool isVMVXBackend(IREE::Codegen::ExecutableTargetAttr targetAttr);
-bool isROCMBackend(IREE::Codegen::ExecutableTargetAttr targetAttr);
+// /// Methods to get target information.
+// bool isLLVMCPUBackend(IREE::GPU::ExecutableTargetAttr targetAttr);
+// bool isVMVXBackend(IREE::GPU::ExecutableTargetAttr targetAttr);
+// bool isROCMBackend(IREE::GPU::ExecutableTargetAttr targetAttr);
 
 // Returns true if the ukernel with given `ukernelName` is enabled.
 // If `ukernelName` is empty (the default), returns true if any ukernel
@@ -93,10 +93,10 @@ SmallVector<int64_t> getStaticNumWorkgroups(mlir::FunctionOpInterface funcOp);
 // Utility functions to set configurations
 //===----------------------------------------------------------------------===//
 
-LogicalResult setDefaultCustomOpLoweringConfig(
-    mlir::FunctionOpInterface FunctionOpInterface,
-    IREE::LinalgExt::CustomOp customOp,
-    std::function<LogicalResult(mlir::FunctionOpInterface)> configFn);
+// LogicalResult setDefaultCustomOpLoweringConfig(
+//     mlir::FunctionOpInterface FunctionOpInterface,
+//     IREE::LinalgExt::CustomOp customOp,
+//     std::function<LogicalResult(mlir::FunctionOpInterface)> configFn);
 
 /// Information about a tiled and distributed loop.
 ///
@@ -218,8 +218,8 @@ void sinkOpsInCFG(const SmallVector<Operation *> &allocs,
 // the inputs.
 bool hasFusedLeadingOp(linalg::LinalgOp rootOp);
 
-std::optional<vector::VscaleRange>
-getDefaultVscaleRange(IREE::Codegen::ExecutableTargetAttr targetAttr);
+// std::optional<vector::VscaleRange>
+// getDefaultVscaleRange(IREE::GPU::ExecutableTargetAttr targetAttr);
 
 using DimBound = vector::ConstantOrScalableBound;
 using DimBoundSize = DimBound::BoundSize;
@@ -242,6 +242,6 @@ bool isFullSlice(OffsetSizeAndStrideOpInterface sliceLoadStoreOp,
                  mlir::TensorType tensorType,
                  ValueRange dynamicDims);
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts
 
 #endif // IREE_COMPILER_CODEGEN_UTILS_UTILS_H_

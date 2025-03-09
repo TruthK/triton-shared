@@ -10,7 +10,7 @@
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 std::pair<int, int> VectorContractOpInfo::getOperandMNIndex() const {
   return std::make_pair(lhsMDims.back(), rhsNDims.back());
@@ -71,4 +71,4 @@ VectorContractOpInfo::inferFromIndexingMaps(ArrayRef<AffineMap> maps) {
   return opInfo;
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

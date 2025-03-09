@@ -414,7 +414,7 @@ public:
                                 "pointers are not yet supported";
       return failure();
     }
-
+    op.dump();
     if (op.isBlockPtr()) {
       return rewriteBlockPtr(op, adaptor, rewriter);
     }
@@ -524,10 +524,10 @@ private:
   /// @param rewriter Pattern rewriter for IR modification
   /// @returns Memref subview operation
   memref::SubViewOp createSubview(Value src, ArrayRef<OpFoldResult> offsets,
-                                  ArrayRef<OpFoldResult> sizes, Location loc,
+                                  ArrayRef<OpFoldResult> sizes,
+                                  ArrayRef<OpFoldResult> strides, Location loc,
                                   ConversionPatternRewriter &rewriter) const {
     auto srcType = cast<MemRefType>(src.getType());
-    SmallVector<OpFoldResult> strides(offsets.size(), rewriter.getIndexAttr(1));
     auto dstType =
         memref::SubViewOp::inferResultType(srcType, offsets, sizes, strides);
     return rewriter.create<memref::SubViewOp>(loc, cast<MemRefType>(dstType),
@@ -543,17 +543,21 @@ private:
   getSideBySideSubviews(ArrayRef<OpFoldResult> dims, Value block1, Value block2,
                         Location loc,
                         ConversionPatternRewriter &rewriter) const {
-    // Calculate valid column ranges
+    OpFoldResult subviewRowFull = dims[0];
+    OpFoldResult subviewColFull = dims[1];
     OpFoldResult col1 =
-        getAsOpFoldResult(rewriter.create<memref::DimOp>(loc, block1, 1));
-    OpFoldResult validCol1 = minOFRs(col1, dims[1], loc, rewriter);
-    OpFoldResult validCol2 = subOFRs(dims[1], validCol1, loc, rewriter);
+        rewriter.create<memref::DimOp>(loc, block1, 1).getResult();
+    OpFoldResult subviewCol1 = minOFRs(col1, subviewColFull, loc, rewriter);
+    OpFoldResult subviewCol2 =
+        subOFRs(subviewColFull, subviewCol1, loc, rewriter);
 
-    // Create subviews covering valid data regions
-    auto sv1 = createSubview(block1, {rewriter.getIndexAttr(0), 0},
-                             {dims[0], validCol1}, loc, rewriter);
-    auto sv2 = createSubview(block2, {rewriter.getIndexAttr(0), 0},
-                             {dims[0], validCol2}, loc, rewriter);
+    SmallVector<OpFoldResult> offsets(dims.size(), rewriter.getIndexAttr(0));
+    SmallVector<OpFoldResult> strides(dims.size(), rewriter.getIndexAttr(1));
+    auto sv1 = createSubview(block1, offsets, {subviewRowFull, subviewCol1},
+                             strides, loc, rewriter);
+    auto sv2 = createSubview(block2, offsets, {subviewRowFull, subviewCol2},
+                             strides, loc, rewriter);
+
     return {sv1, sv2};
   }
 
@@ -565,17 +569,20 @@ private:
   std::pair<memref::SubViewOp, memref::SubViewOp>
   getStackedSubviews(ArrayRef<OpFoldResult> dims, Value block1, Value block2,
                      Location loc, ConversionPatternRewriter &rewriter) const {
-    // Calculate valid row ranges
+    OpFoldResult subviewRowFull = dims[0];
+    OpFoldResult subviewColFull = dims[1];
     OpFoldResult row1 =
-        getAsOpFoldResult(rewriter.create<memref::DimOp>(loc, block1, 0));
-    OpFoldResult validRow1 = minOFRs(row1, dims[0], loc, rewriter);
-    OpFoldResult validRow2 = subOFRs(dims[0], validRow1, loc, rewriter);
+        rewriter.create<memref::DimOp>(loc, block1, 0).getResult();
+    OpFoldResult subviewRow1 = minOFRs(row1, subviewRowFull, loc, rewriter);
+    OpFoldResult subviewRow2 =
+        subOFRs(subviewRowFull, subviewRow1, loc, rewriter);
 
-    // Create subviews covering valid data regions
-    auto sv1 = createSubview(block1, {0, rewriter.getIndexAttr(0)},
-                             {validRow1, dims[1]}, loc, rewriter);
-    auto sv2 = createSubview(block2, {0, rewriter.getIndexAttr(0)},
-                             {validRow2, dims[1]}, loc, rewriter);
+    SmallVector<OpFoldResult> offsets(dims.size(), rewriter.getIndexAttr(0));
+    SmallVector<OpFoldResult> strides(dims.size(), rewriter.getIndexAttr(1));
+    auto sv1 = createSubview(block1, offsets, {subviewRow1, subviewColFull},
+                             strides, loc, rewriter);
+    auto sv2 = createSubview(block2, offsets, {subviewRow2, subviewColFull},
+                             strides, loc, rewriter);
     return {sv1, sv2};
   }
 
@@ -675,11 +682,13 @@ private:
     } else {
       // Simple masked load with single memref
       auto mixedDims = op.getMixedMaskDims();
+      SmallVector<OpFoldResult> strides(mixedDims.size(),
+                                        rewriter.getIndexAttr(1));
       memref::SubViewOp srcSubview =
           createSubview(ptr,
                         SmallVector<OpFoldResult>(tensorType.getRank(),
                                                   rewriter.getIndexAttr(0)),
-                        mixedDims, loc, rewriter);
+                        mixedDims, strides, loc, rewriter);
       Value srcTensor =
           rewriter.create<bufferization::ToTensorOp>(loc, srcSubview);
       Value inserted = rewriter.create<tensor::InsertSliceOp>(

@@ -2,11 +2,11 @@ import time
 import numpy as np
 from functools import wraps
 import triton
-from triton.backends.tts_nv.driver import CPUDriver
+from triton.backends.tts_nv.driver import KzxCudaDriver
 
 
 def select_cpu_backend():
-    triton.runtime.driver.set_active(CPUDriver())
+    triton.runtime.driver.set_active(KzxCudaDriver())
 
 
 # Unfortunately, we can't use triton.testing.perf_report and triton.testing.do_bench for CPU backend because

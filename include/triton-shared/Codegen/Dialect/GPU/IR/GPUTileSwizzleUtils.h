@@ -4,8 +4,8 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#ifndef TTS_CODEGEN_DIALECT_GPU_IR_GPUTILESWIZZLEUTILS_H_
-#define TTS_CODEGEN_DIALECT_GPU_IR_GPUTILESWIZZLEUTILS_H_
+#ifndef IREE_COMPILER_CODEGEN_DIALECT_GPU_IR_GPUTILESWIZZLEUTILS_H_
+#define IREE_COMPILER_CODEGEN_DIALECT_GPU_IR_GPUTILESWIZZLEUTILS_H_
 
 #include "triton-shared/Codegen/Dialect/Codegen/Utils/Utils.h"
 #include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUAttrs.h"
@@ -25,4 +25,4 @@ Codegen::TileSwizzle getSwizzle(IREE::GPU::DataTiledMMAAttr mma,
 
 } // namespace mlir::tts::IREE::GPU
 
-#endif // TTS_CODEGEN_DIALECT_GPU_IR_GPUTILESWIZZLEUTILS_H_
+#endif // IREE_COMPILER_CODEGEN_DIALECT_GPU_IR_GPUTILESWIZZLEUTILS_H_

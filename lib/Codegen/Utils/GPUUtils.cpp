@@ -43,7 +43,7 @@ static llvm::cl::opt<std::string> clTestTarget(
         "from <arch>; e.g., 'gfx*' defaults to HIP, 'sm_*' defaults to CUDA"),
     llvm::cl::init(""));
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 //===----------------------------------------------------------------------===//
 // GPU processor IDs and sizes
@@ -965,7 +965,7 @@ IREE::GPU::TargetAttr getCLGPUTarget(MLIRContext *context) {
   return IREE::GPU::getFullTarget(backend, arch, features, context);
 }
 
-IREE::GPU::TargetAttr getGPUTargetAttr(IREE::HAL::ExecutableTargetAttr target) {
+IREE::GPU::TargetAttr getGPUTargetAttr(IREE::GPU::ExecutableTargetAttr target) {
   if (auto config = target.getConfiguration()) {
     if (auto attr = config.getAs<IREE::GPU::TargetAttr>("iree.gpu.target"))
       return attr;
@@ -975,7 +975,7 @@ IREE::GPU::TargetAttr getGPUTargetAttr(IREE::HAL::ExecutableTargetAttr target) {
 
 IREE::GPU::TargetAttr getGPUTargetAttr(Operation *op) {
   assert(false && "getGPUTargetAttr not implemented");
-  // if (auto target = IREE::HAL::ExecutableTargetAttr::lookup(op)) {
+  // if (auto target = IREE::GPU::ExecutableTargetAttr::lookup(op)) {
   //   return getGPUTargetAttr(target);
   // }
   return getCLGPUTarget(op->getContext());
@@ -992,17 +992,17 @@ std::optional<int> getGPUSubgroupSize(mlir::FunctionOpInterface func) {
   return std::nullopt;
 }
 
-// SmallVector<IREE::HAL::ExecutableVariantOp>
+// SmallVector<IREE::Codegen::ExecutableVariantOp>
 // getExecutableVariantOps(mlir::ModuleOp moduleOp) {
-//   SmallVector<IREE::HAL::ExecutableVariantOp> executableVariantOps;
-//   moduleOp.walk([&](IREE::HAL::ExecutableVariantOp executableOp) {
+//   SmallVector<IREE::Codegen::ExecutableVariantOp> executableVariantOps;
+//   moduleOp.walk([&](IREE::Codegen::ExecutableVariantOp executableOp) {
 //     executableVariantOps.push_back(executableOp);
 //   });
 //   return executableVariantOps;
 // }
 
 // SmallVector<IREE::GPU::MMAIntrinsic>
-// queryMMAIntrinsics(IREE::HAL::ExecutableVariantOp executableOp) {
+// queryMMAIntrinsics(IREE::Codegen::ExecutableVariantOp executableOp) {
 //   SmallVector<IREE::GPU::MMAIntrinsic> mmaIntrinsics;
 //   if (IREE::GPU::TargetAttr target = getGPUTargetAttr(executableOp)) {
 //     mmaIntrinsics = llvm::map_to_vector(
@@ -1012,4 +1012,4 @@ std::optional<int> getGPUSubgroupSize(mlir::FunctionOpInterface func) {
 //   return mmaIntrinsics;
 // }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

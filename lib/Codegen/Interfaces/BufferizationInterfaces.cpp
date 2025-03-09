@@ -4,9 +4,9 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "iree/compiler/Codegen/Interfaces/BufferizationInterfaces.h"
-#include "iree/compiler/Codegen/Dialect/GPU/Transforms/BufferizationInterfaces.h"
-#include "iree/compiler/Codegen/Utils/Utils.h"
+#include "triton-shared/Codegen/Interfaces/BufferizationInterfaces.h"
+#include "triton-shared/Codegen/Dialect/GPU/Transforms/BufferizationInterfaces.h"
+#include "triton-shared/Codegen/Utils/Utils.h"
 
 #include "mlir/Dialect/Arith/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
@@ -37,7 +37,7 @@ using mlir::bufferization::OneShotBufferizationOptions;
 using mlir::bufferization::replaceOpWithBufferizedValues;
 using mlir::bufferization::replaceOpWithNewBufferizedOp;
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 //===----------------------------------------------------------------------===//
 // IREE specific post analysis transformations.
@@ -55,4 +55,4 @@ void registerBufferizationInterfaces(DialectRegistry &registry) {
   registerIREEGPUBufferizationInterfaces(registry);
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

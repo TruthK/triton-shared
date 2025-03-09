@@ -18,7 +18,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Support/LLVM.h"
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 // Marker used as attribute name in generated Linalg rewriting transformations.
 struct LinalgTransforms {
@@ -127,6 +127,6 @@ void setLoopUnrollMarker(Operation *op);
 Attribute getLoopUnrollMarker(Operation *op);
 void removeLoopUnrollMarker(Operation *op);
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts
 
 #endif // IREE_COMPILER_CODEGEN_CODEGENUTILS_MARKERUTILS_H_

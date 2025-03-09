@@ -4,9 +4,9 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "iree/compiler/Codegen/Interfaces/PartitionableLoopsInterface.h"
-#include "iree/compiler/Codegen/Dialect/GPU/IR/IREEGPUDialect.h"
-#include "iree/compiler/Codegen/Dialect/GPU/IR/IREEGPUOps.h"
+#include "triton-shared/Codegen/Interfaces/PartitionableLoopsInterface.h"
+#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUDialect.h"
+#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUOps.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SmallVectorExtras.h"
@@ -15,10 +15,10 @@
 #include "mlir/IR/BuiltinTypes.h"
 
 // clang-format off
-#include "iree/compiler/Codegen/Interfaces/PartitionableLoopsInterface.cpp.inc"  // IWYU pragma: export
+#include "triton-shared/Codegen/Interfaces/PartitionableLoopsInterface.cpp.inc"  // IWYU pragma: export
 // clang-format on
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 /// Filters out dimensions in `parallelLoops` that have unit range in
 /// `loopRanges`.
@@ -178,4 +178,4 @@ void registerPartitionableLoopsInterfaceModels(DialectRegistry &registry) {
       });
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

@@ -4,8 +4,8 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#ifndef TTS_CODEGEN_DIALECT_GPU_IREEGPUENUMS
-#define TTS_CODEGEN_DIALECT_GPU_IREEGPUENUMS
+#ifndef IREE_COMPILER_CODEGEN_DIALECT_GPU_IREEGPUENUMS
+#define IREE_COMPILER_CODEGEN_DIALECT_GPU_IREEGPUENUMS
 
 include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUDialect.td"
 include "mlir/IR/EnumAttr.td"
@@ -295,4 +295,4 @@ def IREEGPU_ReorderWorkgroupsStrategy : IREEGPU_I32PipelineEnumAttr<"ReorderWork
     ]> {
 }
 
-#endif // TTS_CODEGEN_DIALECT_GPU_IREEGPUENUMS
+#endif // IREE_COMPILER_CODEGEN_DIALECT_GPU_IREEGPUENUMS

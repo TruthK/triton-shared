@@ -11,7 +11,7 @@
 
 using namespace mlir::linalg;
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 /// Returns true if `map` is a tranpose. A transpose map is a projected
 /// permutation with or without zeros in results where there exist at least two
@@ -147,4 +147,4 @@ bool isMatmulOrBatchMatmul(linalg::LinalgOp linalgOp) {
   return nonUnitParallelDimCount > 1;
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

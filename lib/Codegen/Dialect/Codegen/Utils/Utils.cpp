@@ -4,7 +4,7 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "iree/compiler/Codegen/Dialect/Codegen/Utils/Utils.h"
+#include "triton-shared/Codegen/Dialect/Codegen/Utils/Utils.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Debug.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -18,7 +18,7 @@
 
 #define DEBUG_TYPE "iree-codegen-dialect-codegen-utils"
 
-namespace mlir::iree_compiler::IREE::Codegen {
+namespace mlir::tts::IREE::Codegen {
 
 //===----------------------------------------------------------------------===//
 // Relational operator and IOstream implementations for Layout Structs.
@@ -305,4 +305,4 @@ getEncodingInfoForMatmul(Encoding::EncodingAttr encoding, TileMxNxK tileMxNxK) {
   return encodingInfo;
 }
 
-} // namespace mlir::iree_compiler::IREE::Codegen
+} // namespace mlir::tts::IREE::Codegen

@@ -1,10 +1,8 @@
-add_triton_library(IREECodegenDialectUtils
+add_triton_library(IREECodegenUtils
     GPUUtils.cpp
     LinalgOpInfo.cpp
-    LinkingUtils.cpp
     MarkerUtils.cpp
     Utils.cpp
-
   LINK_LIBS PUBLIC
     LLVMSupport
     LLVMTargetParser
@@ -33,6 +31,18 @@ add_triton_library(IREECodegenDialectUtils
     MLIRViewLikeInterface
     IREECodegenDialect
     IREEGPUDialect
-    iree::compiler::Codegen::Dialect::GPU::TargetUtils::KnownTargets
-    IREECodegenInterfaces
+    IREEGPUKnownTargets
+    IREECodegenPartitionableLoopsInterface
+    IREECodegenUKernelOpInterface
+)
+
+add_triton_library(IREECodegenVectorOpUtils
+  VectorOpUtils.cpp
+
+  LINK_LIBS PUBLIC
+    LLVMSupport
+    MLIRIR
+    MLIRLinalgDialect
+    MLIRSupport
+    MLIRVectorDialect
 )

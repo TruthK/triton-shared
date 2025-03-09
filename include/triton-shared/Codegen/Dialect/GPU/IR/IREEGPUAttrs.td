@@ -4,8 +4,8 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#ifndef TTS_CODEGEN_DIALECT_GPU_IREEGPUATTRS
-#define TTS_CODEGEN_DIALECT_GPU_IREEGPUATTRS
+#ifndef IREE_COMPILER_CODEGEN_DIALECT_GPU_IREEGPUATTRS
+#define IREE_COMPILER_CODEGEN_DIALECT_GPU_IREEGPUATTRS
 
 include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenInterfaces.td"
 include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUDialect.td"
@@ -591,4 +591,71 @@ def IREEGPU_GPUPipelineOptionsAttr : AttrDef<IREEGPU_Dialect, "GPUPipelineOption
   }];
 }
 
-#endif // TTS_CODEGEN_DIALECT_GPU_IREEGPUATTRS
+//===----------------------------------------------------------------------===//
+// #iree_codegen.executable.target<*>
+//===----------------------------------------------------------------------===//
+
+def IREEGPU_ExecutableTargetAttr :
+    AttrDef<IREEGPU_Dialect, "ExecutableTarget"> {
+  let mnemonic = "executable.target";
+  let summary = [{generic executable target specification}];
+  let description = [{
+    Specifies how to compile an executable for a specific target backend.
+    A backend is used to translate and serialize the executable into the final
+    form passed to the runtime. The format of the executable is a
+    target-specific value indicating the required runtime support to load the
+    deployed artifact. An optionally provided configuration dictionary overrides
+    backend-specific defaults.
+
+    Example:
+    ```mlir
+      // Produce a system-native ELF for x86-64 systems using the LLVM backend:
+      #iree_codegen.executable.target<"llvm-cpu", "system-elf-x86_64", {
+        triple = "x86_64-unknown-linux-elf",
+        cpu = "host",
+        cpu_features = "host",
+        abi = "lp32",
+        ...
+      }>
+    ```
+
+    The same compilation backend may be used to translate executables for
+    several different runtime devices. Likewise the same runtime device may use
+    one of many different executable targets. Assume an N:M mapping between the
+    two in all cases.
+  }];
+
+  let parameters = (ins
+    AttrParameter<"StringAttr", "">:$backend,
+    AttrParameter<"StringAttr", "">:$format,
+    AttrParameter<"DictionaryAttr", "">:$configuration
+  );
+
+  let builders = [
+    AttrBuilder<(ins "StringRef":$backend, "StringRef":$format)>,
+  ];
+
+  let extraClassDeclaration = [{
+    // Returns a symbol-compatible name that pseudo-uniquely identifies this
+    // target. Callers must perform deduplication when required.
+    std::string getSymbolNameFragment() const;
+
+    // Returns true if there's an attribute with the given name in the
+    // configuration dictionary.
+    bool hasConfigurationAttr(StringRef name);
+
+    // Returns true if this attribute is a generic version of |specificAttr|.
+    // A more generic version will match with many specific versions.
+    bool isGenericOf(IREE::GPU::ExecutableTargetAttr specificAttr);
+
+    // Returns the executable target configuration for the given operation.
+    // This will recursively walk parent operations until one with the
+    // `iree_codegen.executable.target` attribute is found or a `iree_codegen.executable.variant`
+    // specifies a value. Returns nullptr if no target specification can be found.
+    static IREE::GPU::ExecutableTargetAttr lookup(Operation *op);
+  }];
+
+  let hasCustomAssemblyFormat = 1;
+}
+
+#endif // IREE_COMPILER_CODEGEN_DIALECT_GPU_IREEGPUATTRS

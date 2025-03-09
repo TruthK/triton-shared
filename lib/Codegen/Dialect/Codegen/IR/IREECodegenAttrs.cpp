@@ -6,10 +6,6 @@
 
 #include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
 
-#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenDialect.h"
-#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenInterfaces.h"
-#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenTypes.h"
-#include "llvm/ADT/TypeSwitch.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Transform/IR/TransformOps.h"
@@ -17,6 +13,10 @@
 #include "mlir/Dialect/Utils/StructuredOpsUtils.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/StorageUniquerSupport.h"
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenDialect.h"
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenInterfaces.h"
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenTypes.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 #define GET_ATTRDEF_CLASSES
 #include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.cpp.inc"
@@ -25,6 +25,8 @@
 static const char kTranslationInfoAttrName[] = "translation_info";
 static const char kCompilationInfoAttrName[] = "compilation_info";
 static const char kRootOpInfoAttrName[] = "root_op";
+
+using namespace mlir::tts::IREE::Codegen;
 
 namespace mlir::tts {
 
@@ -593,128 +595,5 @@ void setRootOpInfo(Operation *op) {
   op->setAttr(kRootOpInfoAttrName, UnitAttr::get(op->getContext()));
 }
 
-
-//===----------------------------------------------------------------------===//
-// #iree_codegen.executable.target<*>
-//===----------------------------------------------------------------------===//
-
-// static
-ExecutableTargetAttr ExecutableTargetAttr::get(MLIRContext *context,
-                                               StringRef backend,
-                                               StringRef format) {
-  return get(context, StringAttr::get(context, backend),
-             StringAttr::get(context, format), DictionaryAttr::get(context));
-}
-
-// static
-Attribute ExecutableTargetAttr::parse(AsmParser &p, Type type) {
-  StringAttr backendAttr;
-  StringAttr formatAttr;
-  DictionaryAttr configurationAttr;
-  // `<"backend", "format"`
-  if (failed(p.parseLess()) || failed(p.parseAttribute(backendAttr)) ||
-      failed(p.parseComma()) || failed(p.parseAttribute(formatAttr))) {
-    return {};
-  }
-  // `, {config}`
-  if (succeeded(p.parseOptionalComma()) &&
-      failed(p.parseAttribute(configurationAttr))) {
-    return {};
-  }
-  // `>`
-  if (failed(p.parseGreater())) {
-    return {};
-  }
-  return get(p.getContext(), backendAttr, formatAttr, configurationAttr);
-}
-
-void ExecutableTargetAttr::print(AsmPrinter &p) const {
-  auto &os = p.getStream();
-  os << "<";
-  p.printAttribute(getBackend());
-  os << ", ";
-  p.printAttribute(getFormat());
-  auto config = getConfiguration();
-  if (config && !config.empty()) {
-    os << ", ";
-    p.printAttribute(config);
-  }
-  os << ">";
-}
-
-std::string ExecutableTargetAttr::getSymbolNameFragment() const {
-  return sanitizeSymbolName(getFormat().getValue().lower());
-}
-
-bool ExecutableTargetAttr::hasConfigurationAttr(StringRef name) {
-  auto configAttr = getConfiguration();
-  return configAttr && configAttr.get(name);
-}
-
-// For now this is very simple: if there are any specified fields that are
-// present in this attribute they must match. We could allow target backends
-// to customize this via attribute interfaces in the future if we needed.
-bool ExecutableTargetAttr::isGenericOf(
-    IREE::Codegen::ExecutableTargetAttr specificAttr) {
-  if (getBackend() != specificAttr.getBackend() ||
-      getFormat() != specificAttr.getFormat()) {
-    // Totally different backends and binary formats.
-    // There may be cases where we want to share things - such as when targeting
-    // both DLLs and dylibs or something - but today almost all of these are
-    // unique situations.
-    return false;
-  }
-
-  // If the config is empty on either we can quickly match.
-  // This is the most common case for users manually specifying targets.
-  auto genericConfigAttr = getConfiguration();
-  auto specificConfigAttr = specificAttr.getConfiguration();
-  if (!genericConfigAttr || !specificConfigAttr)
-    return true;
-
-  // Ensure all fields in specificConfigAttr either don't exist or match.
-  for (auto expectedAttr : specificConfigAttr.getValue()) {
-    auto actualValue = genericConfigAttr.getNamed(expectedAttr.getName());
-    if (!actualValue) {
-      continue; // ignore, not present in generic
-    }
-    if (actualValue->getValue() != expectedAttr.getValue()) {
-      return false; // mismatch, both have values but they differ
-    }
-  }
-
-  // Ensure all fields in genericConfigAttr exist in the specific one.
-  // If missing then the generic is _more_ specific and can't match.
-  for (auto actualAttr : genericConfigAttr.getValue()) {
-    if (!specificConfigAttr.getNamed(actualAttr.getName())) {
-      return false; // mismatch, present in generic but not specific
-    }
-  }
-
-  // All fields match or are omitted in the generic version.
-  return true;
-}
-
-// static
-ExecutableTargetAttr ExecutableTargetAttr::lookup(Operation *op) {
-  auto *context = op->getContext();
-  auto attrId = StringAttr::get(context, "hal.executable.target");
-  while (op) {
-    assert(false && "lookup not implemented");
-    // Take directly from the enclosing variant.
-    // if (auto variantOp = llvm::dyn_cast<IREE::Codegen::ExecutableVariantOp>(op)) {
-    //   return variantOp.getTarget();
-    // }
-    // Use an override if specified.
-    auto attr = op->getAttrOfType<IREE::Codegen::ExecutableTargetAttr>(attrId);
-    if (attr)
-      return attr;
-    // Continue walk.
-    op = op->getParentOp();
-  }
-  // No target found during walk. No default to provide so fail and let the
-  // caller decide what to do (assert/fallback/etc).
-  return nullptr;
-}
 
 } // namespace mlir::tts

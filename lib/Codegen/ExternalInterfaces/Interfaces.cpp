@@ -4,16 +4,16 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "iree/compiler/Codegen/ExternalInterfaces/Interfaces.h"
+#include "triton-shared/Codegen/ExternalInterfaces/Interfaces.h"
 
-// #include "iree/compiler/Codegen/ExternalInterfaces/CPUEncodingExternalModels.h"
-#include "iree/compiler/Codegen/ExternalInterfaces/GPUEncodingExternalModels.h"
+// #include "triton-shared/Codegen/ExternalInterfaces/CPUEncodingExternalModels.h"
+#include "triton-shared/Codegen/ExternalInterfaces/GPUEncodingExternalModels.h"
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 void registerCodegenExternalInterfaces(DialectRegistry &registry) {
   IREE::GPU::registerGPUEncodingExternalModels(registry);
   // IREE::CPU::registerCPUEncodingExternalModels(registry);
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

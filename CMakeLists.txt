@@ -21,6 +21,14 @@ get_property(translation_libs GLOBAL PROPERTY MLIR_TRANSLATION_LIBS)
 if (TRITON_SHARED_BUILD_TTS_NV_BACKEND)
     add_triton_plugin(TritonTTSNV ${CMAKE_CURRENT_SOURCE_DIR}/triton_tts_nv.cc 
     LINK_LIBS 
+    IREECodegenDialectUtils
+    IREEGPUDialect
+    IREECodegenUtils
+    IREECodegenDialect
+    IREECodegenExternalModels
+    IREEVectorExtDialect
+    IREEVectorExtTransforms
+    
     TritonSharedAnalysis 
     TritonToLinalg 
     TritonTilingExtIR

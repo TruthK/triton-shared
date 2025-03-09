@@ -19,23 +19,23 @@
 //
 //===---------------------------------------------------------------------===//
 
-#include "iree/compiler/Codegen/ExternalInterfaces/GPUEncodingExternalModels.h"
+#include "triton-shared/Codegen/ExternalInterfaces/GPUEncodingExternalModels.h"
 
 #include <cfloat>
 
-#include "iree/compiler/Codegen/Dialect/Codegen/IR/IREECodegenTypes.h"
-#include "iree/compiler/Codegen/Dialect/Codegen/Utils/Utils.h"
-#include "iree/compiler/Codegen/Dialect/GPU/IR/GPUTileSwizzleUtils.h"
-#include "iree/compiler/Codegen/Dialect/GPU/IR/IREEGPUAttrs.h"
-#include "iree/compiler/Codegen/Dialect/GPU/IR/IREEGPUDialect.h"
-#include "iree/compiler/Codegen/Dialect/GPU/IR/IREEGPUOps.h"
-#include "iree/compiler/Dialect/Encoding/IR/EncodingOps.h"
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenTypes.h"
+#include "triton-shared/Codegen/Dialect/Codegen/Utils/Utils.h"
+#include "triton-shared/Codegen/Dialect/GPU/IR/GPUTileSwizzleUtils.h"
+#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUAttrs.h"
+#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUDialect.h"
+#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUOps.h"
+#include "triton-shared/Dialect/Encoding/IR/EncodingOps.h"
 #include "llvm/Support/Debug.h"
 #include "mlir/Dialect/Linalg/IR/LinalgInterfaces.h"
 
 #define DEBUG_TYPE "iree-gpu-encoding-external-models"
 
-namespace mlir::iree_compiler::IREE::GPU {
+namespace mlir::tts::IREE::GPU {
 
 using Codegen::MaterializeEncodingInfo;
 using Codegen::TileMxNxK;
@@ -340,4 +340,4 @@ void registerGPUEncodingExternalModels(DialectRegistry &registry) {
       });
 }
 
-} // namespace mlir::iree_compiler::IREE::GPU
+} // namespace mlir::tts::IREE::GPU

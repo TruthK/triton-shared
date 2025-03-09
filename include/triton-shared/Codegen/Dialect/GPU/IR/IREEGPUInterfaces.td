@@ -4,8 +4,8 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#ifndef TTS_CODEGEN_DIALECT_GPU_IREEGPUINTERFACES
-#define TTS_CODEGEN_DIALECT_GPU_IREEGPUINTERFACES
+#ifndef IREE_COMPILER_CODEGEN_DIALECT_GPU_IREEGPUINTERFACES
+#define IREE_COMPILER_CODEGEN_DIALECT_GPU_IREEGPUINTERFACES
 
 include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUDialect.td"
 include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUEnums.td"
@@ -171,4 +171,4 @@ def IREEGPU_AnyMmaAttr : Attr<Or<[
   let convertFromStorage = "$_self";
 }
 
-#endif // TTS_CODEGEN_DIALECT_GPU_IREEGPUINTERFACES
+#endif // IREE_COMPILER_CODEGEN_DIALECT_GPU_IREEGPUINTERFACES

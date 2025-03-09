@@ -4,8 +4,8 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#ifndef TTS_CODEGEN_DIALECT_GPU_IREEGPUINTERFACES_H_
-#define TTS_CODEGEN_DIALECT_GPU_IREEGPUINTERFACES_H_
+#ifndef IREE_COMPILER_CODEGEN_DIALECT_GPU_IREEGPUINTERFACES_H_
+#define IREE_COMPILER_CODEGEN_DIALECT_GPU_IREEGPUINTERFACES_H_
 
 #include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUEnums.h"
 #include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtInterfaces.h"
@@ -19,4 +19,4 @@
 #include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUInterfaces.h.inc"
 // clang-format on
 
-#endif // TTS_CODEGEN_DIALECT_GPU_IREEGPUINTERFACES_H_
+#endif // IREE_COMPILER_CODEGEN_DIALECT_GPU_IREEGPUINTERFACES_H_

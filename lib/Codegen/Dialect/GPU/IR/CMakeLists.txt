@@ -34,7 +34,7 @@ add_triton_library(IREEGPUDialect
     MLIRVectorDialect
     MLIRVectorInterfaces
     IREECodegenDialect
-    IREEDialectEncoding
-    iree::compiler::Codegen::Dialect::VectorExt::IR::IREEVectorExtDialect
-    iree::compiler::Codegen::Utils::VectorOpUtils
+    IREEEncodingDialect
+    IREECodegenVectorOpUtils
+    IREEVectorExtDialect
 )

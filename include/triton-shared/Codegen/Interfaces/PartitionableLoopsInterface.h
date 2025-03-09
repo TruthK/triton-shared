@@ -13,14 +13,14 @@
 #include "mlir/Support/LLVM.h"
 
 // clang-format off
-#include "iree/compiler/Codegen/Interfaces/PartitionableLoopsInterface.h.inc"  // IWYU pragma: export
+#include "triton-shared/Codegen/Interfaces/PartitionableLoopsInterface.h.inc"  // IWYU pragma: export
 // clang-format on
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 /// Register external models for PartitionableLoopsInterface.
 void registerPartitionableLoopsInterfaceModels(DialectRegistry &registry);
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts
 
 #endif // IREE_COMPILER_CODEGEN_INTERFACES_PARTITIONABLE_LOOPS_INTERFACE_H_

@@ -12,7 +12,7 @@
 #include "mlir/Interfaces/FunctionInterfaces.h"
 
 // clang-format off
-#include "iree/compiler/Codegen/Interfaces/UKernelOpInterface.h.inc" // IWYU pragma: export
+#include "triton-shared/Codegen/Interfaces/UKernelOpInterface.h.inc" // IWYU pragma: export
 // clang-format on
 
 #endif // IREE_COMPILER_CODEGEN_INTERFACES_UKERNEL_OP_INTERFACE_H_

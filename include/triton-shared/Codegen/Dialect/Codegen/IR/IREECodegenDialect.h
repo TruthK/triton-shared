@@ -4,8 +4,8 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#ifndef TTS_CODEGEN_DIALECT_IREECODEGEN_DIALECT_H_
-#define TTS_CODEGEN_DIALECT_IREECODEGEN_DIALECT_H_
+#ifndef IREE_COMPILER_CODEGEN_DIALECT_IREECODEGEN_DIALECT_H_
+#define IREE_COMPILER_CODEGEN_DIALECT_IREECODEGEN_DIALECT_H_
 
 #include <mutex>
 
@@ -27,4 +27,4 @@ void registerUKernelBufferizationInterface(DialectRegistry &registry);
 
 } // namespace mlir::tts
 
-#endif // TTS_CODEGEN_DIALECT_IREECODEGEN_DIALECT_H_
+#endif // IREE_COMPILER_CODEGEN_DIALECT_IREECODEGEN_DIALECT_H_

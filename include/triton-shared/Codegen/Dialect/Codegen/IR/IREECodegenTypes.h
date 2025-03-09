@@ -4,8 +4,8 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#ifndef TTS_CODEGEN_DIALECT_CODEGEN_IR_IREECODEGENTYPES_H_
-#define TTS_CODEGEN_DIALECT_CODEGEN_IR_IREECODEGENTYPES_H_
+#ifndef IREE_COMPILER_CODEGEN_DIALECT_CODEGEN_IR_IREECODEGENTYPES_H_
+#define IREE_COMPILER_CODEGEN_DIALECT_CODEGEN_IR_IREECODEGENTYPES_H_
 
 #include <cstdint>
 
@@ -91,4 +91,4 @@ struct MaterializeEncodingInfo {
 };
 
 } // namespace mlir::tts::IREE::Codegen
-#endif // TTS_CODEGEN_DIALECT_CODEGEN_IR_IREECODEGENTYPES_H_
+#endif // IREE_COMPILER_CODEGEN_DIALECT_CODEGEN_IR_IREECODEGENTYPES_H_

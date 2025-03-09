@@ -10,7 +10,7 @@
 #include "mlir/Dialect/Linalg/IR/LinalgInterfaces.h"
 #include "mlir/IR/AffineMap.h"
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 class LinalgOpInfo {
 public:
@@ -42,6 +42,6 @@ private:
 // This also looks into the shape to filter out cases like matvec.
 bool isMatmulOrBatchMatmul(linalg::LinalgOp linalgOp);
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts
 
 #endif // IREE_COMPILER_CODEGEN_COMMON_LINALGOPINFO_H_

@@ -10,7 +10,7 @@
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Operation.h"
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 // Marker used as attribute name in generated Linalg rewriting transformations.
 const StringLiteral LinalgTransforms::kLinalgTransformMarker =
@@ -153,4 +153,4 @@ Attribute getLoopUnrollMarker(Operation *op) {
 
 void removeLoopUnrollMarker(Operation *op) { op->removeAttr(kUnrollLoopName); }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

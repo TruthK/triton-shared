@@ -10,7 +10,7 @@
 include "mlir/IR/OpBase.td"
 
 def UKernelOpInterface : OpInterface<"UKernelOpInterface"> {
-  let cppNamespace = "::mlir::iree_compiler::IREE::Codegen";
+  let cppNamespace = "::mlir::tts::IREE::Codegen";
 
   let description = [{
     An interface for ops that wrap a call to microkernels.

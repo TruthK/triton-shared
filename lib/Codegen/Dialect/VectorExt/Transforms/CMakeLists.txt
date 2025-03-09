@@ -1,4 +1,4 @@
-add_triton_library(VectorExtTransforms
+add_triton_library(IREEVectorExtTransforms
     Passes.cpp
     VectorExtFoldUnitExtentDims.cpp
     VectorizeIREEVectorExtOps.cpp
@@ -19,5 +19,5 @@ add_triton_library(VectorExtTransforms
     MLIRVectorDialect
     MLIRVectorTransforms
     MLIRVectorUtils
-    IREEDialectVectorExt
+    IREEVectorExtDialect
 )

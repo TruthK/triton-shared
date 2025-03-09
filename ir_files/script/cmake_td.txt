@@ -1,8 +1,5 @@
 
 例子{
-
-
-
 "
 iree_tablegen_library(
   NAME

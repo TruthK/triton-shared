@@ -11,10 +11,10 @@ namespace mlir {
 class DialectRegistry;
 } // namespace mlir
 
-namespace mlir::iree_compiler::IREE::GPU {
+namespace mlir::tts::IREE::GPU {
 
 void registerGPUEncodingExternalModels(DialectRegistry &registry);
 
-} // namespace mlir::iree_compiler::IREE::GPU
+} // namespace mlir::tts::IREE::GPU
 
 #endif // IREE_COMPILER_CODEGEN_EXTERNALINTERFACES_GPUENCODINGEXTERNALMODELS_H_

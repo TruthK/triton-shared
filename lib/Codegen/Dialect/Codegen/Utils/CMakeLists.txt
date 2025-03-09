@@ -8,5 +8,5 @@ add_triton_library(IREECodegenDialectUtils
     MLIRLinalgDialect
     MLIRTensorDialect
     IREECodegenDialect
-    IREEDialectEncoding
+    IREEEncodingDialect
 )

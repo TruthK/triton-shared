@@ -4,8 +4,8 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#ifndef TTS_CODEGEN_DIALECT_IREECODEGENATTRS
-#define TTS_CODEGEN_DIALECT_IREECODEGENATTRS
+#ifndef IREE_COMPILER_CODEGEN_DIALECT_IREECODEGENATTRS
+#define IREE_COMPILER_CODEGEN_DIALECT_IREECODEGENATTRS
 
 include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenDialect.td"
 include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenInterfaces.td"
@@ -211,7 +211,7 @@ def IREECodegen_TranslationInfoAttr :
     Specifies the information that is used to drive the translation of
     an entry point function using Linalg based structured-op
     lowering. During executable translation this is attached to the
-    `iree_codegen.executable.export` operation.
+    `hal.executable.export` operation.
 
     If this operation is already set on the root operation (as part of
     `iree_codegen.compilation_info`) that drives the compilation of a
@@ -436,72 +436,5 @@ def IREECodegen_EncodingNopLayoutAttr  :
   }];
 }
 
-
-//===----------------------------------------------------------------------===//
-// #iree_codegen.executable.target<*>
-//===----------------------------------------------------------------------===//
-
-def IREECodegen_ExecutableTargetAttr :
-    AttrDef<IREECodegen_Dialect, "ExecutableTarget"> {
-  let mnemonic = "executable.target";
-  let summary = [{generic executable target specification}];
-  let description = [{
-    Specifies how to compile an executable for a specific target backend.
-    A backend is used to translate and serialize the executable into the final
-    form passed to the runtime. The format of the executable is a
-    target-specific value indicating the required runtime support to load the
-    deployed artifact. An optionally provided configuration dictionary overrides
-    backend-specific defaults.
-
-    Example:
-    ```mlir
-      // Produce a system-native ELF for x86-64 systems using the LLVM backend:
-      #iree_codegen.executable.target<"llvm-cpu", "system-elf-x86_64", {
-        triple = "x86_64-unknown-linux-elf",
-        cpu = "host",
-        cpu_features = "host",
-        abi = "lp32",
-        ...
-      }>
-    ```
-
-    The same compilation backend may be used to translate executables for
-    several different runtime devices. Likewise the same runtime device may use
-    one of many different executable targets. Assume an N:M mapping between the
-    two in all cases.
-  }];
-
-  let parameters = (ins
-    AttrParameter<"StringAttr", "">:$backend,
-    AttrParameter<"StringAttr", "">:$format,
-    AttrParameter<"DictionaryAttr", "">:$configuration
-  );
-
-  let builders = [
-    AttrBuilder<(ins "StringRef":$backend, "StringRef":$format)>,
-  ];
-
-  let extraClassDeclaration = [{
-    // Returns a symbol-compatible name that pseudo-uniquely identifies this
-    // target. Callers must perform deduplication when required.
-    std::string getSymbolNameFragment() const;
-
-    // Returns true if there's an attribute with the given name in the
-    // configuration dictionary.
-    bool hasConfigurationAttr(StringRef name);
-
-    // Returns true if this attribute is a generic version of |specificAttr|.
-    // A more generic version will match with many specific versions.
-    bool isGenericOf(IREE::Codegen::ExecutableTargetAttr specificAttr);
-
-    // Returns the executable target configuration for the given operation.
-    // This will recursively walk parent operations until one with the
-    // `iree_codegen.executable.target` attribute is found or a `iree_codegen.executable.variant`
-    // specifies a value. Returns nullptr if no target specification can be found.
-    static IREE::Codegen::ExecutableTargetAttr lookup(Operation *op);
-  }];
-
-  let hasCustomAssemblyFormat = 1;
-}
 
 #endif // TTS_CODEGEN_DIALECT_IREECODEGENATTRS

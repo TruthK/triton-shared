@@ -10,7 +10,7 @@
 include "mlir/IR/OpBase.td"
 
 def PartitionableLoopsInterface : OpInterface<"PartitionableLoopsInterface"> {
-  let cppNamespace = "::mlir::iree_compiler";
+  let cppNamespace = "::mlir::tts";
 
   let description = [{
     An interface for ops to indicate which implicit loops that can be partitioned.
