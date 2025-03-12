@@ -83,8 +83,7 @@ public:
     // Canonicalization will simplify this sequence by removing the inital
     // reinterpret_cast.
     addTargetMaterialization([&](OpBuilder &builder, MemRefType memrefType,
-                                 ValueRange inputs,
-                                 Location loc) -> Value {
+                                 ValueRange inputs, Location loc) -> Value {
       auto reinterpretCast =
           inputs[0].getDefiningOp<memref::ReinterpretCastOp>();
       if (!reinterpretCast) {
@@ -98,15 +97,13 @@ public:
     });
 
     addSourceMaterialization([&](OpBuilder &builder, Type resultType,
-                                 ValueRange inputs,
-                                 Location loc) -> Value {
+                                 ValueRange inputs, Location loc) -> Value {
       return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
           .getResult(0);
     });
 
     addArgumentMaterialization([&](OpBuilder &builder, Type resultType,
-                                   ValueRange inputs,
-                                   Location loc) -> Value {
+                                   ValueRange inputs, Location loc) -> Value {
       return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
           .getResult(0);
     });
@@ -122,8 +119,7 @@ public:
     });
     addTargetMaterialization([&](OpBuilder &builder,
                                  UnrankedMemRefType resultType,
-                                 ValueRange inputs,
-                                 Location loc) -> Value {
+                                 ValueRange inputs, Location loc) -> Value {
       return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
           .getResult(0);
     });
@@ -161,6 +157,8 @@ public:
     target.addLegalOp<UnrealizedConversionCastOp>();
 
     PtrToUnrankedMemrefConverter typeConverter;
+
+    triton::populateSimplifyTTSMakeTPtrPatterns(patterns, typeConverter);
 
     triton::populateStructuredToMemrefConversionPatterns(patterns,
                                                          typeConverter);
