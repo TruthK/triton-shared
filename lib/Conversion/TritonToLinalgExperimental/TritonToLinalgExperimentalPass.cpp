@@ -57,6 +57,8 @@ public:
     pm.addPass(createTritonToUnstructuredPass());
     pm.addPass(createTritonArithToLinalgPass());
 
+    pm.addPass(createSimplifyTTSMakeTPtrPass());
+
     pm.addPass(createStructuredToMemrefPass());
     pm.addPass(createUnstructuredToMemrefPass());
     pm.addPass(createTritonPtrToMemrefPass());

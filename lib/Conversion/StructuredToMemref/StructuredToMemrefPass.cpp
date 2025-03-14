@@ -158,7 +158,6 @@ public:
 
     PtrToUnrankedMemrefConverter typeConverter;
 
-    triton::populateSimplifyTTSMakeTPtrPatterns(patterns, typeConverter);
 
     triton::populateStructuredToMemrefConversionPatterns(patterns,
                                                          typeConverter);

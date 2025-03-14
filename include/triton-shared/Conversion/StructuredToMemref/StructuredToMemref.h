@@ -16,10 +16,10 @@ namespace triton {
 void populateStructuredToMemrefConversionPatterns(RewritePatternSet &patterns,
                                                   TypeConverter &typeConverter);
 
-void populateSimplifyTTSMakeTPtrPatterns(RewritePatternSet &patterns,
-                                         TypeConverter &typeConverter);
+void populateSimplifyTTSMakeTPtrPatterns(RewritePatternSet &patterns);
 
 std::unique_ptr<OperationPass<ModuleOp>> createStructuredToMemrefPass();
+std::unique_ptr<OperationPass<ModuleOp>> createSimplifyTTSMakeTPtrPass();
 
 } // namespace triton
 } // namespace mlir
