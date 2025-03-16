@@ -58,8 +58,6 @@ public:
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
       signalPassFailure();
     }
-    // 打印优化后的 IR
-    getOperation().dump();
   }
 };
 

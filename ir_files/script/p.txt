@@ -1,1 +1,1 @@
-，删除跟版权相关的注释，将include中的“iree/compiler/”，改成“triton-shared”，并且将namespace中的“mlir::iree_compiler::"，改成“mlir::tts:: ,将“iree_gpu”都改成"tts_gpu",给出修改后的完整的代码，要完整的连续的代码文件。不可以任意简化或者删除，要保守！注释和说明要保留
+，删除跟版权相关的注释，将include中的“triton-shared/”，改成“triton-shared”，并且将namespace中的“mlir::tts::"，改成“mlir::tts:: ,将“iree_gpu”都改成"tts_gpu",给出修改后的完整的代码，要完整的连续的代码文件。不可以任意简化或者删除，要保守！注释和说明要保留

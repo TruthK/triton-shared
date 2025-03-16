@@ -9,7 +9,6 @@ llvm_update_compile_flags(triton-shared-opt)
 target_link_libraries(triton-shared-opt PRIVATE
   TritonTransforms
   TritonSharedAnalysis
-  TTSNVLinalgToLLVM
   ${dialect_libs}
   ${conversion_libs}
   ${extension_libs}
@@ -19,6 +18,7 @@ target_link_libraries(triton-shared-opt PRIVATE
   MLIROptLib
   MLIRPass
   MLIRTransforms
+  IREECodegen
 )
 
 mlir_check_all_link_libraries(triton-shared-opt)

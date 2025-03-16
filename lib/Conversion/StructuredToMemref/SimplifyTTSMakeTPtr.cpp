@@ -17,6 +17,7 @@
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/IR/Types.h"
 #include "mlir/IR/Value.h"
+#include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/DialectConversion.h"
 
@@ -25,6 +26,8 @@
 #include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 #include "llvm/Support/LogicalResult.h"
 #include "llvm/Support/raw_ostream.h"
+#include <cassert>
+#include <cstddef>
 
 using namespace mlir;
 
@@ -32,14 +35,14 @@ namespace {
 
 // Structure to hold the dimension comparison parameters.
 struct DimComparisonParams {
-  // The dimension size from op.getMixedSizes() (possibly traced to a for-loop
-  // parameter).
-  Value dimShapeSize;
-  // The dimension offset from op.getMixedOffsets() (or a derived value from
-  // an arith.mul op).
+  // The dimension size from MakeTensorPtrOp.getMixedSizes()
+  Value tensorDimSize;
+  // The dimension offset from MakeTensorPtrOp.getMixedOffsets(),but div stride
   Value dimOffset;
-  // The expected block dimension size from the op's result tensor type.
+  // The expected block dimension size from the MakeTensorPtrOp's result tensor
+  // type.
   int64_t blockDimSize;
+  size_t dim;
 };
 
 struct AnalyzeAndTransformTTSMakeTPtrPattern
@@ -66,10 +69,14 @@ struct AnalyzeAndTransformTTSMakeTPtrPattern
       if (analyzeMakeTPtrDimension(op, d)) {
         newShape[d] = 0; // 将该维度置 0
         changed = true;
+        // Apply transformation
+        if (auto loadOp = getSingleLoadUser(op))
+          rewriteLoadMask(rewriter, loadOp, op, d);
       }
     }
     // 如果有修改，则创建新的 op 并替换原 op
     if (changed) {
+      rewriter.setInsertionPoint(op);
       auto newStaticShape = rewriter.getDenseI64ArrayAttr(newShape);
       // 使用 replaceOpWithNew 一步完成创建+替换
       rewriter.replaceOpWithNewOp<tts::MakeTensorPtrOp>(
@@ -340,7 +347,7 @@ private:
   std::optional<DimComparisonParams>
   getDimComparisonParams(tts::MakeTensorPtrOp &op, unsigned d) const {
     DimComparisonParams params;
-
+    params.dim = d;
     // Get the mixed offsets, sizes, and shapes vectors.
     auto offsetsMixed = op.getMixedOffsets();
     auto sizesMixed = op.getMixedSizes();
@@ -359,20 +366,20 @@ private:
       return std::nullopt;
     params.blockDimSize = resultType.getDimSize(d);
 
-    // --- Step 2: Decide how to extract dimShapeSize and dimOffset based on
+    // --- Step 2: Decide how to extract tensorDimSize and dimOffset based on
     // offset.
     // 当makeTPtrOp的shape的维度为1，也就是低维度，不需要strid，可以直接获取对应的offset和具体的shape
     if (offsetsMixed.size() - d == 1) {
 
-      Value shapeVal = shapeMixed[d].dyn_cast<Value>();
-      if (!shapeVal)
+      Value currentBlockOffsetEnd = shapeMixed[d].dyn_cast<Value>();
+      if (!currentBlockOffsetEnd)
         return std::nullopt;
-      params.dimShapeSize = traceForLoopParameter(shapeVal);
+      params.tensorDimSize = traceForLoopParameter(currentBlockOffsetEnd);
 
-      Value offsetVal = offsetsMixed[d].dyn_cast<Value>();
-      if (!offsetVal)
+      Value currentBlockOffsetStart = offsetsMixed[d].dyn_cast<Value>();
+      if (!currentBlockOffsetStart)
         return std::nullopt;
-      params.dimOffset = traceForLoopParameter(offsetVal);
+      params.dimOffset = traceForLoopParameter(currentBlockOffsetStart);
     } else if (offsetsMixed.size() - d == 2) {
       // Case 2: When the offset is constant 2,
       // it indicates that the dimension is not the lowest and that the size and
@@ -380,14 +387,14 @@ private:
       // we look for a common operand and then select the other operand from
       // each multiplication.
       // 高维度的计算，需要将每个维度的offset和shape乘以对应的stride才是实际的offset和shape
-      Value shapeVal = shapeMixed[d].dyn_cast<Value>();
-      Value offsetVal = offsetsMixed[d].dyn_cast<Value>();
-      if (!shapeVal || !offsetVal)
+      Value currentBlockOffsetEnd = shapeMixed[d].dyn_cast<Value>();
+      Value currentBlockOffsetStart = offsetsMixed[d].dyn_cast<Value>();
+      if (!currentBlockOffsetEnd || !currentBlockOffsetStart)
         return std::nullopt;
-      shapeVal = traceForLoopParameter(shapeVal);
-      offsetVal = traceForLoopParameter(offsetVal);
-      auto mulOpSize = shapeVal.getDefiningOp<arith::MulIOp>();
-      auto mulOpOffset = offsetVal.getDefiningOp<arith::MulIOp>();
+      currentBlockOffsetEnd = traceForLoopParameter(currentBlockOffsetEnd);
+      currentBlockOffsetStart = traceForLoopParameter(currentBlockOffsetStart);
+      auto mulOpSize = currentBlockOffsetEnd.getDefiningOp<arith::MulIOp>();
+      auto mulOpOffset = currentBlockOffsetStart.getDefiningOp<arith::MulIOp>();
       if (!mulOpSize || !mulOpOffset)
         return std::nullopt;
 
@@ -424,66 +431,77 @@ private:
       }
       if (!otherOperandSize || !otherOperandOffset)
         return std::nullopt;
-      params.dimShapeSize = otherOperandSize;
+      params.tensorDimSize = otherOperandSize;
       params.dimOffset = otherOperandOffset;
     }
 
     return params;
   }
 
-  /// This helper function analyzes the use-def chain for a given mask value.
-  /// It verifies that the chain follows the expected pattern:
-  ///   mask = arith.minsi( arith.subi( offset, arith.maxsi( offset,
-  ///            arith.minsi(shapeConst, ...) ) ), tensorDim )
-  /// and that the provided 'expectedBlockDimSize' matches the size from
-  /// the corresponding tts.make_tptr. Returns true if the chain matches.
+  /// Verifies the mask value's use-def chain follows the pattern:
+  ///   mask = arith.minsi(
+  ///            arith.subi(
+  ///              arith.maxsi(arith.minsi(currentBlockOffsetEnd,
+  ///              tensorDimSize), currentBlockOffsetStart),
+  ///              currentBlockOffsetStart
+  ///            ),
+  ///            blockDimSize
+  ///          )
+  /// and ensures the blockDimSize matches tts.make_tptr's corresponding
+  /// dimension.
   ///
-  /// Explanation:
-  /// The mask computation usually ensures that the tiled dimension does not
-  /// exceed the tensor dimension. For example, given:
-  ///   offs_cn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
-  ///   c_ptrs = c_ptr + stride_cn * offs_cn[None, :]
-  ///   tl.store(c_ptrs, c, mask = offs_cn[None, :] < N)
-  /// the condition `offs_cn[None, :] < N` is used to compute the mask. In the
-  /// mask analysis, this condition is transformed into a series of operations:
-  ///   %newEnd   = arith.min %lhsEnd, N
-  ///   %newEnd2  = arith.max %newEnd, (pid_n * BLOCK_SIZE_N)
-  ///   %newDim   = arith.sub %newEnd2, (pid_n * BLOCK_SIZE_N)
+  /// Key Insights:
+  /// 1. Mask Computation Purpose:
+  ///    Ensures tiling dimensions don't exceed tensor boundaries. For example
+  ///    in Triton matmul:
+  ///    ```python
+  ///    offs_cn = pid_n*BLOCK_N + tl.arange(0, BLOCK_N)
+  ///    c_ptrs = c_ptr + stride_cn * offs_cn[None, :]
+  ///    tl.store(c_ptrs, c, mask=offs_cn[None, :] < N)  # Our focus
+  ///    ```
+  ///    The condition `offs_cn < N` gets transformed into arithmetic operations
+  ///    that:
+  ///    - Clamp the effective range (min/max)
+  ///    - Calculate valid sub-tensor dimensions (sub)
   ///
-  /// If the stored variable's corresponding tts.make_tptr has a shape equal to
-  /// N and its offset is also `pid_n * BLOCK_SIZE_N`, then the shape element N
-  /// can be set to 0 (since the portion beyond N is not used and is redundant).
-  /// For safety, we only allow this transformation if the variable is not
-  /// modified elsewhere (i.e. its direct and indirect uses are each exactly
-  /// one), following the strict usage path: tts.make_tptr -> tts.load ->
-  /// (linalg op) -> tts.store. In particular, the result of tts.load must only
-  /// be used as an input operand to a linalg op, ensuring that the original
-  /// value remains unmodified.
+  /// 2. Transformation Pattern:
+  ///    The mask computation translates to this operation sequence:
+  ///    ```mlir
+  ///    %1 = arith.addi %pid_n, %BLOCK_N  // Calculate upper bound
+  ///    %2 = arith.minsi %1, N           // Clamp to tensor dimension
+  ///    %3 = arith.maxsi %2, %offset     // Ensure lower bound validity
+  ///    %4 = arith.subi %3, %offset      // Get effective dimension size
+  ///    %mask = arith.minsi %4, BLOCK_N  // Final mask dimension
+  ///    ```
+  ///
+  /// 3. Safety Conditions:
+  ///    - Single-use chain: tts.make_tptr → tts.load → linalg.[matmul|elemwise]
+  ///    → tts.store
+  ///    - No intermediate modifications: The loaded value must only pass
+  ///    through
+  ///      elementwise/matmul operations without side-channels
+  ///    - Dimension alignment: The tts.make_tptr's offset must match the mask's
+  ///    offset calculation
+  ///
+  /// 4. Optimization Opportunity:
+  ///    When tts.make_tptr's shape equals N and offset matches the mask
+  ///    calculation pattern, we can safely set the shape element to 0. This
+  ///    eliminates redundant dimension checks while maintaining correctness
+  ///    through the mask verification.
+  ///
+  /// Implementation Workflow:
+  /// 1. Trace mask value through arithmetic ops to verify pattern compliance
+  /// 2. Validate dimension alignment between mask ops and tensor ptr parameters
+  /// 3. Ensure no out-of-bounds access via strict use-def chain verification
+  /// 4. Apply shape optimization only when all safety conditions are met
+
   bool analyzeMaskChain(DimComparisonParams &params, Value maskVal) const {
-
-    // When computing the mask, we need to ensure that the tile size does not
-    // exceed the tensor dimension. For example, in the case:
-    //   offs_cn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
-    //   c_ptrs = c_ptr + stride_cn * offs_cn[None, :]
-    //   tl.store(c_ptrs, c, mask = offs_cn[None, :] < N)
-    // the condition `offs_cn[None, :] < N` is the mask computation step.
-    // In the mask analysis, this is transformed into:
-    //   %newEnd   = arith.min %lhsEnd, N
-    //   %newEnd2  = arith.max %newEnd, (pid_n * BLOCK_SIZE_N)
-    //   %newDim   = arith.sub %newEnd2, (pid_n * BLOCK_SIZE_N)
-    //
-    // If the corresponding tts.make_tptr variable being stored has a shape
-    // value N and its offset is also `pid_n * BLOCK_SIZE_N`, then we can change
-    // the shape element from N to 0. This transformation is only allowed if the
-    // stored variable is not used or modified elsewhere, and both its direct
-    // and indirect uses are single-use.
     Value newDim = maskVal;
-    // In cases where there are multiple mask computations (e.g.,
-    // "c_mask = (offs_cm[:, None] < M) & (offs_cn[None, :] < N)" in tl.store),
-    // ensure that the computed new dimension does not exceed the corresponding
-    // tensor dimension.
-
-    // 只有当多个mask, maskanalysis才用min限定范围
+    // 根据maskAnalysis， In cases where there are multiple mask computations
+    // (e.g., "c_mask = (offs_cm[:, None] < M) & (offs_cn[None, :] < N)" in
+    // tl.store), ensure that the computed new dimension does not exceed the
+    // corresponding tensor dimension. 只有当多个mask,
+    // maskanalysis才用min限定范围, 因此这一步不是必须的
     if (auto minsiOp = maskVal.getDefiningOp<arith::MinSIOp>()) {
       bool foundTensorAxis = false;
       for (Value operand : minsiOp.getOperands()) {
@@ -546,7 +564,7 @@ private:
     bool foundShapeConst = false;
     Value lhsEnd = nullptr;
     for (Value operand : innerMinsiOp.getOperands()) {
-      if (operand == params.dimShapeSize)
+      if (operand == params.tensorDimSize)
         foundShapeConst = true;
       else
         lhsEnd = operand;
@@ -562,7 +580,8 @@ private:
       return false;
     auto constOp = (addiOp->getOperand(1)).getDefiningOp<arith::ConstantOp>();
     if (constOp &&
-        mlir::cast<IntegerAttr>(constOp.getValue()).getInt() == params.blockDimSize &&
+        mlir::cast<IntegerAttr>(constOp.getValue()).getInt() ==
+            params.blockDimSize &&
         addiOp->getOperand(0) == params.dimOffset)
       return true;
 
@@ -586,13 +605,14 @@ private:
         getDimComparisonParams(op, d);
     if (!paramsOpt)
       return false;
-
+ LLVM_DEBUG({
     // For debugging purposes:
-    llvm::errs() << "Dimension " << d << ": dimShapeSize = ";
-    paramsOpt->dimShapeSize.getDefiningOp()->dump();
+    llvm::errs() << "Dimension " << d << ": tensorDimSize = ";
+    paramsOpt->tensorDimSize.getDefiningOp()->dump();
     llvm::errs() << ", dimOffset = ";
     paramsOpt->dimOffset.getDefiningOp()->dump();
-    llvm::errs() << ", blockDimSize = " << paramsOpt->blockDimSize << "\n";
+      llvm::errs() << ", blockDimSize = " << paramsOpt->blockDimSize << "\n";
+    });
 
     // Check that the op result has exactly one use.
     Value opResult = op.getResult();
@@ -616,6 +636,76 @@ private:
     // (See the definition of analyzeMaskChain above for details.)
     return analyzeMaskChain(*paramsOpt, storeMaskCandidate);
   };
+
+  Value materializeFoldResult(OpBuilder &b, Location loc,
+                              OpFoldResult ofr) const {
+    if (auto val = ofr.dyn_cast<Value>())
+      return val;
+    llvm_unreachable("Unsupported OpFoldResult type");
+  }
+
+  // 重写指定维度的mask
+  void rewriteLoadMask(PatternRewriter &rewriter, tts::LoadOp &loadOp,
+                       tts::MakeTensorPtrOp op, unsigned dim) const {
+    rewriter.setInsertionPoint(loadOp);
+    Location loc = loadOp.getLoc();
+
+    // Get dimension parameters directly from op
+    auto offsetFold = op.getMixedOffsets()[dim]; // 获取动态/静态offset
+    auto shapeFold = op.getMixedShape()[dim];    // 获取动态/静态shape
+    auto resultType = cast<RankedTensorType>(op.getResult().getType());
+    const int64_t blockDim = resultType.getDimSize(dim); // 结果张量的block维度
+
+    // 动态化offset和shape
+    Value offsetVal = materializeFoldResult(rewriter, loc, offsetFold);
+    Value shapeVal = materializeFoldResult(rewriter, loc, shapeFold);
+    Value blockSize = rewriter.create<arith::ConstantIndexOp>(loc, blockDim);
+
+    // 生成新mask表达式：min(offset + shape, block_size)
+    Value added = rewriter.create<arith::AddIOp>(loc, offsetVal, blockSize);
+    Value newMask = rewriter.create<arith::MinSIOp>(loc, added, shapeVal);
+
+    llvm::outs() << "getMaskDims: " << loadOp.getMaskDims().size() << "\n";
+    llvm::outs() << "getMaskDims: " << loadOp.getStaticMaskDims().size()
+                 << "\n";
+
+    for (auto dim : loadOp.getStaticMaskDims())
+      llvm::dbgs() << "\t" << dim << "\n";
+
+    for (auto dim : loadOp.getMaskDims())
+      llvm::dbgs() << "\t" << dim << "\n";
+
+    // 更新mask_dims
+    SmallVector<OpFoldResult> newMaskDims;
+    int index = 0;
+    for (size_t i = 0; i < loadOp.getStaticMaskDims().size(); ++i) {
+      if (i == dim)
+        newMaskDims.push_back(newMask);
+      else {
+        if (loadOp.getStaticMaskDims()[i] == ShapedType::kDynamic) {
+          newMaskDims.push_back(loadOp.getMaskDims()[index++]);
+        } else {
+          newMaskDims.push_back(
+              rewriter.getIndexAttr(loadOp.getStaticMaskDims()[i]));
+        }
+      }
+    }
+    llvm::dbgs() << "\n";
+    for (auto dim : newMaskDims)
+      llvm::dbgs() << "\t" << dim << "\n";
+    rewriter.replaceOpWithNewOp<tts::LoadOp>(loadOp, loadOp.getPtr(),
+                                             newMaskDims, loadOp.getOther());
+  }
+
+  // 获取唯一的load用户
+  tts::LoadOp getSingleLoadUser(tts::MakeTensorPtrOp op) const {
+    if (!op->hasOneUse())
+      return nullptr;
+    if (auto loadOp = dyn_cast<tts::LoadOp>(*op->user_begin()))
+      return loadOp;
+    return nullptr;
+  }
+
 }; // end anonymous namespace
 } // namespace
 /// Helper function to add the rewrite pattern to a pattern list.

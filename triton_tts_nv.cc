@@ -26,9 +26,9 @@
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/Passes.h"
-#include "triton-shared/Conversion/LinalgToLLVM/Passes.h"
 #include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 #include "triton-shared/Dialect/TritonTilingExt/IR/TritonTilingExtDialect.h"
+#include "triton-shared/Codegen/Passes.h"
 
 #include "triton-shared/Conversion/TritonToLinalgExperimental/TritonToLinalgExperimental.h"
 #include "llvm/IR/Constants.h"
@@ -44,19 +44,11 @@ void init_triton_triton_shared(py::module &&m) {
                      mlir::triton::createTritonToLinalgExperimentalPass);
 }
 
-void init_triton_triton_shared_to_llvmir(py::module &&m) {
-  m.def("memref_copy_to_linalg", [](mlir::PassManager &pm) {
-    pm.addNestedPass<mlir::func::FuncOp>(
-        mlir::tts::createMemrefCopyToLinalgPass());
-  });
-  ADD_PASS_WRAPPER_0("linalg_to_llvm", mlir::tts::createLinalgToLLVMPass);
-}
 
 void init_triton_tts_nv(py::module &&m) {
   m.doc() = "Python bindings to the TTS_NVIDIA Triton backend";
   auto passes = m.def_submodule("passes");
   init_triton_triton_shared(passes.def_submodule("tts"));
-  init_triton_triton_shared_to_llvmir(passes.def_submodule("convert"));
   // load dialects
   m.def("load_dialects", [](mlir::MLIRContext &context) {
     mlir::DialectRegistry registry;
@@ -64,9 +56,8 @@ void init_triton_tts_nv(py::module &&m) {
                     mlir::tts::TritonStructuredDialect,
                     mlir::triton::TritonDialect>();
     mlir::registerAllDialects(registry);
-    mlir::registerAllExtensions(registry);
-    mlir::registerAllPasses();
-    mlir::registerAllTranslations();
+    mlir::tts::registerCodegenPasses();
+    mlir::tts::registerCodegenDependentDialects(registry);
     context.appendDialectRegistry(registry);
   });
 
