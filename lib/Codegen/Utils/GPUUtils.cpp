@@ -974,10 +974,9 @@ IREE::GPU::TargetAttr getGPUTargetAttr(IREE::GPU::ExecutableTargetAttr target) {
 }
 
 IREE::GPU::TargetAttr getGPUTargetAttr(Operation *op) {
-  assert(false && "getGPUTargetAttr not implemented");
-  // if (auto target = IREE::GPU::ExecutableTargetAttr::lookup(op)) {
-  //   return getGPUTargetAttr(target);
-  // }
+  if (auto target = IREE::GPU::ExecutableTargetAttr::lookup(op)) {
+    return getGPUTargetAttr(target);
+  }
   return getCLGPUTarget(op->getContext());
 }
 

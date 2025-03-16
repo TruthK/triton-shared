@@ -1,8 +1,10 @@
+add_subdirectory(Utils)
+
 add_triton_library(IREECodegenLLVMGPU
  #ConvertToLLVM.cpp
  #ConvertToNVVM.cpp
  #ExtractAddressComputationGPUPass.cpp
- #KernelConfig.cpp
+ KernelConfig.cpp
  #LLVMGPUAssignConstantOrdinals.cpp
  #LLVMGPUCastAddressSpaceFunction.cpp
  #LLVMGPUCastTypeToFitMMA.cpp
@@ -13,15 +15,17 @@ add_triton_library(IREECodegenLLVMGPU
  #LLVMGPUPrefetching.cpp
  #LLVMGPUPromoteMatmulToFitMMA.cpp
  LLVMGPUSelectLoweringStrategy.cpp
+ MaterializeTarget.cpp
  #LLVMGPUTensorCoreVectorization.cpp
  #LLVMGPUTensorPad.cpp
  #LLVMGPUTileAndDistribute.cpp
  #LLVMGPUVectorDistribute.cpp
  #LLVMGPUVectorLowering.cpp
  #LLVMGPUVectorToGPU.cpp
- #Passes.cpp
+ Passes.cpp
  #TestLLVMGPUQueryMMAPass.cpp
- #Verifiers.cpp
+ Verifiers.cpp
+
   DEPENDS
     LLVMGPUCodegenPassIncGen
 
@@ -98,7 +102,9 @@ add_triton_library(IREECodegenLLVMGPU
   IREECodegenPartitionableLoopsInterface
   IREECodegenUKernelOpInterface
   IREECodegenUtils
+  IREECodegenTransforms
   IREECodegenVectorOpUtils
+  TTSUtils
 )
 # iree::compiler::Codegen::Common
 # iree::compiler::Codegen::Common::GPU::CommonGPUPasses

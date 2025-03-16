@@ -13,6 +13,12 @@ include "mlir/Pass/PassBase.td"
 // LLVMGPU Passes (keep alphabetical)
 //------------------------------------------------------------------------------
 
+
+def MaterializeTargetPass : Pass<"iree-materialize-target", "ModuleOp"> {
+  let summary = "Materialize the target attribute from the metadata";
+}
+
+
 // // TODO: Bring the argument in line with the names used elsewhere.
 // def ConvertToNVVMPass :
 //     Pass<"iree-convert-to-nvvm", "ModuleOp"> {

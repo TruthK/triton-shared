@@ -14,10 +14,9 @@
 
 #include <optional>
 
-#include "triton-shared/Codegen/Common/GPU/Passes.h"
+// #include "triton-shared/Codegen/Common/GPU/Passes.h"
 #include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
 #include "triton-shared/Codegen/Dialect/GPU/TargetUtils/ConfigUtils.h"
-#include "triton-shared/Dialect/HAL/IR/HALOps.h"
 #include "mlir/Pass/Pass.h"
 
 namespace mlir::tts {

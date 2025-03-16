@@ -10,21 +10,6 @@
 #include <numeric>
 #include <optional>
 
-#include "triton-shared/Codegen/Common/GPU/GPUHeuristics.h"
-#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
-#include "triton-shared/Codegen/Dialect/GPU/IR/GPULoweringConfigUtils.h"
-#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUAttrs.h"
-#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUEnums.h"
-#include "triton-shared/Codegen/Dialect/GPU/TargetUtils/ConfigUtils.h"
-#include "triton-shared/Codegen/Interfaces/PartitionableLoopsInterface.h"
-#include "triton-shared/Codegen/Interfaces/UKernelOpInterface.h"
-#include "triton-shared/Codegen/LLVMGPU/Passes.h"
-#include "triton-shared/Codegen/Utils/GPUUtils.h"
-#include "triton-shared/Codegen/Utils/LinalgOpInfo.h"
-#include "triton-shared/Codegen/Utils/Utils.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
 #include "mlir/Analysis/SliceAnalysis.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
@@ -37,6 +22,22 @@
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/IR/Types.h"
 #include "mlir/IR/Value.h"
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
+#include "triton-shared/Codegen/Dialect/GPU/IR/GPULoweringConfigUtils.h"
+#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUAttrs.h"
+#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUEnums.h"
+#include "triton-shared/Codegen/Dialect/GPU/TargetUtils/ConfigUtils.h"
+#include "triton-shared/Codegen/Dialect/GPU/TargetUtils/GPUHeuristics.h"
+#include "triton-shared/Codegen/Interfaces/PartitionableLoopsInterface.h"
+#include "triton-shared/Codegen/Interfaces/UKernelOpInterface.h"
+#include "triton-shared/Codegen/LLVMGPU/Passes.h"
+#include "triton-shared/Codegen/LLVMGPU/Utils/LLVMGPUSelectUKernels.h"
+#include "triton-shared/Codegen/Utils/GPUUtils.h"
+#include "triton-shared/Codegen/Utils/LinalgOpInfo.h"
+#include "triton-shared/Codegen/Utils/Utils.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "iree-llvmgpu-kernel-config"
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]: ")
@@ -105,8 +106,8 @@ static llvm::cl::opt<bool> clLLVMGPUEnablePrefetch(
 
 // static llvm::cl::opt<bool>
 //     clLLVMGPUUseIgemm("iree-codegen-llvmgpu-use-igemm",
-//                       llvm::cl::desc("Enable implicit gemm for convolutions."),
-//                       llvm::cl::init(true));
+//                       llvm::cl::desc("Enable implicit gemm for
+//                       convolutions."), llvm::cl::init(true));
 namespace {
 
 using CodeGenPipeline = IREE::Codegen::DispatchLoweringPassPipeline;
@@ -721,7 +722,6 @@ setMatmulVectorDistributionConfig(IREE::GPU::TargetAttr target,
       targetSubgroupSize, pipelineConfig);
 }
 
-
 static IREE::GPU::Basis projectBasis(const IREE::GPU::Basis &basis,
                                      ArrayRef<int64_t> projectedDims) {
   // Projection simply involves projecting the mapping and keeping the counts.
@@ -736,7 +736,6 @@ static IREE::GPU::Basis projectBasis(const IREE::GPU::Basis &basis,
   }
   return projectedBasis;
 }
-
 
 static LogicalResult
 setVectorDistributionConfig(IREE::GPU::TargetAttr target,
@@ -765,7 +764,6 @@ setVectorDistributionConfig(IREE::GPU::TargetAttr target,
                                                     linalgOp);
     }
   }
-
 
   LDBG("VectorDistribution: failed to find a suitable config");
   return failure();
@@ -1030,7 +1028,6 @@ static LogicalResult setContractConfig(IREE::GPU::TargetAttr target,
                          softwarePipelineDepthSimt,
                          CodeGenPipeline::LLVMGPUTileAndFuse);
 }
-
 
 //====---------------------------------------------------------------------===//
 // Sort Pipeline Configuration
@@ -1921,29 +1918,6 @@ LogicalResult initGPULaunchConfig(FunctionOpInterface funcOp) {
   if (!target)
     return funcOp.emitError("missing GPU target in #hal.executable.target");
 
-  auto exportOp = getEntryPoint(funcOp);
-  if (!getTranslationInfo(funcOp) && exportOp) {
-    // If no translation info set, first check whether we already have
-    // workgroup count set--it's a "contract" to indicate that we should
-    // bypass all tiling and distribution to go down just the most basic
-    // lowering flow.
-    if (Block *body = exportOp->getWorkgroupCountBody()) {
-      assert(false && "not implemented");
-      // auto retOp = cast<IREE::HAL::ReturnOp>(body->getTerminator());
-      // // For scalar dispatch cases--using just one thread of one workgroup.
-      // auto isOne = [](Value value) { return matchPattern(value, m_One()); };
-      // if (llvm::all_of(retOp.getOperands(), isOne)) {
-      //   SmallVector<int64_t, 3> workgroupSize = {1, 1, 1};
-      //   auto translationInfo = IREE::Codegen::TranslationInfoAttr::get(
-      //       funcOp.getContext(), CodeGenPipeline::LLVMGPUBaseLowering,
-      //       workgroupSize);
-      //   if (failed(setTranslationInfo(funcOp, translationInfo))) {
-      //     return failure();
-      //   }
-      //   return success();
-      // }
-    }
-  }
 
   SmallVector<Operation *> computeOps = getComputeOps(funcOp);
   if (IREE::Codegen::TranslationInfoAttr translationInfo =
@@ -1967,8 +1941,7 @@ LogicalResult initGPULaunchConfig(FunctionOpInterface funcOp) {
   // Find the root operation. linalg.generic, linalg.fill, and scatter are not
   // root operations if there are other compute operations present.
   for (Operation *op : llvm::reverse(computeOps)) {
-    if (!isa<linalg::GenericOp, linalg::FillOp>(
-            op)) {
+    if (!isa<linalg::GenericOp, linalg::FillOp>(op)) {
       rootOperation = op;
       break;
     }
@@ -1993,7 +1966,7 @@ LogicalResult initGPULaunchConfig(FunctionOpInterface funcOp) {
 
   if (!rootOperation) {
     for (Operation *op : llvm::reverse(computeOps)) {
-      if (isa< linalg::FillOp>(op)) {
+      if (isa<linalg::FillOp>(op)) {
         rootOperation = op;
         break;
       }

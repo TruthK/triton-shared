@@ -19,6 +19,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 
+#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUOps.h"
 namespace mlir::tts {
 
 static constexpr unsigned kNumMaxParallelDims = 3;
@@ -218,8 +219,8 @@ void sinkOpsInCFG(const SmallVector<Operation *> &allocs,
 // the inputs.
 bool hasFusedLeadingOp(linalg::LinalgOp rootOp);
 
-// std::optional<vector::VscaleRange>
-// getDefaultVscaleRange(IREE::GPU::ExecutableTargetAttr targetAttr);
+std::optional<vector::VscaleRange>
+getDefaultVscaleRange(IREE::GPU::ExecutableTargetAttr targetAttr);
 
 using DimBound = vector::ConstantOrScalableBound;
 using DimBoundSize = DimBound::BoundSize;

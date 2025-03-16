@@ -4,23 +4,10 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "iree/compiler/Dialect/LinalgExt/Transforms/Passes.h"
-
 #include <cstdint>
 
-// #include "iree/compiler/Codegen/Common/GPU/Passes.h"
-// #include "iree/compiler/Codegen/Common/Passes.h"
-#include "iree/compiler/Codegen/Dialect/GPU/TargetUtils/ConfigUtils.h"
-#include "iree/compiler/Codegen/Dialect/GPU/Transforms/Passes.h"
-#include "iree/compiler/Codegen/Dialect/VectorExt/Transforms/Passes.h"
-#include "iree/compiler/Codegen/LLVMGPU/Passes.h"
-#include "iree/compiler/Codegen/Utils/GPUUtils.h"
-#include "iree/compiler/Codegen/Utils/MarkerUtils.h"
-#include "iree/compiler/Codegen/Utils/Utils.h"
-#include "Utils/PassUtils.h"
-#include "llvm/ADT/STLForwardCompat.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h"
+// #include "triton-shared/Codegen/Common/GPU/Passes.h"
+// #include "triton-shared/Codegen/Common/Passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ComplexToStandard/ComplexToStandard.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
@@ -40,21 +27,34 @@
 #include "mlir/Pass/PassRegistry.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/Passes.h"
+#include "triton-shared/Codegen/Dialect/GPU/TargetUtils/ConfigUtils.h"
+#include "triton-shared/Codegen/Dialect/GPU/Transforms/Passes.h"
+#include "triton-shared/Codegen/Dialect/VectorExt/Transforms/Passes.h"
+#include "triton-shared/Codegen/LLVMGPU/Passes.h"
+#include "triton-shared/Codegen/Utils/GPUUtils.h"
+#include "triton-shared/Codegen/Utils/MarkerUtils.h"
+#include "triton-shared/Codegen/Utils/Utils.h"
+#include "triton-shared/Utils/PassUtils.h"
+#include "llvm/ADT/STLForwardCompat.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "iree-llvm-gpu-lowering-pass-pipeline"
 
-namespace mlir::iree_compiler {
+namespace mlir::tts {
 
 constexpr int64_t kDefaultSubgroupSize = 32;
 
-static llvm::cl::opt<ReorderWorkgroupsStrategy> clReorderWorkgroupsStrategy(
-    "iree-codegen-reorder-workgroups-strategy",
-    llvm::cl::desc("Reorder workgroup IDs using the selected strategy"),
-    llvm::cl::values(clEnumValN(ReorderWorkgroupsStrategy::None, "none",
-                                "No workgroup reordering"),
-                     clEnumValN(ReorderWorkgroupsStrategy::Transpose,
-                                "transpose", "Transpose")),
-    llvm::cl::init(ReorderWorkgroupsStrategy::None));
+static llvm::cl::opt<IREE::GPU::ReorderWorkgroupsStrategy>
+    clReorderWorkgroupsStrategy(
+        "iree-codegen-reorder-workgroups-strategy",
+        llvm::cl::desc("Reorder workgroup IDs using the selected strategy"),
+        llvm::cl::values(
+            clEnumValN(IREE::GPU::ReorderWorkgroupsStrategy::None, "none",
+                       "No workgroup reordering"),
+            clEnumValN(IREE::GPU::ReorderWorkgroupsStrategy::Transpose,
+                       "transpose", "Transpose")),
+        llvm::cl::init(IREE::GPU::ReorderWorkgroupsStrategy::None));
 
 static llvm::cl::opt<int64_t> clLLVMGPUSharedMemoryLimit(
     "iree-llvmgpu-shared-memory-limit",
@@ -137,12 +137,10 @@ static LogicalResult gpuCopyFn(OpBuilder &builder, Location loc, Value from,
   return success();
 }
 
-
-
 // Reconciles workgroup reordering strategy based on the pipeline `option` and
 // the CLI flag.
-static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
-    const std::optional<ReorderWorkgroupsStrategy> &option) {
+static IREE::GPU::ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
+    const std::optional<IREE::GPU::ReorderWorkgroupsStrategy> &option) {
   return option.value_or(clReorderWorkgroupsStrategy);
 }
 
@@ -153,15 +151,16 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 // static void addBufferizePasses(OpPassManager &funcPassManager) {
 //   BufferizationOptions::AllocationFn allocationFn = gpuAllocationFn;
 //   BufferizationOptions::MemCpyFn memcpyFn = gpuCopyFn;
-//   addIREEComprehensiveBufferizePasses(funcPassManager, allocationFn, memcpyFn);
-//   funcPassManager.addPass(createCanonicalizerPass());
+//   addIREEComprehensiveBufferizePasses(funcPassManager, allocationFn,
+//   memcpyFn); funcPassManager.addPass(createCanonicalizerPass());
 //   funcPassManager.addPass(createCSEPass());
 // }
 
 // static void tileAndDistributeToWorkgroup(
 //     OpPassManager &funcPassManager, bool useForall,
 //     std::optional<ConvertToDestinationPassingStylePassOptions>
-//         convertToDpsOptions = ConvertToDestinationPassingStylePassOptions{}) {
+//         convertToDpsOptions = ConvertToDestinationPassingStylePassOptions{})
+//         {
 //   if (useForall) {
 //     funcPassManager.addPass(
 //         createTileAndDistributeToWorkgroupsUsingForallOpPass());
@@ -252,8 +251,9 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 // static FailureOr<Value> gpuRequireMemSpaceAllocationFn(OpBuilder &builder,
 //                                                        Location loc,
 //                                                        MemRefType memRefType,
-//                                                        ValueRange dynamicSizes,
-//                                                        unsigned alignment) {
+//                                                        ValueRange
+//                                                        dynamicSizes, unsigned
+//                                                        alignment) {
 //   Attribute memorySpace = memRefType.getMemorySpace();
 //   // Bail out if the memref type specifies a nonnull memory space that is not
 //   // #gpu.address_space.
@@ -285,7 +285,8 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 //   funcPassManager.addPass(createGPUInferMemorySpacePass());
 //   BufferizationOptions::AllocationFn allocationFn =
 //       gpuRequireMemSpaceAllocationFn;
-//   BufferizationOptions::MemCpyFn memcpyFn = [](OpBuilder &builder, Location loc,
+//   BufferizationOptions::MemCpyFn memcpyFn = [](OpBuilder &builder, Location
+//   loc,
 //                                                Value from, Value to) {
 //     builder.create<memref::CopyOp>(loc, from, to);
 //     return success();
@@ -319,7 +320,8 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 // }
 
 // void addGPUTileAndFusePassPipeline(OpPassManager &funcPassManager,
-//                                    const GPUPipelineOptions &pipelineOptions) {
+//                                    const GPUPipelineOptions &pipelineOptions)
+//                                    {
 //   if (pipelineOptions.useIgemmConvolution) {
 //     funcPassManager.addPass(createConvolutionToIGEMMPass());
 //   }
@@ -353,8 +355,8 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 //     funcPassManager.addPass(createCSEPass());
 //   }
 
-//   // Step 3. Decompose pack and unpack ops and propagate the resulting reshapes.
-//   funcPassManager.addPass(createDecomposePackUnPackOpsPass(
+//   // Step 3. Decompose pack and unpack ops and propagate the resulting
+//   reshapes. funcPassManager.addPass(createDecomposePackUnPackOpsPass(
 //       DecomposePackUnPackOpsPassOptions{/*tileOuterToOne=*/false,
 //                                         /*useOnlyReshapes=*/true}));
 
@@ -386,8 +388,8 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 //   }
 //   funcPassManager.addPass(IREE::GPU::createDistributeMmaToLanesPass());
 
-//   // Step 4.5. Things that need to happen right after distribution to threads.
-//   funcPassManager.addPass(createGPULowerToUKernelsPass());
+//   // Step 4.5. Things that need to happen right after distribution to
+//   threads. funcPassManager.addPass(createGPULowerToUKernelsPass());
 
 //   // Normalize loop bounds for later lowerings.
 //   funcPassManager.addPass(iree_compiler::createNormalizeLoopBoundsPass(
@@ -527,7 +529,7 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 
 //   funcPassManager.addPass(createRemoveSingleIterationLoopPass());
 
-//   ReorderWorkgroupsStrategy reorderStrategy =
+//   IREE::GPU::ReorderWorkgroupsStrategy reorderStrategy =
 //       getReorderWorkgroupsStrategy(options.reorderStrategy);
 //   funcPassManager.addPass(
 //       createReorderWorkgroups(reorderStrategy, success()));
@@ -596,7 +598,7 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 
 //   funcPassManager.addPass(createRemoveSingleIterationLoopPass());
 
-//   ReorderWorkgroupsStrategy reorderStrategy =
+//   IREE::GPU::ReorderWorkgroupsStrategy reorderStrategy =
 //       getReorderWorkgroupsStrategy(options.reorderStrategy);
 //   funcPassManager.addPass(
 //       createReorderWorkgroups(reorderStrategy, success()));
@@ -687,8 +689,10 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 // // Vector Distribution
 // //===---------------------------------------------------------------------===//
 
-// // Matmul pipeline using vector distribution patterns to map to various tensor
-// // core operations. The current implementation below is unstable and is missing
+// // Matmul pipeline using vector distribution patterns to map to various
+// tensor
+// // core operations. The current implementation below is unstable and is
+// missing
 // // a few crucial pieces for performance (primarily software pipelining). The
 // // current flow is as follows.
 // //
@@ -705,9 +709,12 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 // // 6. Distribute to virtual lanes (i.e. threads in this case).
 // //
 // // Note that a few pieces here are subject to change in the immediate future.
-// // First, the shared memory promotion done here is in a sense a stopgap, as it
-// // won't compose well with what's available for bufferization/pipelining today.
-// // Second, distribution to more than one warp depends on either layout changes,
+// // First, the shared memory promotion done here is in a sense a stopgap, as
+// it
+// // won't compose well with what's available for bufferization/pipelining
+// today.
+// // Second, distribution to more than one warp depends on either layout
+// changes,
 // // or explicit distribution using `scf.forall`. For now this keeps it simple
 // // and gives us a starting point for generating code for matmuls in the first
 // // place.
@@ -743,8 +750,8 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 // static void addVectorBufferizePasses(OpPassManager &funcPassManager) {
 //   BufferizationOptions::AllocationFn allocationFn = gpuAllocationFn;
 //   BufferizationOptions::MemCpyFn memcpyFn = gpuCopyFn;
-//   addIREEComprehensiveBufferizePasses(funcPassManager, allocationFn, memcpyFn);
-//   funcPassManager.addPass(createCanonicalizerPass());
+//   addIREEComprehensiveBufferizePasses(funcPassManager, allocationFn,
+//   memcpyFn); funcPassManager.addPass(createCanonicalizerPass());
 //   funcPassManager.addPass(createCSEPass());
 // }
 
@@ -753,7 +760,7 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 //                                         bool usePadToModelSharedMemcpy) {
 //   tileAndDistributeToWorkgroup(funcPassManager, /*useForall=*/false);
 
-//   ReorderWorkgroupsStrategy reorderStrategy =
+//   IREE::GPU::ReorderWorkgroupsStrategy reorderStrategy =
 //       getReorderWorkgroupsStrategy(options.reorderStrategy);
 //   funcPassManager.addPass(
 //       createReorderWorkgroups(reorderStrategy, success()));
@@ -789,9 +796,12 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 //   funcPassManager.addPass(createLLVMGPUConfigureTensorLayoutsPass());
 //   funcPassManager.addPass(createIREELoopInvariantCodeMotionPass());
 
-//   // Generalize all named ops so that we can fold away unit extent dims. By this
-//   // point, all tiling is finished so the tiling configurations on those ops can
-//   // be safely dropped. This additionally allows vectorization of convolution to
+//   // Generalize all named ops so that we can fold away unit extent dims. By
+//   this
+//   // point, all tiling is finished so the tiling configurations on those ops
+//   can
+//   // be safely dropped. This additionally allows vectorization of convolution
+//   to
 //   // `vector.contract` as filter dimensions are expected to be tiled to 1 by
 //   // this point.
 //   funcPassManager.addPass(createLinalgGeneralizeNamedOpsPass());
@@ -959,15 +969,19 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 // //   funcPassManager.addPass(createCSEPass());
 // // }
 
-// // Add passes to make the address computation more explicit and optimize them.
+// // Add passes to make the address computation more explicit and optimize
+// them.
 // //
-// // The idea here is to be less dependent on what the LLVM backend is able to do,
-// // by heavy lifting most of the work while we still have the information about
+// // The idea here is to be less dependent on what the LLVM backend is able to
+// do,
+// // by heavy lifting most of the work while we still have the information
+// about
 // // loops.
 // //
 // // Note that this needs to run before SCF -> CF.
 // static void
-// addLowerAndOptimizeAddressComputationPasses(FunctionLikeNest &funcPassManager) {
+// addLowerAndOptimizeAddressComputationPasses(FunctionLikeNest
+// &funcPassManager) {
 //   funcPassManager.addPass(createExtractAddressComputationGPUPass)
 //       .addPass(memref::createExpandOpsPass)
 //       .addPass(memref::createFoldMemRefAliasOpsPass)
@@ -1009,7 +1023,8 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 //       .addPass(createCanonicalizerPass)
 //       .addPass(createCSEPass)
 
-//       // Pad allocations with dynamic dimension after linalg lowering but before
+//       // Pad allocations with dynamic dimension after linalg lowering but
+//       before
 //       // lowering SCF and affine ops.
 //       .addPass(createPadDynamicAllocPass)
 //       // Hoist any newly static allocations from PadDynamicAlloc.
@@ -1076,7 +1091,7 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 // void addGPUTransformDialectPasses(OpPassManager &funcPassManager,
 //                                   StringRef entryPoint) {
 //   funcPassManager.addPass(
-//       mlir::iree_compiler::createTransformDialectInterpreterPass(entryPoint));
+//       mlir::tts::createTransformDialectInterpreterPass(entryPoint));
 
 //   // Dropping the schedule is needed:
 //   //   1. if we want to embed the transform in the module: we should drop the
@@ -1153,11 +1168,11 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 //       mlir::createCanonicalizerPass());
 
 //   // Assign final executable constant and import ordinals.
-//   auto &variantPassManager = modulePassManager.nest<IREE::HAL::ExecutableOp>()
+//   auto &variantPassManager =
+//   modulePassManager.nest<IREE::HAL::ExecutableOp>()
 //                                  .nest<IREE::HAL::ExecutableVariantOp>();
 //   variantPassManager.addPass(createLLVMGPUAssignConstantOrdinalsPass());
 // }
-
 
 //===---------------------------------------------------------------------===//
 // Common Pass Registration
@@ -1165,7 +1180,7 @@ static ReorderWorkgroupsStrategy getReorderWorkgroupsStrategy(
 
 namespace common {
 #define GEN_PASS_REGISTRATION
-#include "iree/compiler/Codegen/LLVMGPU/Passes.h.inc"
+#include "triton-shared/Codegen/LLVMGPU/Passes.h.inc"
 } // namespace common
 
 void registerCodegenLLVMGPUPasses() {
@@ -1174,8 +1189,8 @@ void registerCodegenLLVMGPUPasses() {
 
   // static PassPipelineRegistration<> LLVMGPUConfigPipeline(
   //     "iree-codegen-llvmgpu-configuration-pipeline",
-  //     "Runs the translation strategy configuration pipeline on Linalg for GPU "
-  //     "on all functions in a module",
+  //     "Runs the translation strategy configuration pipeline on Linalg for GPU
+  //     " "on all functions in a module",
   //     [](OpPassManager &modulePassManager) {
   //       buildLLVMGPUCodegenConfigurationPassPipelineImpl(modulePassManager);
   //     });
@@ -1202,4 +1217,4 @@ void registerCodegenLLVMGPUPasses() {
   //     });
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

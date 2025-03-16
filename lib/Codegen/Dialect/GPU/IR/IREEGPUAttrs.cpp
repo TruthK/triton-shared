@@ -1349,23 +1349,33 @@ bool ExecutableTargetAttr::isGenericOf(
 // static
 ExecutableTargetAttr ExecutableTargetAttr::lookup(Operation *op) {
   auto *context = op->getContext();
-  auto attrId = StringAttr::get(context, "hal.executable.target");
+  auto attrId = StringAttr::get(context, "iree_gpu.executable.target");
+
+  // 1. 先检查当前操作是否直接有目标属性。
+  if (auto targetAttr =
+          op->getAttrOfType<IREE::GPU::ExecutableTargetAttr>(attrId))
+    return targetAttr;
+
+  // 2. 尝试检查所属模块的 'hal.device.targets' 属性。
+  if (auto module = op->getParentOfType<ModuleOp>()) {
+    if (auto targets =
+            mlir::dyn_cast<ArrayAttr>(module->getAttr("hal.device.targets"))) {
+      for (auto target : targets.getValue()) {
+        if (auto targetAttr =
+                mlir::dyn_cast<IREE::GPU::ExecutableTargetAttr>(target))
+          return targetAttr;
+      }
+    }
+  }
+
+  // 3. 如果还没找到，则继续向上递归查找父操作。
   while (op) {
-    assert(false && "lookup not implemented");
-    // Take directly from the enclosing variant.
-    // if (auto variantOp =
-    // llvm::dyn_cast<IREE::Codegen::ExecutableVariantOp>(op)) {
-    //   return variantOp.getTarget();
-    // }
-    // Use an override if specified.
-    auto attr = op->getAttrOfType<IREE::GPU::ExecutableTargetAttr>(attrId);
-    if (attr)
-      return attr;
-    // Continue walk.
+    if (auto targetAttr =
+            op->getAttrOfType<IREE::GPU::ExecutableTargetAttr>(attrId))
+      return targetAttr;
     op = op->getParentOp();
   }
-  // No target found during walk. No default to provide so fail and let the
-  // caller decide what to do (assert/fallback/etc).
+  // 如果最终仍未找到，则返回空（让调用者决定如何处理）。
   return nullptr;
 }
 
