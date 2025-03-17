@@ -4,7 +4,6 @@ get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
 
 add_llvm_executable(triton-shared-opt triton-shared-opt.cpp PARTIAL_SOURCES_INTENDED)
 
-# TODO: what's this?
 llvm_update_compile_flags(triton-shared-opt)
 target_link_libraries(triton-shared-opt PRIVATE
   TritonTransforms
@@ -19,6 +18,8 @@ target_link_libraries(triton-shared-opt PRIVATE
   MLIRPass
   MLIRTransforms
   IREECodegen
+  IREECodegenInterfaces
+  IREECodegenDialect
 )
 
 mlir_check_all_link_libraries(triton-shared-opt)

@@ -3,6 +3,8 @@ mlir_tablegen(TritonStructuredDialect.h.inc -gen-dialect-decls -dialect=tts)
 mlir_tablegen(TritonStructuredDialect.cpp.inc -gen-dialect-defs -dialect=tts)
 mlir_tablegen(TritonStructuredOps.h.inc -gen-op-decls)
 mlir_tablegen(TritonStructuredOps.cpp.inc -gen-op-defs)
+mlir_tablegen(TritonStructuredAttr.h.inc -gen-attrdef-decls -attrdefs-dialect=tts)
+mlir_tablegen(TritonStructuredAttr.cpp.inc -gen-attrdef-defs -attrdefs-dialect=tts)
 
 
 add_public_tablegen_target(TritonStructuredTableGen)

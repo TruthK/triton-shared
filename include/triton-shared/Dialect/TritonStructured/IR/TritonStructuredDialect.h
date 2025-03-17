@@ -4,6 +4,7 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OpDefinition.h"
+#include "mlir/IR/Attributes.h" 
 
 #include "triton/Dialect/Triton/IR/Dialect.h"
 
@@ -21,6 +22,10 @@ mlir::Value getScalarValue(mlir::Value operand, mlir::Location loc,
 //===----------------------------------------------------------------------===//
 #include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h.inc"
 
+// Include the auto-generated attribute definitions
+#define GET_ATTRDEF_CLASSES
+#include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredAttr.h.inc"
+#undef GET_ATTRDEF_CLASSES
 // Include the auto-generated header file containing the declarations of the
 // TritonStructured operations.
 #define GET_OP_CLASSES

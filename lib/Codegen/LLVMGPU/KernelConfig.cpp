@@ -47,23 +47,23 @@ namespace mlir::tts {
 llvm::cl::opt<bool> clGPUTestTileAndFuseMatmul(
     "iree-codegen-llvmgpu-test-tile-and-fuse-matmul",
     llvm::cl::desc("test the the tile and fuse pipeline for matmul"),
-    llvm::cl::init(true));
+    llvm::cl::init(false));
 
 llvm::cl::opt<bool> clGPUTestTileAndFuseVectorize(
     "iree-codegen-llvmgpu-test-tile-and-fuse-vectorize",
     llvm::cl::desc(
         "test the tile and fuse pipeline for all supported operations"),
-    llvm::cl::init(true));
+    llvm::cl::init(false));
 
 llvm::cl::opt<bool> clLLVMGPUVectorizePipeline(
     "iree-codegen-llvmgpu-vectorize-pipeline",
     llvm::cl::desc("forces use of the legacy LLVMGPU vectorize pipeline"),
-    llvm::cl::init(true));
+    llvm::cl::init(false));
 
 llvm::cl::opt<bool> clGPUEnableVectorDistribution(
     "iree-codegen-llvmgpu-use-vector-distribution",
     llvm::cl::desc("enable the usage of the vector distribution pipeline"),
-    llvm::cl::init(true));
+    llvm::cl::init(false));
 
 // TODO (nirvedhmeshram): Drop this whole path after we have support with
 // TileAndFuse pipeline from completion of
@@ -1917,7 +1917,6 @@ LogicalResult initGPULaunchConfig(FunctionOpInterface funcOp) {
   IREE::GPU::TargetAttr target = getGPUTargetAttr(funcOp);
   if (!target)
     return funcOp.emitError("missing GPU target in #hal.executable.target");
-
 
   SmallVector<Operation *> computeOps = getComputeOps(funcOp);
   if (IREE::Codegen::TranslationInfoAttr translationInfo =

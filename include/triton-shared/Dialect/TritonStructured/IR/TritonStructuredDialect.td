@@ -4,6 +4,7 @@
 include "mlir/IR/OpBase.td"
 include "triton/Dialect/Triton/IR/TritonTypes.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/IR/AttrTypeBase.td"
 
 def Triton_Structured_Dialect : Dialect {
   let name = "tts";
@@ -19,8 +20,26 @@ def Triton_Structured_Dialect : Dialect {
   let dependentDialects = [
     "triton::TritonDialect"
   ];
-
+  let extraClassDeclaration = [{
+    void initializeTritonStructuredAttrs();
+     void printAttribute(Attribute attr,
+                      DialectAsmPrinter &printer) const override;
+  Attribute parseAttribute(DialectAsmParser &parser, Type type) const override;
+  }];
   let usePropertiesForAttributes = 1;
+}
+
+//
+// Attributes
+//
+
+class TritonStructured_Attr<string name, string attrMnemonic, list<Trait> traits = []>
+    : AttrDef<Triton_Structured_Dialect, name, traits> {
+  let mnemonic = attrMnemonic;
+}
+
+def TritonPtrAttr : TritonStructured_Attr<"TritonPtr", "triton_ptr"> {
+  let summary = "Attribute to indicate if a pointer is from Triton";
 }
 
 //
@@ -252,5 +271,4 @@ def TTS_StoreOp : TTS_Op<"store", [
   //let hasCustomAssemblyFormat = 1;
   //let hasVerifier = 1;
 }
-
 #endif // TRITON_STRUCTURED_DIALECT

@@ -1,6 +1,7 @@
 add_triton_library(TritonStructuredIR
   TritonStructuredOps.cpp
   TritonStructuredDialect.cpp
+  TritonStructuredAttr.cpp
 
   DEPENDS
   TritonStructuredTableGen
@@ -8,4 +9,5 @@ add_triton_library(TritonStructuredIR
   LINK_LIBS PUBLIC
   TritonIR
   MLIRIR
+  MLIRSupport
   )

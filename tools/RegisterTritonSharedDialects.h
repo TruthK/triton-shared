@@ -26,6 +26,9 @@
 #include "triton/Dialect/Triton/Transforms/Passes.h"
 #include "triton/Dialect/TritonGPU/IR/Dialect.h"
 #include "triton/Dialect/TritonGPU/Transforms/Passes.h"
+#include "triton-shared/Codegen/Interfaces/Interfaces.h"
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenDialect.h"
+#include "triton-shared/Codegen/Passes.h"
 
 namespace mlir {
 namespace test {
@@ -52,6 +55,10 @@ inline void registerTritonSharedDialects(mlir::DialectRegistry &registry) {
   mlir::triton::registerTritonToUnstructuredPasses();
   mlir::triton::registerTritonArithToLinalgPasses();
   mlir::triton::registerStructuredToMemrefPasses();
+  mlir::tts::registerCodegenInterfaces(registry);
+  mlir::tts::registerUKernelBufferizationInterface(registry);
+  mlir::tts::registerCodegenPasses();
+
 
   registry.insert<mlir::ttx::TritonTilingExtDialect,
                   mlir::tts::TritonStructuredDialect,

@@ -29,6 +29,8 @@
 #include <cassert>
 #include <cstddef>
 
+#define DEBUG_TYPE "simplify-tts-make-tptr"
+
 using namespace mlir;
 
 namespace {

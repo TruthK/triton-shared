@@ -14,6 +14,13 @@
 #include "triton-shared/Conversion/StructuredToMemref/StructuredToMemref.h"
 #include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/MemRef/IR//MemRef.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
+#include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
@@ -24,13 +31,6 @@
 #include "mlir/IR/Types.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/DialectConversion.h"
-
-#include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
-#include "mlir/Dialect/Linalg/IR/Linalg.h"
-#include "mlir/Dialect/MemRef/IR//MemRef.h"
-#include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/Dialect/Utils/StaticValueUtils.h"
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
@@ -590,6 +590,7 @@ private:
   LogicalResult
   rewriteStructuredLoad(tts::LoadOp op, OpAdaptor adaptor,
                         ConversionPatternRewriter &rewriter) const {
+    MLIRContext *context = op->getContext();
     auto loc = op->getLoc();
     Value ptr = adaptor.getPtr();
     auto tensorType = cast<RankedTensorType>(op.getType());
@@ -597,11 +598,14 @@ private:
     // Create empty tensor initialized with zeros
     auto emptyOp = rewriter.create<tensor::EmptyOp>(
         loc, tensorType.getShape(), tensorType.getElementType());
+    emptyOp->setAttr("triton_ptr", mlir::tts::TritonPtrAttr::get(context));
     Value zeroVal = rewriter.create<arith::ConstantOp>(
         loc, rewriter.getZeroAttr(tensorType.getElementType()));
-    Value filledTensor =
+    auto filledTensor =
         rewriter.create<linalg::FillOp>(loc, zeroVal, emptyOp.getResult())
             .getResult(0);
+    filledTensor.getDefiningOp()->setAttr(
+        "triton_ptr", mlir::tts::TritonPtrAttr::get(context));
 
     // Handle wrapped memory cases
     if (auto castOp = ptr.getDefiningOp<UnrealizedConversionCastOp>()) {
@@ -632,6 +636,9 @@ private:
           sizes, // 使用转换后的sizes
           SmallVector<OpFoldResult>(tensorType.getRank(),
                                     rewriter.getIndexAttr(1)));
+
+      inserted.getDefiningOp()->setAttr("triton_ptr",
+                                        mlir::tts::TritonPtrAttr::get(context));
       rewriter.replaceOp(op, inserted);
     }
     return success();
@@ -640,6 +647,7 @@ private:
   /// Handles conversion for masked loads with boundary checks.
   LogicalResult rewriteMaskedLoad(tts::LoadOp op, OpAdaptor adaptor,
                                   ConversionPatternRewriter &rewriter) const {
+    MLIRContext *context = op->getContext();
     auto loc = op->getLoc();
     Value ptr = adaptor.getPtr();
     auto tensorType = cast<RankedTensorType>(op.getType());
@@ -647,6 +655,7 @@ private:
     // Create padded tensor initialized with out-of-bound values
     auto emptyOp = rewriter.create<tensor::EmptyOp>(
         loc, tensorType.getShape(), tensorType.getElementType());
+    emptyOp->setAttr("triton_ptr", mlir::tts::TritonPtrAttr::get(context));
     Value paddingVal =
         op.getOther()
             ? op.getOther()
@@ -657,6 +666,8 @@ private:
     Value paddedTensor =
         rewriter.create<linalg::FillOp>(loc, paddingVal, emptyTensor)
             .getResult(0);
+    paddedTensor.getDefiningOp()->setAttr(
+        "triton_ptr", mlir::tts::TritonPtrAttr::get(context));
 
     // Handle wrapped memory cases
     if (auto castOp = ptr.getDefiningOp<UnrealizedConversionCastOp>()) {
@@ -698,6 +709,8 @@ private:
           mixedDims,
           SmallVector<OpFoldResult>(tensorType.getRank(),
                                     rewriter.getIndexAttr(1)));
+      inserted.getDefiningOp()->setAttr(
+          "triton_ptr", mlir::tts::TritonPtrAttr::get(context));
       rewriter.replaceOp(op, inserted);
     }
     return success();
