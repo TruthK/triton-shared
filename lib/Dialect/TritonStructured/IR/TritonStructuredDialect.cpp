@@ -10,18 +10,26 @@
 using namespace mlir;
 using namespace mlir::tts;
 
-void mlir::tts::TritonStructuredDialect::printAttribute(Attribute attr,
-                                                       DialectAsmPrinter &printer) const {
+void mlir::tts::TritonStructuredDialect::printAttribute(
+    Attribute attr, DialectAsmPrinter &printer) const {
   if (auto tritonPtrAttr = dyn_cast<TritonPtrAttr>(attr)) {
     printer << "triton_ptr";
     return;
   }
 }
-Attribute mlir::tts::TritonStructuredDialect::parseAttribute(DialectAsmParser &parser,
-                                                  Type type) const {
-  if (parser.parseKeyword("triton_ptr"))
-    return Attribute();
-  return TritonPtrAttr::get(parser.getContext());
+Attribute
+mlir::tts::TritonStructuredDialect::parseAttribute(DialectAsmParser &parser,
+                                                   Type type) const {
+
+   StringRef mnemonic;
+    if (parser.parseKeyword(&mnemonic))
+        return Attribute();
+
+    if (mnemonic == "triton_ptr") {
+        return TritonPtrAttr::get(parser.getContext());
+    }
+  parser.emitError(parser.getCurrentLocation(), "unknown attribute");
+  return Attribute();
 }
 
 /// Dialect creation, the instance will be owned by the context. This is the

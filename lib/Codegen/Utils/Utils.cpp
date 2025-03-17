@@ -1492,8 +1492,15 @@ bool hasFusedLeadingOp(linalg::LinalgOp rootOp) {
     getBackwardSlice(operand->get(), &tmpBackwardSlice, options);
     backwardSlice.set_union(tmpBackwardSlice);
   }
-
-  return llvm::any_of(backwardSlice, llvm::IsaPred<linalg::LinalgOp>);
+  return llvm::any_of(backwardSlice, [](Operation *op) {
+    if (auto linalgOp = dyn_cast<linalg::LinalgOp>(op)) {
+      llvm::dbgs() << "linalgOp: ";
+      linalgOp.dump();
+      llvm::dbgs() << "\n";
+      return !linalgOp->hasAttr("triton_ptr");
+    }
+    return false;
+  });
 }
 
 std::optional<vector::VscaleRange>

@@ -598,7 +598,6 @@ private:
     // Create empty tensor initialized with zeros
     auto emptyOp = rewriter.create<tensor::EmptyOp>(
         loc, tensorType.getShape(), tensorType.getElementType());
-    emptyOp->setAttr("triton_ptr", mlir::tts::TritonPtrAttr::get(context));
     Value zeroVal = rewriter.create<arith::ConstantOp>(
         loc, rewriter.getZeroAttr(tensorType.getElementType()));
     auto filledTensor =
@@ -637,8 +636,6 @@ private:
           SmallVector<OpFoldResult>(tensorType.getRank(),
                                     rewriter.getIndexAttr(1)));
 
-      inserted.getDefiningOp()->setAttr("triton_ptr",
-                                        mlir::tts::TritonPtrAttr::get(context));
       rewriter.replaceOp(op, inserted);
     }
     return success();
@@ -655,7 +652,6 @@ private:
     // Create padded tensor initialized with out-of-bound values
     auto emptyOp = rewriter.create<tensor::EmptyOp>(
         loc, tensorType.getShape(), tensorType.getElementType());
-    emptyOp->setAttr("triton_ptr", mlir::tts::TritonPtrAttr::get(context));
     Value paddingVal =
         op.getOther()
             ? op.getOther()
@@ -709,8 +705,6 @@ private:
           mixedDims,
           SmallVector<OpFoldResult>(tensorType.getRank(),
                                     rewriter.getIndexAttr(1)));
-      inserted.getDefiningOp()->setAttr(
-          "triton_ptr", mlir::tts::TritonPtrAttr::get(context));
       rewriter.replaceOp(op, inserted);
     }
     return success();

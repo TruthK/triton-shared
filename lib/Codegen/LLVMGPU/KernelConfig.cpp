@@ -84,7 +84,7 @@ llvm::cl::opt<bool> clGPUUseTileAndFuseConvolution(
 llvm::cl::opt<bool>
     clGPUUseWMMA("iree-codegen-llvmgpu-use-wmma",
                  llvm::cl::desc("force use of wmma operations for tensorcore"),
-                 llvm::cl::init(true));
+                 llvm::cl::init(false));
 
 /// Flag used to toggle using mma.sync vs wmma when targetting tensorcore.
 llvm::cl::opt<bool>
