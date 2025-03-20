@@ -4,6 +4,7 @@ add_subdirectory(Interfaces)
 add_subdirectory(Utils)
 add_subdirectory(LLVMGPU)
 add_subdirectory(Transforms)
+add_subdirectory(Common)
 
 
 add_triton_library(IREECodegen

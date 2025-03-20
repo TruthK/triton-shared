@@ -1137,10 +1137,10 @@ struct RemoveDeadMemAllocs : RewritePattern {
 // };
 // } // namespace
 
-// void populateRemoveDeadMemAllocPatterns(RewritePatternSet &patterns) {
-//   patterns.insert<RemoveDeadMemAllocs>(patterns.getContext());
-//   patterns.insert<RemoveDeadInterfaceBindings>(patterns.getContext());
-// }
+void populateRemoveDeadMemAllocPatterns(RewritePatternSet &patterns) {
+  patterns.insert<RemoveDeadMemAllocs>(patterns.getContext());
+  // patterns.insert<RemoveDeadInterfaceBindings>(patterns.getContext());
+}
 
 // void analyseAllocsForPacking(mlir::FunctionOpInterface funcOp,
 //                              ArrayRef<Operation *> allocs,

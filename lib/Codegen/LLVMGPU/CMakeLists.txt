@@ -102,7 +102,7 @@ add_triton_library(IREECodegenLLVMGPU
   IREECodegenPartitionableLoopsInterface
   IREECodegenUKernelOpInterface
   IREECodegenUtils
-  IREECodegenTransforms
+  IREECodegenTransformss
   IREECodegenVectorOpUtils
   TTSUtils
 )
@@ -111,4 +111,3 @@ add_triton_library(IREECodegenLLVMGPU
 # iree::compiler::Codegen::Common::TransformDialectInterpreterPass
 # iree::compiler::Codegen::Common::VectorLayoutAnalysis
 # iree::compiler::Codegen::LLVMGPU::Utils
-# iree::compiler::Codegen::Transforms

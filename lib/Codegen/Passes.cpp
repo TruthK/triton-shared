@@ -12,7 +12,7 @@
 //===---------------------------------------------------------------------===//
 // #include "triton-shared/Codegen/Common/CPU/Passes.h"
 // #include "triton-shared/Codegen/Common/GPU/Passes.h"
-// #include "triton-shared/Codegen/Common/Passes.h"
+#include "triton-shared/Codegen/Common/Passes.h"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Affine/TransformOps/AffineTransformOps.h"
@@ -151,7 +151,7 @@ void registerTransformDialectTranslationDependentDialects(
 
 void registerCodegenPasses() {
   // Generated.
-  // registerCodegenCommonPasses();
+  registerCodegenCommonPasses();
   // registerCodegenCommonGPUPasses();
   registerCodegenLLVMGPUPasses();
   registerIREEGPUPasses();

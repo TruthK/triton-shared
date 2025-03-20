@@ -3,8 +3,6 @@ add_triton_library(IREECodegenLLVMGPUUtils
     LLVMGPUSelectUKernels.cpp
     LLVMGPUUtils.cpp
     PrefetchSharedMemoryCopy.cpp
-  DEPENDS
-  IREECodegenTransforms
 
   LINK_LIBS PUBLIC
     LLVMSupport
@@ -27,7 +25,7 @@ add_triton_library(IREECodegenLLVMGPUUtils
     MLIRAnalysis
     MLIRTransforms
     TTSUtils
-    IREECodegenTransforms
+    IREECodegenTransformss
     IREEGPUDialect
     IREEVectorExtDialect
     IREECodegenUtils

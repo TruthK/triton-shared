@@ -104,7 +104,7 @@ void populateRemoveSingleIterationLoopPattern(RewritePatternSet &patterns,
 // void populateReshapeToInterfaceTensorPatterns(RewritePatternSet &patterns);
 
 /// Populate patterns that remove dead allocations
-// void populateRemoveDeadMemAllocPatterns(RewritePatternSet &patterns);
+void populateRemoveDeadMemAllocPatterns(RewritePatternSet &patterns);
 
 // Group of Alloc operations that have overlapping liveranges.
 using AliasGroup = SmallVector<Operation *, 6u>;
