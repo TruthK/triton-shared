@@ -8,8 +8,8 @@ add_triton_library(IREECodegenLLVMGPU
  Passes.cpp
  Verifiers.cpp
  LLVMGPUCodegen.cpp
+ LLVMGPUTileAndDistribute.cpp
  
-
   DEPENDS
     LLVMGPUCodegenPassIncGen
 
@@ -92,7 +92,7 @@ add_triton_library(IREECodegenLLVMGPU
   IREECodegenVectorOpUtils
   IREECodegenLLVMGPUUtils
   IREECodegenCommon
+  IREECodegenCommonGPUPasses
 )
-# iree::compiler::Codegen::Common::GPU::CommonGPUPasses
 # iree::compiler::Codegen::Common::TransformDialectInterpreterPass
 # iree::compiler::Codegen::Common::VectorLayoutAnalysis

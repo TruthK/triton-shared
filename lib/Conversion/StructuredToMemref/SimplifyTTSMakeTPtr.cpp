@@ -607,12 +607,12 @@ private:
         getDimComparisonParams(op, d);
     if (!paramsOpt)
       return false;
- LLVM_DEBUG({
-    // For debugging purposes:
-    llvm::errs() << "Dimension " << d << ": tensorDimSize = ";
-    paramsOpt->tensorDimSize.getDefiningOp()->dump();
-    llvm::errs() << ", dimOffset = ";
-    paramsOpt->dimOffset.getDefiningOp()->dump();
+    LLVM_DEBUG({
+      // For debugging purposes:
+      llvm::errs() << "Dimension " << d << ": tensorDimSize = ";
+      paramsOpt->tensorDimSize.getDefiningOp()->dump();
+      llvm::errs() << ", dimOffset = ";
+      paramsOpt->dimOffset.getDefiningOp()->dump();
       llvm::errs() << ", blockDimSize = " << paramsOpt->blockDimSize << "\n";
     });
 
@@ -667,16 +667,17 @@ private:
     Value added = rewriter.create<arith::AddIOp>(loc, offsetVal, blockSize);
     Value newMask = rewriter.create<arith::MinSIOp>(loc, added, shapeVal);
 
-    llvm::outs() << "getMaskDims: " << loadOp.getMaskDims().size() << "\n";
-    llvm::outs() << "getMaskDims: " << loadOp.getStaticMaskDims().size()
-                 << "\n";
+    LLVM_DEBUG({
+      llvm::outs() << "getMaskDims: " << loadOp.getMaskDims().size() << "\n";
+      llvm::outs() << "getMaskDims: " << loadOp.getStaticMaskDims().size()
+                   << "\n";
 
-    for (auto dim : loadOp.getStaticMaskDims())
-      llvm::dbgs() << "\t" << dim << "\n";
+      for (auto dim : loadOp.getStaticMaskDims())
+        llvm::dbgs() << "\t" << dim << "\n";
 
-    for (auto dim : loadOp.getMaskDims())
-      llvm::dbgs() << "\t" << dim << "\n";
-
+      for (auto dim : loadOp.getMaskDims())
+        llvm::dbgs() << "\t" << dim << "\n";
+    });
     // 更新mask_dims
     SmallVector<OpFoldResult> newMaskDims;
     int index = 0;
@@ -692,9 +693,11 @@ private:
         }
       }
     }
-    llvm::dbgs() << "\n";
-    for (auto dim : newMaskDims)
-      llvm::dbgs() << "\t" << dim << "\n";
+    LLVM_DEBUG({
+      llvm::dbgs() << "\n";
+      for (auto dim : newMaskDims)
+        llvm::dbgs() << "\t" << dim << "\n";
+    });
     rewriter.replaceOpWithNewOp<tts::LoadOp>(loadOp, loadOp.getPtr(),
                                              newMaskDims, loadOp.getOther());
   }

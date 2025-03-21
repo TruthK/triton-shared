@@ -1,75 +1,65 @@
-add_subdirectory(GPU)
-
-add_triton_library(IREECodegenCommon
-    CleanupBufferAllocViewPass.cpp
-    ConfigTrackingCanonicalizer.cpp
-    IREEComprehensiveBufferizePass.cpp
+add_triton_library(IREECodegenCommonGPUPasses
+    GPUPatterns.cpp
+    GPUMultiBuffering.cpp
     Passes.cpp
-    ReplaceSlowMinMaxOps.cpp
-    TileDispatchUsingForall.cpp
-    TileDispatchUsingInterface.cpp
-    PassUtils.cpp
-    
-DEPENDS
-    CommonCodegenPassIncGen
-LINK_LIBS PUBLIC
+    WorkgroupReordering.cpp
+
+  DEPENDS
+    CommonGPUPassIncGen
+
+  LINK_LIBS PUBLIC
     LLVMSupport
-    MLIRAffineAnalysis
+    MLIRAMDGPUDialect
     MLIRAffineDialect
     MLIRAffineTransforms
     MLIRAffineUtils
     MLIRAnalysis
     MLIRArithDialect
-    MLIRArithTransforms
     MLIRArithUtils
     MLIRBufferizationDialect
-    MLIRBufferizationTransforms
-    MLIRBytecodeWriter
+    MLIRControlFlowDialect
     MLIRDestinationStyleOpInterface
     MLIRFuncDialect
-    MLIRFuncTransforms
     MLIRFunctionInterfaces
     MLIRGPUDialect
+    MLIRGPUTransformOps
+    MLIRGPUTransforms
+    MLIRGPUUtils
     MLIRIR
     MLIRLLVMCommonConversion
-    MLIRLLVMDialect
     MLIRLinalgDialect
     MLIRLinalgTransforms
     MLIRLinalgUtils
     MLIRLoopLikeInterface
-    MLIRMathDialect
-    MLIRMathTransforms
     MLIRMemRefDialect
     MLIRMemRefTransforms
-    MLIRMemRefUtils
-    MLIRParser
+    MLIRNVGPUDialect
     MLIRPass
+    MLIRRewrite
     MLIRSCFDialect
-    MLIRSCFToControlFlow
     MLIRSCFTransforms
     MLIRSCFUtils
     MLIRSideEffectInterfaces
-    MLIRSubsetOpInterface
     MLIRSupport
     MLIRTensorDialect
     MLIRTensorTransforms
-    MLIRTensorUtils
     MLIRTilingInterface
-    MLIRTransformDialect
     MLIRTransformUtils
     MLIRTransforms
     MLIRValueBoundsOpInterface
     MLIRVectorDialect
+    MLIRVectorToSCF
     MLIRVectorTransforms
-    MLIRViewLikeInterface
-    IREECodegenTransforms
+    IREECodegenCommon
     IREECodegenDialect
     IREECodegenDialectUtils
     IREEGPUDialect
     IREEVectorExtDialect
-    IREECodegenBufferizationInterfaces
     IREECodegenPartitionableLoopsInterface
-    IREECodegenUKernelOpInterface
-    IREEEncodingDialect
+    IREECodegenTransforms
     IREECodegenUtils
+    IREECodegenVectorOpUtils
 )
+
+# iree::compiler::Codegen::Common::VectorLayoutAnalysis
+# iree::compiler::Codegen::Dialect::GPU::Transforms::GPUTransforms

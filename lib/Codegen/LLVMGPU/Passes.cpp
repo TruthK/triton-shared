@@ -6,7 +6,6 @@
 
 #include <cstdint>
 
-// #include "triton-shared/Codegen/Common/GPU/Passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ComplexToStandard/ComplexToStandard.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
@@ -27,6 +26,7 @@
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/Passes.h"
 
+#include "triton-shared/Codegen/Common/GPU/Passes.h"
 #include "triton-shared/Codegen/Common/PassUtils.h"
 #include "triton-shared/Codegen/Common/Passes.h"
 #include "triton-shared/Codegen/Dialect/GPU/TargetUtils/ConfigUtils.h"
@@ -138,6 +138,27 @@ static LogicalResult gpuCopyFn(OpBuilder &builder, Location loc, Value from,
     builder.create<gpu::BarrierOp>(loc);
   }
   return success();
+}
+
+// Returns success when workgroup reordering is supported / enabled for
+// `funcOp`. On ROCm, we require workgroup counts to be static.
+static LogicalResult canReorderWorkgroups(FunctionOpInterface funcOp) {
+  auto target = IREE::GPU::ExecutableTargetAttr::lookup(funcOp);
+  if (!target) {
+    return failure();
+  }
+  if (target.getBackend() != "rocm")
+    return success();
+
+  // Workgroup reordering on ROCm currently requires all workgrup counts to be
+  // static.
+  SmallVector<int64_t> workgroupCounts = getStaticNumWorkgroups(funcOp);
+  if (llvm::any_of(workgroupCounts, ShapedType::isDynamic))
+    return failure();
+
+  // This is further restricted to 2D+ grids as we reorder along the X and Y
+  // workgroup IDs.
+  return success(workgroupCounts.size() >= 2);
 }
 
 // Reconciles workgroup reordering strategy based on the pipeline `option` and
@@ -537,7 +558,7 @@ void addGPUTileAndFusePassPipeline(OpPassManager &funcPassManager,
 //   IREE::GPU::ReorderWorkgroupsStrategy reorderStrategy =
 //       getReorderWorkgroupsStrategy(options.reorderStrategy);
 //   funcPassManager.addPass(
-//       createReorderWorkgroups(reorderStrategy, success()));
+//       createReorderWorkgroups(reorderStrategy, canReorderWorkgroups));
 
 //   funcPassManager.addPass(createCanonicalizerPass());
 //   funcPassManager.addPass(createCSEPass());
@@ -591,25 +612,25 @@ void addGPUMatmulTensorCoreMmaSyncPassPipeline(
   tileAndBufferize(funcPassManager);
 
   // Distribute linalg onto warps within the workgroup.
-  // funcPassManager.addPass(
-  //     createLLVMGPUTileAndDistributePass(/*distributeToWarp=*/true));
+  funcPassManager.addPass(
+      createLLVMGPUTileAndDistributePass(/*distributeToWarp=*/true));
   // funcPassManager.addPass(createRemoveSingleIterationLoopPass());
-  // if (pipelineDepth > 1) {
-  //   funcPassManager.addPass(createGPUMultiBufferingPass(
-  //       GPUMultiBufferingPassOptions{pipelineDepth}));
-  // }
-  // funcPassManager.addPass(createCanonicalizerPass());
-  // funcPassManager.addPass(createCSEPass());
+  if (pipelineDepth > 1) {
+    funcPassManager.addPass(createGPUMultiBufferingPass(
+        GPUMultiBufferingPassOptions{pipelineDepth}));
+  }
+  funcPassManager.addPass(createCanonicalizerPass());
+  funcPassManager.addPass(createCSEPass());
 
   // funcPassManager.addPass(createRemoveSingleIterationLoopPass());
 
-  // IREE::GPU::ReorderWorkgroupsStrategy reorderStrategy =
-  //     getReorderWorkgroupsStrategy(options.reorderStrategy);
-  // funcPassManager.addPass(
-  //     createReorderWorkgroups(reorderStrategy, success()));
+  IREE::GPU::ReorderWorkgroupsStrategy reorderStrategy =
+      getReorderWorkgroupsStrategy(options.reorderStrategy);
+  funcPassManager.addPass(
+      createReorderWorkgroups(reorderStrategy, canReorderWorkgroups));
 
-  // funcPassManager.addPass(createCanonicalizerPass());
-  // funcPassManager.addPass(createCSEPass());
+  funcPassManager.addPass(createCanonicalizerPass());
+  funcPassManager.addPass(createCSEPass());
 
   // // Linalg -> vector
   // funcPassManager.addPass(
@@ -775,7 +796,7 @@ void addGPUMatmulTensorCoreMmaSyncPassPipeline(
 //   IREE::GPU::ReorderWorkgroupsStrategy reorderStrategy =
 //       getReorderWorkgroupsStrategy(options.reorderStrategy);
 //   funcPassManager.addPass(
-//       createReorderWorkgroups(reorderStrategy, success()));
+//       createReorderWorkgroups(reorderStrategy, canReorderWorkgroups));
 
 //   if (usePadToModelSharedMemcpy) {
 //     funcPassManager.addPass(createLLVMGPUPromoteMatmulToFitMMAPass());

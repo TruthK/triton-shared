@@ -8,6 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/BuiltinAttributes.h"
 #include "triton-shared/Analysis/MaskAnalysis.h"
 #include "triton-shared/Analysis/OpFoldResultUtils.h"
 #include "triton-shared/Analysis/PtrAnalysis.h"
@@ -1180,6 +1181,8 @@ struct MatmulConverter : public OpConversionPattern<triton::DotOp> {
       } else {
         res = rewriter.create<arith::AddFOp>(loc, opc, res);
       }
+      res.getDefiningOp()->setAttr("dot_c",
+                                   UnitAttr::get(rewriter.getContext()));
     }
 
     rewriter.replaceOp(op, res);
@@ -1886,8 +1889,8 @@ struct DenseConstantConverter : public OpConversionPattern<arith::ConstantOp> {
 
     auto fillOp = rewriter.replaceOpWithNewOp<linalg::FillOp>(
         op, ValueRange{splatConst}, ValueRange{init});
-    fillOp->setAttr(
-        "triton_ptr", mlir::tts::TritonPtrAttr::get(rewriter.getContext()));
+    fillOp->setAttr("triton_ptr",
+                    mlir::tts::TritonPtrAttr::get(rewriter.getContext()));
 
     return success();
   }
@@ -2144,10 +2147,15 @@ bool isElementwiseMappableOpOnRankedTensors(Operation *op) {
 SmallVector<Value, 4> getOrCreateOperandsMatchingResultTypes(OpBuilder &b,
                                                              Operation *op) {
   assert(isElementwiseMappableOpOnRankedTensors(op));
+  SmallVector<Value, 4> res;
+  if(op->getAttr("dot_c")){
+    op->dump();
+    res.push_back(op->getOperand(0));
+    return res;
+  }
   Location loc = op->getLoc();
   ValueRange operands = op->getOperands();
   TypeRange rankedTensorTypes = op->getResultTypes();
-  SmallVector<Value, 4> res;
   res.reserve(rankedTensorTypes.size());
   for (Type t : rankedTensorTypes) {
     // 始终创建新的tensor.empty操作，忽略原有操作数的匹配检查
@@ -2176,7 +2184,7 @@ struct ConvertTTSAnyElementwiseMappableOpOnRankedTensors
     SmallVector<utils::IteratorType, 6> iteratorTypes(
         rank, utils::IteratorType::parallel);
     auto outputs = getOrCreateOperandsMatchingResultTypes(rewriter, op);
-    rewriter.replaceOpWithNewOp<linalg::GenericOp>(
+    auto x = rewriter.replaceOpWithNewOp<linalg::GenericOp>(
         op, /*resultTensorTypes=*/op->getResultTypes(),
         /*inputs=*/op->getOperands(),
         /*outputs=*/outputs,
@@ -2194,6 +2202,7 @@ struct ConvertTTSAnyElementwiseMappableOpOnRankedTensors
                              resultTypes, op->getAttrs());
           builder.create<linalg::YieldOp>(loc, scalarOp->getResults());
         });
+        x->dump();
     return success();
   }
 };
