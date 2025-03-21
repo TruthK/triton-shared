@@ -370,12 +370,15 @@ template void hoistStaticallyBoundAllocationsInFunc<memref::AllocaOp>(
 //   auto slicedOps = llvm::to_vector(slice);
 //   mlir::computeTopologicalSorting(slicedOps);
 
-//   // Insert the slice into workgroup count region with all `hal.constant.index`
-//   // operations replaced with arguments (drop the front argument since that is
+//   // Insert the slice into workgroup count region with all
+//   `hal.constant.index`
+//   // operations replaced with arguments (drop the front argument since that
+//   is
 //   // `hal.device`).
 //   auto workloadVals = workgroupCountOp.getOperands();
 //   IRMapping map;
-//   // Map `flow.dispatch.constant_ordinal` op with the corresponding operand of
+//   // Map `flow.dispatch.constant_ordinal` op with the corresponding operand
+//   of
 //   // the `flow.dispatch.workgroup_count_default` operation.
 //   SmallVector<IREE::Flow::DispatchWorkloadOrdinalOp> ordinalOps;
 //   entryPointFn.walk([&](IREE::Flow::DispatchWorkloadOrdinalOp ordinalOp) {
@@ -385,8 +388,8 @@ template void hoistStaticallyBoundAllocationsInFunc<memref::AllocaOp>(
 //     int64_t ordinal = ordinalOp.getOrdinal().getSExtValue();
 //     if (ordinal >= workloadVals.size()) {
 //       ordinalOp.emitOpError(
-//           "ordinal number is higher than the number of workloads captured in "
-//           "the workgroup count region");
+//           "ordinal number is higher than the number of workloads captured in
+//           " "the workgroup count region");
 //     }
 //     map.map(ordinalOp.getResult(),
 //             workloadVals[ordinalOp.getOrdinal().getSExtValue()]);
@@ -394,8 +397,10 @@ template void hoistStaticallyBoundAllocationsInFunc<memref::AllocaOp>(
 //   OpBuilder::InsertionGuard g(rewriter);
 //   rewriter.setInsertionPoint(workgroupCountOp);
 //   for (auto op : slice) {
-//     // TODO(#13038) This is a WAR for the these ops ending up in workgroup count
-//     // computation. They should not. Some pre-processing at MaterializeEncoding
+//     // TODO(#13038) This is a WAR for the these ops ending up in workgroup
+//     count
+//     // computation. They should not. Some pre-processing at
+//     MaterializeEncoding
 //     // time might make these go away.
 //     if (isa<IREE::Codegen::QueryTileSizesOp>(op)) {
 //       Value constVal =
@@ -431,7 +436,8 @@ template void hoistStaticallyBoundAllocationsInFunc<memref::AllocaOp>(
 //     bindSymbols(rewriter.getContext(), s0, s1);
 //     AffineMap foldMap = AffineMap::get(0, 2, s0 * s1);
 //     for (auto [index, foldedResult] : llvm::enumerate(
-//              resultsRef.take_back(results.size() - maxWorkgroupParallelDims))) {
+//              resultsRef.take_back(results.size() -
+//              maxWorkgroupParallelDims))) {
 //       resultsRef[maxWorkgroupParallelDims - 1] =
 //           affine::makeComposedFoldedAffineApply(
 //               rewriter, loc, foldMap,
@@ -443,10 +449,12 @@ template void hoistStaticallyBoundAllocationsInFunc<memref::AllocaOp>(
 
 //   // Fill out the remaining results with 1.
 //   if (results.size() < workgroupCountOp.getNumResults()) {
-//     results.resize(workgroupCountOp.getNumResults(), rewriter.getIndexAttr(1));
+//     results.resize(workgroupCountOp.getNumResults(),
+//     rewriter.getIndexAttr(1));
 //   }
 //   rewriter.replaceOp(workgroupCountOp,
-//                      getValueOrCreateConstantIndexOp(rewriter, loc, results));
+//                      getValueOrCreateConstantIndexOp(rewriter, loc,
+//                      results));
 //   for (auto ordinalOp : ordinalOps) {
 //     rewriter.replaceOp(ordinalOp, ordinalOp.getOperand());
 //   }
@@ -466,16 +474,17 @@ template void hoistStaticallyBoundAllocationsInFunc<memref::AllocaOp>(
 //   if (!body) {
 //     return success();
 //   }
-//   auto countOps = body->getOps<IREE::Flow::DispatchWorkgroupCountFromSliceOp>();
-//   if (countOps.empty()) {
+//   auto countOps =
+//   body->getOps<IREE::Flow::DispatchWorkgroupCountFromSliceOp>(); if
+//   (countOps.empty()) {
 //     // If there are no `flow.dispatch.workgroup_count_default` operations
 //     // do nothing.
 //     return success();
 //   }
 //   if (!llvm::hasSingleElement(countOps)) {
 //     return exportOp->emitOpError(
-//         "unexpected multiple flow.dispatch.workgroup_count_default operations "
-//         "in body");
+//         "unexpected multiple flow.dispatch.workgroup_count_default operations
+//         " "in body");
 //   }
 //   return lowerWorkgroupCountFromSliceOp(rewriter, *countOps.begin(),
 //                                         entryPointFn, workgroupCount,
@@ -1135,87 +1144,132 @@ struct RemoveDeadMemAllocs : RewritePattern {
 //     return eraseAlignmentOnlyDeadOp(rewriter, op);
 //   }
 // };
-// } // namespace
+} // namespace
 
 void populateRemoveDeadMemAllocPatterns(RewritePatternSet &patterns) {
   patterns.insert<RemoveDeadMemAllocs>(patterns.getContext());
   // patterns.insert<RemoveDeadInterfaceBindings>(patterns.getContext());
 }
 
-// void analyseAllocsForPacking(mlir::FunctionOpInterface funcOp,
-//                              ArrayRef<Operation *> allocs,
-//                              SmallVector<AliasGroup> &aliasGroups) {
-//   // Represent of a group of allocations with overlapping liverange and the
-//   // liveness of the overall group.
-//   struct AllocGroup {
-//     SmallVector<Operation *> allocs;
-//     // Keep track of every operation where any of the alloc in the group is
-//     // live.
-//     // Liveness is represent as a set of Operations where the alloc is alive.
-//     // To make it merge liveranges and check if a given Operation interfers
-//     // with the liverange we store it as a DesneSet.
-//     llvm::DenseSet<Operation *> liveness;
-//   };
-//   Liveness liveness(funcOp);
-//   SmallVector<AllocGroup> groups;
-//   for (Operation *alloc : allocs) {
-//     SmallVector<size_t> aliasGroups;
-//     for (size_t i : llvm::seq<size_t>(0, groups.size())) {
-//       AllocGroup &group = groups[i];
-//       for (Operation *user : alloc->getUsers()) {
-//         // Skip the whole analysis if any user is a subview.
-//         // TODO: This could be extended if needed by recursively merging
-//         // liveness.
-//         if (isa<memref::SubViewOp>(user))
-//           return;
-//         if (group.liveness.count(user)) {
-//           aliasGroups.push_back(i);
-//           break;
-//         }
-//       }
-//     }
-//     if (aliasGroups.empty()) {
-//       // If we didn't find any alias group create a new one.
-//       AllocGroup &newGroup = groups.emplace_back();
-//       newGroup.allocs.push_back(alloc);
-//       Liveness::OperationListT liveInfo =
-//           liveness.resolveLiveness(alloc->getResult(0));
-//       newGroup.liveness.insert(liveInfo.begin(), liveInfo.end());
-//     } else {
-//       // Merge the alloc into the first alias group it interfers with.
-//       AllocGroup &mergeGroup = groups[aliasGroups[0]];
-//       mergeGroup.allocs.push_back(alloc);
-//       Liveness::OperationListT liveInfo =
-//           liveness.resolveLiveness(alloc->getResult(0));
-//       mergeGroup.liveness.insert(liveInfo.begin(), liveInfo.end());
-//       // Then merge all the other alias groups into the first group.
-//       for (size_t i = 1, e = aliasGroups.size(); i < e; i++) {
-//         AllocGroup &group = groups[aliasGroups[i]];
-//         mergeGroup.allocs.insert(mergeGroup.allocs.end(), group.allocs.begin(),
-//                                  group.allocs.end());
-//         mergeGroup.liveness.insert(group.liveness.begin(),
-//                                    group.liveness.end());
-//         // For simplicity we leave the group empty and don't remove it.
-//         group.allocs.clear();
-//         group.liveness.clear();
-//       }
-//     }
-//   }
+void analyseAllocsForPacking(mlir::FunctionOpInterface funcOp,
+                             ArrayRef<Operation *> allocs,
+                             SmallVector<AliasGroup> &aliasGroups) {
+  // Represent of a group of allocations with overlapping liverange and the
+  // liveness of the overall group.
+  struct AllocGroup {
+    SmallVector<Operation *> allocs;
+    // Keep track of every operation where any of the alloc in the group is
+    // live.
+    // Liveness is represent as a set of Operations where the alloc is alive.
+    // To make it merge liveranges and check if a given Operation interfers
+    // with the liverange we store it as a DesneSet.
+    llvm::DenseSet<Operation *> liveness;
+  };
+  Liveness liveness(funcOp);
+  SmallVector<AllocGroup> groups;
+  for (Operation *alloc : allocs) {
+    SmallVector<size_t> aliasGroups;
+    for (size_t i : llvm::seq<size_t>(0, groups.size())) {
+      AllocGroup &group = groups[i];
+      for (Operation *user : alloc->getUsers()) {
+        // Skip the whole analysis if any user is a subview.
+        // TODO: This could be extended if needed by recursively merging
+        // liveness.
+        if (isa<memref::SubViewOp>(user))
+          return;
+        if (group.liveness.count(user)) {
+          aliasGroups.push_back(i);
+          break;
+        }
+      }
+    }
+    if (aliasGroups.empty()) {
+      // If we didn't find any alias group create a new one.
+      AllocGroup &newGroup = groups.emplace_back();
+      newGroup.allocs.push_back(alloc);
+      Liveness::OperationListT liveInfo =
+          liveness.resolveLiveness(alloc->getResult(0));
+      newGroup.liveness.insert(liveInfo.begin(), liveInfo.end());
+    } else {
+      // Merge the alloc into the first alias group it interfers with.
+      AllocGroup &mergeGroup = groups[aliasGroups[0]];
+      mergeGroup.allocs.push_back(alloc);
+      Liveness::OperationListT liveInfo =
+          liveness.resolveLiveness(alloc->getResult(0));
+      mergeGroup.liveness.insert(liveInfo.begin(), liveInfo.end());
+      // Then merge all the other alias groups into the first group.
+      for (size_t i = 1, e = aliasGroups.size(); i < e; i++) {
+        AllocGroup &group = groups[aliasGroups[i]];
+        mergeGroup.allocs.insert(mergeGroup.allocs.end(), group.allocs.begin(),
+                                 group.allocs.end());
+        mergeGroup.liveness.insert(group.liveness.begin(),
+                                   group.liveness.end());
+        // For simplicity we leave the group empty and don't remove it.
+        group.allocs.clear();
+        group.liveness.clear();
+      }
+    }
+  }
 
-//   LLVM_DEBUG({
-//     for (size_t i = 0; i < groups.size(); i++) {
-//       llvm::dbgs() << "Alias group " << i << ":\n";
-//       for (Operation *op : groups[i].allocs)
-//         op->dump();
-//     }
-//   });
+  LLVM_DEBUG({
+    for (size_t i = 0; i < groups.size(); i++) {
+      llvm::dbgs() << "Alias group " << i << ":\n";
+      for (Operation *op : groups[i].allocs)
+        op->dump();
+    }
+  });
 
-//   for (size_t i = 0; i < groups.size(); i++) {
-//     if (groups[i].allocs.empty())
-//       continue;
-//     aliasGroups.push_back(std::move(groups[i].allocs));
-//   }
-// }
+  for (size_t i = 0; i < groups.size(); i++) {
+    if (groups[i].allocs.empty())
+      continue;
+    aliasGroups.push_back(std::move(groups[i].allocs));
+  }
+}
+
+static int64_t getAllocSize(Operation *op, DataLayout &dataLayout) {
+  auto allocOp = cast<memref::AllocOp>(op);
+  int64_t numElements = allocOp.getType().getNumElements();
+  return (dataLayout.getTypeSizeInBits(allocOp.getType().getElementType()) *
+          numElements) /
+         8;
+}
+
+void packAllocs(OpBuilder &builder, mlir::FunctionOpInterface funcOp,
+                ArrayRef<AliasGroup> aliasGroups) {
+  if (aliasGroups.empty())
+    return;
+  DataLayout dataLayout = DataLayout::closest(funcOp);
+  builder.setInsertionPointToStart(&(*funcOp.getFunctionBody().begin()));
+  int64_t maxAlloc = 0;
+  for (size_t i = 0; i < aliasGroups.size(); i++) {
+    int64_t allocSize = 0;
+    for (Operation *alloc : aliasGroups[i]) {
+      allocSize += getAllocSize(alloc, dataLayout);
+    }
+    maxAlloc = std::max(maxAlloc, allocSize);
+  }
+  Attribute memorySpace =
+      llvm::cast<MemRefType>(aliasGroups[0][0]->getResultTypes()[0])
+          .getMemorySpace();
+  MemRefType allocType = MemRefType::get({maxAlloc}, builder.getI8Type(),
+                                         AffineMap(), memorySpace);
+  Value packedAlloc =
+      builder.create<memref::AllocOp>(funcOp.getLoc(), allocType);
+  for (size_t i = 0; i < aliasGroups.size(); i++) {
+    int64_t offset = 0;
+    for (Operation *alloc : aliasGroups[i]) {
+      Location loc = alloc->getLoc();
+      builder.setInsertionPoint(alloc);
+      Value offsetValue = builder.create<arith::ConstantIndexOp>(loc, offset);
+      Value newAlloc = builder.create<memref::ViewOp>(
+          packedAlloc.getLoc(), alloc->getResultTypes()[0], packedAlloc,
+          offsetValue, ArrayRef<Value>({}));
+      offset += getAllocSize(alloc, dataLayout);
+      alloc->replaceAllUsesWith(ArrayRef<Value>({newAlloc}));
+      alloc->erase();
+    }
+  }
+}
 
 LogicalResult tileLinalgOpsWithFilter(mlir::FunctionOpInterface funcOp,
                                       scf::SCFTilingOptions options,
@@ -1584,5 +1638,4 @@ struct HoistForallFromFor : public OpRewritePattern<scf::ForOp> {
 void populateForallLoopHoistingPattern(RewritePatternSet &patterns) {
   patterns.insert<HoistForallFromFor>(patterns.getContext());
 }
-} // namespace
 } // namespace mlir::tts

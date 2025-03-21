@@ -13,6 +13,13 @@ include "mlir/Pass/PassBase.td"
 // LLVMGPU Passes (keep alphabetical)
 //------------------------------------------------------------------------------
 
+def LLVMGPUCodegenPass : Pass<"llvmgpu-codegen", "ModuleOp"> {
+  let summary = "Custom pass wrapping LLVM GPU codegen pipeline";
+  let description = [{
+    Integrates IREE's LLVM GPU code generation pipeline with configurable ROCm/CUDA backend selection.
+  }];
+}
+
 
 def MaterializeTargetPass : Pass<"iree-materialize-target", "ModuleOp"> {
   let summary = "Materialize the target attribute from the metadata";
@@ -55,6 +62,10 @@ def MaterializeTargetPass : Pass<"iree-materialize-target", "ModuleOp"> {
 //   let summary = "Pass to set layouts on tensors for later vector distribution";
 // }
 
+def LLVMGPULowerExecutableTargetPass :
+    InterfacePass<"iree-llvmgpu-lower-executable-target", "mlir::FunctionOpInterface"> {
+  let summary = "Perform lowering of executable target using one of the DispatchLoweringPassPipeline";
+}
 
 
 // def LLVMGPUPackSharedMemoryAllocPass :

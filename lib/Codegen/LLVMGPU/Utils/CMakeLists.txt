@@ -25,7 +25,7 @@ add_triton_library(IREECodegenLLVMGPUUtils
     MLIRAnalysis
     MLIRTransforms
     TTSUtils
-    IREECodegenTransformss
+    IREECodegenTransforms
     IREEGPUDialect
     IREEVectorExtDialect
     IREECodegenUtils

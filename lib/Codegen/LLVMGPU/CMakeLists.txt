@@ -1,30 +1,14 @@
 add_subdirectory(Utils)
 
 add_triton_library(IREECodegenLLVMGPU
- #ConvertToLLVM.cpp
- #ConvertToNVVM.cpp
- #ExtractAddressComputationGPUPass.cpp
  KernelConfig.cpp
- #LLVMGPUAssignConstantOrdinals.cpp
- #LLVMGPUCastAddressSpaceFunction.cpp
- #LLVMGPUCastTypeToFitMMA.cpp
- #LLVMGPUConfigureTensorLayouts.cpp
- #LLVMGPULinkExecutables.cpp
- #LLVMGPULowerExecutableTarget.cpp
- #LLVMGPUPackSharedMemoryAlloc.cpp
- #LLVMGPUPrefetching.cpp
- #LLVMGPUPromoteMatmulToFitMMA.cpp
+ LLVMGPULowerExecutableTarget.cpp
  LLVMGPUSelectLoweringStrategy.cpp
  MaterializeTarget.cpp
- #LLVMGPUTensorCoreVectorization.cpp
- #LLVMGPUTensorPad.cpp
- #LLVMGPUTileAndDistribute.cpp
- #LLVMGPUVectorDistribute.cpp
- #LLVMGPUVectorLowering.cpp
- #LLVMGPUVectorToGPU.cpp
  Passes.cpp
- #TestLLVMGPUQueryMMAPass.cpp
  Verifiers.cpp
+ LLVMGPUCodegen.cpp
+ 
 
   DEPENDS
     LLVMGPUCodegenPassIncGen
@@ -92,6 +76,8 @@ add_triton_library(IREECodegenLLVMGPU
   MLIRVectorToSCF
   MLIRVectorTransforms
 
+  TTSUtils
+
   IREEGPUHeuristics
   IREECodegenDialect
   IREEGPUDialect
@@ -102,12 +88,11 @@ add_triton_library(IREECodegenLLVMGPU
   IREECodegenPartitionableLoopsInterface
   IREECodegenUKernelOpInterface
   IREECodegenUtils
-  IREECodegenTransformss
+  IREECodegenTransforms
   IREECodegenVectorOpUtils
-  TTSUtils
+  IREECodegenLLVMGPUUtils
+  IREECodegenCommon
 )
-# iree::compiler::Codegen::Common
 # iree::compiler::Codegen::Common::GPU::CommonGPUPasses
 # iree::compiler::Codegen::Common::TransformDialectInterpreterPass
 # iree::compiler::Codegen::Common::VectorLayoutAnalysis
-# iree::compiler::Codegen::LLVMGPU::Utils

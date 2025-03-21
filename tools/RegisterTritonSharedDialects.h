@@ -6,8 +6,8 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/InitAllDialects.h"
-#include "mlir/InitAllPasses.h"
 #include "mlir/InitAllExtensions.h"
+#include "mlir/InitAllPasses.h"
 
 #include "triton-shared/Conversion/StructuredToMemref/Passes.h"
 #include "triton-shared/Conversion/TritonArithToLinalg/Passes.h"
@@ -16,19 +16,18 @@
 #include "triton-shared/Conversion/TritonToLinalgExperimental/Passes.h"
 #include "triton-shared/Conversion/TritonToStructured/Passes.h"
 #include "triton-shared/Conversion/TritonToUnstructured/Passes.h"
-#include "triton-shared/Conversion/TritonToUnstructured/Passes.h"
 #include "triton-shared/Conversion/UnstructuredToMemref/Passes.h"
 #include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 #include "triton-shared/Dialect/TritonTilingExt/IR/TritonTilingExtDialect.h"
 
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenDialect.h"
+#include "triton-shared/Codegen/Interfaces/Interfaces.h"
+#include "triton-shared/Codegen/Passes.h"
 #include "triton/Conversion/TritonToTritonGPU/Passes.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
 #include "triton/Dialect/Triton/Transforms/Passes.h"
 #include "triton/Dialect/TritonGPU/IR/Dialect.h"
 #include "triton/Dialect/TritonGPU/Transforms/Passes.h"
-#include "triton-shared/Codegen/Interfaces/Interfaces.h"
-#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenDialect.h"
-#include "triton-shared/Codegen/Passes.h"
 
 namespace mlir {
 namespace test {
@@ -40,6 +39,13 @@ void registerTestMembarPass();
 } // namespace mlir
 
 inline void registerTritonSharedDialects(mlir::DialectRegistry &registry) {
+  mlir::registerAllDialects(registry);
+
+  registry.insert<mlir::ttx::TritonTilingExtDialect,
+                  mlir::tts::TritonStructuredDialect,
+                  mlir::triton::TritonDialect>();
+  mlir::registerAllExtensions(registry);
+
   mlir::registerAllPasses();
   mlir::registerTritonPasses();
   mlir::registerLinalgPasses();
@@ -55,14 +61,9 @@ inline void registerTritonSharedDialects(mlir::DialectRegistry &registry) {
   mlir::triton::registerTritonToUnstructuredPasses();
   mlir::triton::registerTritonArithToLinalgPasses();
   mlir::triton::registerStructuredToMemrefPasses();
+  
+  mlir::tts::registerCodegenDependentDialects(registry);
   mlir::tts::registerCodegenInterfaces(registry);
   mlir::tts::registerUKernelBufferizationInterface(registry);
   mlir::tts::registerCodegenPasses();
-
-
-  registry.insert<mlir::ttx::TritonTilingExtDialect,
-                  mlir::tts::TritonStructuredDialect,
-                  mlir::triton::TritonDialect>();
-  mlir::registerAllDialects(registry);
-  mlir::registerAllExtensions(registry);
 }

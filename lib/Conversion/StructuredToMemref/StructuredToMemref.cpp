@@ -622,7 +622,8 @@ private:
       }
     } else {
       // Simple contiguous memory case
-      Value srcTensor = rewriter.create<bufferization::ToTensorOp>(loc, ptr);
+      Value srcTensor =
+          rewriter.create<bufferization::ToTensorOp>(loc, ptr, true, false);
 
       SmallVector<OpFoldResult> sizes;
       for (auto dim : tensorType.getShape()) {
@@ -696,8 +697,8 @@ private:
                         SmallVector<OpFoldResult>(tensorType.getRank(),
                                                   rewriter.getIndexAttr(0)),
                         mixedDims, strides, loc, rewriter);
-      Value srcTensor =
-          rewriter.create<bufferization::ToTensorOp>(loc, srcSubview);
+      Value srcTensor = rewriter.create<bufferization::ToTensorOp>(
+          loc, srcSubview, true, false);
       Value inserted = rewriter.create<tensor::InsertSliceOp>(
           loc, srcTensor, paddedTensor,
           SmallVector<OpFoldResult>(tensorType.getRank(),

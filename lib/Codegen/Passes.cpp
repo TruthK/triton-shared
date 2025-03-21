@@ -108,14 +108,10 @@ void registerTransformDialectTranslationDependentDialects(
                   gpu::GPUDialect,
                   linalg::LinalgDialect,
                   LLVM::LLVMDialect,
-                  pdl::PDLDialect,
-                  pdl_interp::PDLInterpDialect,
                   scf::SCFDialect,
                   tensor::TensorDialect,
                   transform::TransformDialect,
-                  vector::VectorDialect,
-                  arm_sme::ArmSMEDialect
-                >();
+                  vector::VectorDialect>();
   // clang-format on
 
   // TODO: these should be registered by the extension instead, but there is

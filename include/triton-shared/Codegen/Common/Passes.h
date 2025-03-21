@@ -40,12 +40,12 @@ namespace mlir::tts {
 // /// CleanupBufferAllocView).
 // void addIREEPostBufferizationPasses(OpPassManager &funcPassManager);
 
-// using bufferization::BufferizationOptions;
-// void addIREEComprehensiveBufferizePasses(
-//     OpPassManager &funcPassManager,
-//     std::optional<BufferizationOptions::AllocationFn> allocationFn =
-//         std::nullopt,
-//     std::optional<BufferizationOptions::MemCpyFn> memCpyFn = std::nullopt);
+using bufferization::BufferizationOptions;
+void addIREEComprehensiveBufferizePasses(
+    OpPassManager &funcPassManager,
+    std::optional<BufferizationOptions::AllocationFn> allocationFn =
+        std::nullopt,
+    std::optional<BufferizationOptions::MemCpyFn> memCpyFn = std::nullopt);
 
 // void addConstantBufferizePasses(OpPassManager &funcPassManager);
 
