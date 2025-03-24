@@ -16,4 +16,8 @@ def SimplifyTTSMakeTPtr : Pass<"simplify-tts-make-tptr","mlir::ModuleOp"> {
   }];
   
 }
+
+def HoistTensorEmptyFromLoops : Pass<"hoist-tensor-empty-from-loops", "mlir::func::FuncOp"> {
+  let summary = "Hoist tensor.empty operations from loops";
+}
 #endif

@@ -66,14 +66,14 @@ def CleanupBufferAllocViewPass :
 //       "implements OffsetSizeAndStrideOpInterface.";
 // }
 
-// def ConvertBf16ArithToF32Pass : Pass<"iree-convert-bf16-arith-to-f32", ""> {
-//   let summary = "Convert bf16 arithmetic operations to f32";
-// }
+def ConvertBf16ArithToF32Pass : Pass<"iree-convert-bf16-arith-to-f32", ""> {
+  let summary = "Convert bf16 arithmetic operations to f32";
+}
 
-// def ConvertBf16ToUInt16BuffersPass :
-//     Pass<"iree-codegen-convert-bf16-to-uint16-buffers", ""> {
-//   let summary = "Convert BF16 buffer ops and conversions to simulated behavior with uint16.";
-// }
+def ConvertBf16ToUInt16BuffersPass :
+    Pass<"iree-codegen-convert-bf16-to-uint16-buffers", ""> {
+  let summary = "Convert BF16 buffer ops and conversions to simulated behavior with uint16.";
+}
 
 // def ConvertToDestinationPassingStylePass :
 //     InterfacePass<"iree-codegen-convert-to-destination-passing-style", "mlir::FunctionOpInterface"> {
@@ -104,49 +104,49 @@ def CleanupBufferAllocViewPass :
 //   ];
 // }
 
-// def DecomposeAffineOpsPass: Pass<"iree-codegen-decompose-affine-ops"> {
-//   let summary = "Decompose `affine.apply` operations into sub `affine.apply`";
-//   let description = [{
-//     Decompose `affine.apply` operations into sub `affine.apply` where each
-//     sub expression references values that are defined in the same loop scope.
-//     The sub expression are then stitched back together following the loop
-//     nest order.
-//     The goal of this pass is to break down `affine.apply` expressions such
-//     that the resulting sub expressions can be hoisted out in their respective
-//     loop.
-//     E.g., Let's say we have
-//     ```mlir
-//     %res = affine.apply
-//              affine_map<()[s0, s1, s2] -> (s0 * 1024 + s1 * 32 + s2)>()
-//                [%loopVariant, %inv1, %inv2]
-//     ```
-//     Where `%inv1` and `%inv2` are loop invariant and `%loopVariant` is not.
-//     This will produce the following subexpressions:
-//     ```mlir
-//     // Loop invariant computations first.
-//     %inv1x32 =
-//       affine.apply affine_map<()[s0] -> (s0 * 32)>()[%inv1]
-//     %inv1x32_plus_inv2 =
-//       affine.apply affine_map<()[s0, s1] -> (s0 + s1)>()[%inv1x32, %inv2]
-//     // Loop variant computation next.
-//     %loopVariantx1024 =
-//       affine.apply affine_map<()[s0] -> (s0 * 1024)>()[%loopVariant]
-//     // Compose things back together.
-//     %res =
-//       affine.apply affine_map<()[s0, s1] -> (s0 + s1)>()
-//         [%loopVariant, %inv1x32_plus_inv2]
-//     ```
-//     Now the sequence of instructions leading to and including
-//     `%inv1x32_plus_inv2` can be hoisted out of the loop.
-//     This pass requires `scf.for` structures to still be around otherwise
-//     the break down will be meaningless.
-//     Note: The decomposition performed by this pass will be undone by
-//     canonicalization. Make sure to lower the resulting ops before that.
-//   }];
-//   let dependentDialects = [
-//       "mlir::affine::AffineDialect"
-//   ];
-// }
+def DecomposeAffineOpsPass: Pass<"iree-codegen-decompose-affine-ops"> {
+  let summary = "Decompose `affine.apply` operations into sub `affine.apply`";
+  let description = [{
+    Decompose `affine.apply` operations into sub `affine.apply` where each
+    sub expression references values that are defined in the same loop scope.
+    The sub expression are then stitched back together following the loop
+    nest order.
+    The goal of this pass is to break down `affine.apply` expressions such
+    that the resulting sub expressions can be hoisted out in their respective
+    loop.
+    E.g., Let's say we have
+    ```mlir
+    %res = affine.apply
+             affine_map<()[s0, s1, s2] -> (s0 * 1024 + s1 * 32 + s2)>()
+               [%loopVariant, %inv1, %inv2]
+    ```
+    Where `%inv1` and `%inv2` are loop invariant and `%loopVariant` is not.
+    This will produce the following subexpressions:
+    ```mlir
+    // Loop invariant computations first.
+    %inv1x32 =
+      affine.apply affine_map<()[s0] -> (s0 * 32)>()[%inv1]
+    %inv1x32_plus_inv2 =
+      affine.apply affine_map<()[s0, s1] -> (s0 + s1)>()[%inv1x32, %inv2]
+    // Loop variant computation next.
+    %loopVariantx1024 =
+      affine.apply affine_map<()[s0] -> (s0 * 1024)>()[%loopVariant]
+    // Compose things back together.
+    %res =
+      affine.apply affine_map<()[s0, s1] -> (s0 + s1)>()
+        [%loopVariant, %inv1x32_plus_inv2]
+    ```
+    Now the sequence of instructions leading to and including
+    `%inv1x32_plus_inv2` can be hoisted out of the loop.
+    This pass requires `scf.for` structures to still be around otherwise
+    the break down will be meaningless.
+    Note: The decomposition performed by this pass will be undone by
+    canonicalization. Make sure to lower the resulting ops before that.
+  }];
+  let dependentDialects = [
+      "mlir::affine::AffineDialect"
+  ];
+}
 
 // def DecomposeConvolutionToLowerDimOpsPass :
 //     Pass<"iree-codegen-decompose-convolution-to-lower-dim-ops", ""> {
@@ -215,13 +215,13 @@ def CleanupBufferAllocViewPass :
 //   let summary = "Pass to drop vector unit dims.";
 // }
 
-// def ReconcileTranslationInfoPass
-//     : Pass<"iree-codegen-reconcile-translation-info", "IREE::HAL::ExecutableVariantOp"> {
-//   let summary =
-//       "Reconcile information (like workgroup_size, subgroup_size) across "
-//       "`TranslationInfo` set on each function in the dispatch and merge them"
-//       "and set them at the appropriate places in the surrounding HAL ops";
-// }
+def ReconcileTranslationInfoPass
+    : Pass<"iree-codegen-reconcile-translation-info", "ModuleOp"> {
+  let summary =
+      "Reconcile information (like workgroup_size, subgroup_size) across "
+      "`TranslationInfo` set on each function in the dispatch and merge them"
+      "and set them at the appropriate places in the surrounding HAL ops";
+}
 
 def ReplaceSlowMinMaxOpsPass
     : InterfacePass<"iree-codegen-replace-slow-min-max-ops", "mlir::FunctionOpInterface"> {
@@ -235,14 +235,14 @@ def EliminateEmptyTensorsPass :
   let summary = "Eliminate tensor.empty ops to avoid buffer allocations";
 }
 
-// def EmulateNarrowTypePass :
-//     Pass<"iree-codegen-emulate-narrow-type", ""> {
-//   let summary = "Emulate narrow integer operations using wide integer operations";
-//   let description = [{
-//     A pass to emulate memref load operations that use narrow integer types
-//     with equivalent operations on supported wide integer types.
-//   }];
-// }
+def EmulateNarrowTypePass :
+    Pass<"iree-codegen-emulate-narrow-type", ""> {
+  let summary = "Emulate narrow integer operations using wide integer operations";
+  let description = [{
+    A pass to emulate memref load operations that use narrow integer types
+    with equivalent operations on supported wide integer types.
+  }];
+}
 
 // def EraseDeadAllocAndStoresPass :
 //     InterfacePass<"iree-codegen-erase-dead-alloc-and-stores", "mlir::FunctionOpInterface"> {
@@ -259,27 +259,27 @@ def EliminateEmptyTensorsPass :
 //   let summary = "Convert #hal.descriptor_type to #gpu.address_space<global>";
 // }
 
-// def ExtractAddressComputationPass : Pass<"iree-codegen-extract-address-computation"> {
-//   let summary = "Extract address computations from memory accesses";
-//   let description = [{
-//     Extract the address computation from the instructions with memory
-//     accesses such that these memory accesses use only a base pointer.
+def ExtractAddressComputationPass : Pass<"iree-codegen-extract-address-computation"> {
+  let summary = "Extract address computations from memory accesses";
+  let description = [{
+    Extract the address computation from the instructions with memory
+    accesses such that these memory accesses use only a base pointer.
 
-//     For instance,
-//     ```mlir
-//     memref.load %base[%off0, ...]
-//     ```
+    For instance,
+    ```mlir
+    memref.load %base[%off0, ...]
+    ```
 
-//     Will be rewritten in:
-//     ```mlir
-//     %new_base = memref.subview %base[%off0,...][1,...][1,...]
-//     memref.load %new_base[%c0,...]
-//     ```
-//   }];
-//   let dependentDialects = [
-//       "memref::MemRefDialect"
-//   ];
-// }
+    Will be rewritten in:
+    ```mlir
+    %new_base = memref.subview %base[%off0,...][1,...][1,...]
+    memref.load %new_base[%c0,...]
+    ```
+  }];
+  let dependentDialects = [
+      "memref::MemRefDialect"
+  ];
+}
 
 // def FlattenMemRefSubspanPass : Pass<"iree-codegen-flatten-memref-subspan", "ModuleOp"> {
 //   let summary =
@@ -296,16 +296,16 @@ def EliminateEmptyTensorsPass :
 //   let summary = "Fold `affine.min` ops in distributed loops";
 // }
 
-// def FoldTensorExtractOpPass :
-//   Pass<"iree-codegen-fold-tensor-extract-op", ""> {
-//   let summary = "Fold `tensor.extract` operations prior to lowering to LLVM";
-//   let description = [{
-//     After running the upstream TensorConstantBufferize pass, remove
-//     tensor_loads introduced for use only in tensor_extract. These can be
-//     folded to use a load of the created memref object that holds the constant
-//     values.
-//   }];
-// }
+def FoldTensorExtractOpPass :
+  Pass<"iree-codegen-fold-tensor-extract-op", ""> {
+  let summary = "Fold `tensor.extract` operations prior to lowering to LLVM";
+  let description = [{
+    After running the upstream TensorConstantBufferize pass, remove
+    tensor_loads introduced for use only in tensor_extract. These can be
+    folded to use a load of the created memref object that holds the constant
+    values.
+  }];
+}
 
 // def ForOpCanonicalizationPass :
 //   InterfacePass<"iree-codegen-canonicalize-scf-for", "mlir::FunctionOpInterface"> {
@@ -345,39 +345,39 @@ def EliminateEmptyTensorsPass :
 //   ];
 // }
 
-// def OptimizeTensorInsertExtractSlicesPass
-//     : InterfacePass<"iree-codegen-optimize-tensor-insert-extract-slices",
-//                     "mlir::FunctionOpInterface"> {
-//   let summary = "Optimize tensor.insert_slice/tensor.extract_slice operations "
-//                 "(e.g. hoist and fold)";
-//   let options = [
-//     Option<"foldIdentitySlices", "fold-identity-slices", "bool", "false",
-//            "Enable folding of identity tensor.*_slice ops.">
-//   ];
-// }
+def OptimizeTensorInsertExtractSlicesPass
+    : InterfacePass<"iree-codegen-optimize-tensor-insert-extract-slices",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "Optimize tensor.insert_slice/tensor.extract_slice operations "
+                "(e.g. hoist and fold)";
+  let options = [
+    Option<"foldIdentitySlices", "fold-identity-slices", "bool", "false",
+           "Enable folding of identity tensor.*_slice ops.">
+  ];
+}
 
 // def HoistUnrolledVectorExtractInsertSlicePass :
 //     InterfacePass<"iree-codegen-hoist-vector-extract-insert-slice", "mlir::FunctionOpInterface"> {
 //   let summary = "Hoist unrolled vector (extract, insert) pairs out of scf.for op";
 // }
 
-// def HoistStaticallyBoundAllocationsPass :
-//     InterfacePass<"iree-codegen-hoist-statically-bound-allocations", "mlir::FunctionOpInterface"> {
-//   let summary = "Hoist statically bound alloca ops to the entry block of functions";
-//   // Note: These options only exist to help with testing, real world uses should look at the target.
-//   // There also should be no observable change if the input IR is not scalable.
-//   let options = [
-//     Option<"vscaleMin", "vscale-min", "unsigned",
-//             /*default=*/"0",
-//            "Minimum possible value of vscale.">,
-//     Option<"vscaleMax", "vscale-max", "unsigned",
-//             /*default=*/"0",
-//            "Maximum possible value of vscale (a value of zero means unbounded).">
-//   ];
-//   let dependentDialects = [
-//       "affine::AffineDialect"
-//   ];
-// }
+def HoistStaticallyBoundAllocationsPass :
+    InterfacePass<"iree-codegen-hoist-statically-bound-allocations", "mlir::FunctionOpInterface"> {
+  let summary = "Hoist statically bound alloca ops to the entry block of functions";
+  // Note: These options only exist to help with testing, real world uses should look at the target.
+  // There also should be no observable change if the input IR is not scalable.
+  let options = [
+    Option<"vscaleMin", "vscale-min", "unsigned",
+            /*default=*/"0",
+           "Minimum possible value of vscale.">,
+    Option<"vscaleMax", "vscale-max", "unsigned",
+            /*default=*/"0",
+           "Maximum possible value of vscale (a value of zero means unbounded).">
+  ];
+  let dependentDialects = [
+      "affine::AffineDialect"
+  ];
+}
 
 def IREEComprehensiveBufferizePass :
     InterfacePass<"iree-codegen-iree-comprehensive-bufferize", "mlir::FunctionOpInterface"> {
@@ -392,14 +392,14 @@ def IREEComprehensiveBufferizePass :
   ];
 }
 
-// def IREEExpandStridedMetadataPass :
-//     Pass<"iree-codegen-expand-strided-metadata", ""> {
-//   let summary = "Resolve memref.extract_strided_metadata operations";
-//   let options = [
-//     Option<"allowUnresolved", "allow-unresolved", "bool", /*default=*/"false",
-//            "Allow unresolved strided metadata op (for testing)">,
-//   ];
-// }
+def IREEExpandStridedMetadataPass :
+    Pass<"iree-codegen-expand-strided-metadata", ""> {
+  let summary = "Resolve memref.extract_strided_metadata operations";
+  let options = [
+    Option<"allowUnresolved", "allow-unresolved", "bool", /*default=*/"false",
+           "Allow unresolved strided metadata op (for testing)">,
+  ];
+}
 
 // def InstrumentMemoryAccessesPass :
 //     InterfacePass<"iree-codegen-instrument-memory-accesses", "mlir::FunctionOpInterface"> {
@@ -477,10 +477,10 @@ def IREEComprehensiveBufferizePass :
 //   ];
 // }
 
-// def MemrefCopyToLinalgPass :
-//     InterfacePass<"iree-codegen-memrefcopy-to-linalg", "mlir::FunctionOpInterface"> {
-//   let summary = "Convert memref.copy to linalg op";
-// }
+def MemrefCopyToLinalgPass :
+    InterfacePass<"iree-codegen-memrefcopy-to-linalg", "mlir::FunctionOpInterface"> {
+  let summary = "Convert memref.copy to linalg op";
+}
 
 // def NormalizeLoopBoundsPass :
 //     Pass<"iree-codegen-normalize-loop-bounds", ""> {
@@ -501,30 +501,30 @@ def IREEComprehensiveBufferizePass :
 //   ];
 // }
 
-// def OptimizeVectorTransferPass :
-//     InterfacePass<"iree-codegen-optimize-vector-transfer", "mlir::FunctionOpInterface"> {
-//   let summary =
-//       "Run optimization transformations on vector transfer operations";
-//   let options = [
-//     Option<"flatten", "flatten", "bool", "false",
-//            "Flatten the vector type of vector transfers where possible (contiguous row-major data).">,
-//     Option<"redundantHoisting", "redundant-hoisting", "bool", "true",
-//            "Enables use of redundant vector transfer hoisting.">,
-//   ];
-//   let dependentDialects = [
-//       "memref::MemRefDialect"
-//   ];
-// }
+def OptimizeVectorTransferPass :
+    InterfacePass<"iree-codegen-optimize-vector-transfer", "mlir::FunctionOpInterface"> {
+  let summary =
+      "Run optimization transformations on vector transfer operations";
+  let options = [
+    Option<"flatten", "flatten", "bool", "false",
+           "Flatten the vector type of vector transfers where possible (contiguous row-major data).">,
+    Option<"redundantHoisting", "redundant-hoisting", "bool", "true",
+           "Enables use of redundant vector transfer hoisting.">,
+  ];
+  let dependentDialects = [
+      "memref::MemRefDialect"
+  ];
+}
 
-// def PadDynamicAllocPass :
-//     InterfacePass<"iree-codegen-pad-dynamic-alloc", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass to pad dynamic alloc into static one.";
-// }
+def PadDynamicAllocPass :
+    InterfacePass<"iree-codegen-pad-dynamic-alloc", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to pad dynamic alloc into static one.";
+}
 
-// def PolynomialApproximationPass :
-//     Pass<"iree-codegen-polynomial-approximation", ""> {
-//   let summary = "Convert math operations to their polynomial approximation";
-// }
+def PolynomialApproximationPass :
+    Pass<"iree-codegen-polynomial-approximation", ""> {
+  let summary = "Convert math operations to their polynomial approximation";
+}
 
 // def PropagateReshapesByExpansionPass :
 //     Pass<"iree-codegen-propagate-reshapes-by-expansion", ""> {
@@ -550,20 +550,20 @@ def IREEComprehensiveBufferizePass :
 //    let summary = "Remove all the the lowering configuration and translation info attributes.";
 // }
 
-// // TODO: Replace with upstream: https://github.com/iree-org/iree/issues/18759
-// def IREELoopInvariantCodeMotionPass :
-//   Pass<"iree-loop-invariant-code-motion", ""> {
-//   let summary = "Performs LICM on loops guaranteed to have >= 1 trip";
-//   let description = [{
-//     This is a mirror of the upstream LICM pass that restricts to loops that are
-//     guaranteed to have at least one trip. This currently only supports loops
-//     that expose a lower and upper bound as the generic loop-like interface does
-//     not expose a way to query for trip count.
+// TODO: Replace with upstream: https://github.com/iree-org/iree/issues/18759
+def IREELoopInvariantCodeMotionPass :
+  Pass<"iree-loop-invariant-code-motion", ""> {
+  let summary = "Performs LICM on loops guaranteed to have >= 1 trip";
+  let description = [{
+    This is a mirror of the upstream LICM pass that restricts to loops that are
+    guaranteed to have at least one trip. This currently only supports loops
+    that expose a lower and upper bound as the generic loop-like interface does
+    not expose a way to query for trip count.
 
-//     Additionally code motion of `scf.forall` ops with mappings is always unsafe
-//     and is explicitly disabled.
-//   }];
-// }
+    Additionally code motion of `scf.forall` ops with mappings is always unsafe
+    and is explicitly disabled.
+  }];
+}
 
 // def SplitFullPartialTransferPass :
 //     InterfacePass<"iree-codegen-split-full-partial-transfer", "mlir::FunctionOpInterface"> {
@@ -681,15 +681,15 @@ def TileAndDistributeToWorkgroupsUsingForallOpPass :
 //   let summary = "Vectorizes memref copy operations.";
 // }
 
-// def VerifyWorkgroupDistributionPass :
-//     InterfacePass<"iree-codegen-verify-workgroup-distribution", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass to verify proper distribution to workgroups.";
-//   let description = [{
-//     Pass to verify that all writes to global memory are explicitly mapped to
-//     workgroups. This means that in cases where we use loops (scf.forall) to
-//     manage distribution to workgroups, we require that all ops with write
-//     side effects are contained within a workgroup distributed loop.
-//   }];
-// }
+def VerifyWorkgroupDistributionPass :
+    InterfacePass<"iree-codegen-verify-workgroup-distribution", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to verify proper distribution to workgroups.";
+  let description = [{
+    Pass to verify that all writes to global memory are explicitly mapped to
+    workgroups. This means that in cases where we use loops (scf.forall) to
+    manage distribution to workgroups, we require that all ops with write
+    side effects are contained within a workgroup distributed loop.
+  }];
+}
 
 #endif // IREE_CODEGEN_COMMON_PASSES

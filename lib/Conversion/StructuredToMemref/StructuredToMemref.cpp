@@ -16,6 +16,7 @@
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MemRef/IR//MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -212,14 +213,16 @@ private:
     auto cast1 = rewriter.create<memref::ReinterpretCastOp>(
         loc, resultType, adaptor.getBase(), targetOffset,
         ValueRange{rowSize, d1}, strideVals);
-
+    rewriter.create<mlir::memref::AssumeAlignmentOp>(loc, cast1.getResult(),
+                                                     64);
     // Second chunk
     Value d2 = rewriter.create<arith::SubIOp>(loc, colSize, d1);
 
     auto cast2 = rewriter.create<memref::ReinterpretCastOp>(
         loc, resultType, adaptor.getBase(), y, ValueRange{rowSize, d2},
         strideVals);
-
+    rewriter.create<mlir::memref::AssumeAlignmentOp>(loc, cast2.getResult(),
+                                                     64);
     return {cast1, cast2};
   }
 
@@ -316,14 +319,16 @@ private:
         rewriter.create<memref::ReinterpretCastOp>(
             loc, resultType, adaptor.getBase(), targetOffset,
             ValueRange{d1, colSize}, ValueRange{strideRow, strideCol});
-
+    rewriter.create<mlir::memref::AssumeAlignmentOp>(loc, cast1.getResult(),
+                                                     64);
     // Second chunk
     Value d2 = rewriter.create<arith::SubIOp>(loc, rowSize, d1);
     memref::ReinterpretCastOp cast2 =
         rewriter.create<memref::ReinterpretCastOp>(
             loc, resultType, adaptor.getBase(), wrappedAroundOff,
             ValueRange{d2, colSize}, ValueRange{strideRow, strideCol});
-
+    rewriter.create<mlir::memref::AssumeAlignmentOp>(loc, cast2.getResult(),
+                                                     64);
     return {cast1, cast2};
   }
 
@@ -376,7 +381,8 @@ private:
     auto castOp = rewriter.create<memref::ReinterpretCastOp>(
         op.getLoc(), resultType, adaptor.getBase(), targetOffset,
         op.getMixedSizes(), mixedStrides);
-
+    rewriter.create<mlir::memref::AssumeAlignmentOp>(op.getLoc(),
+                                                     castOp.getResult(), 64);
     rewriter.replaceOp(op, castOp);
 
     return success();
@@ -598,6 +604,7 @@ private:
     // Create empty tensor initialized with zeros
     auto emptyOp = rewriter.create<tensor::EmptyOp>(
         loc, tensorType.getShape(), tensorType.getElementType());
+    emptyOp->setAttr("triton_ptr", mlir::tts::TritonPtrAttr::get(context));
     Value zeroVal = rewriter.create<arith::ConstantOp>(
         loc, rewriter.getZeroAttr(tensorType.getElementType()));
     auto filledTensor =
@@ -658,8 +665,9 @@ private:
             ? op.getOther()
             : rewriter.create<arith::ConstantOp>(
                   loc, rewriter.getZeroAttr(tensorType.getElementType()));
+    emptyOp->setAttr("triton_ptr", mlir::tts::TritonPtrAttr::get(context));
+    
     Value emptyTensor = emptyOp.getResult();
-
     Value paddedTensor =
         rewriter.create<linalg::FillOp>(loc, paddingVal, emptyTensor)
             .getResult(0);

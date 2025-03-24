@@ -10,9 +10,6 @@
 //===---------------------------------------------------------------------===//
 // Include pass headers per target device
 //===---------------------------------------------------------------------===//
-// #include "triton-shared/Codegen/Common/CPU/Passes.h"
-// #include "triton-shared/Codegen/Common/GPU/Passes.h"
-#include "triton-shared/Codegen/Common/Passes.h"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Affine/TransformOps/AffineTransformOps.h"
@@ -56,6 +53,9 @@
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
 
+// #include "triton-shared/Codegen/Common/CPU/Passes.h"
+#include "triton-shared/Codegen/Common/GPU/Passes.h"
+#include "triton-shared/Codegen/Common/Passes.h"
 #include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenDialect.h"
 #include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUDialect.h"
 #include "triton-shared/Codegen/Dialect/GPU/Transforms/Passes.h"

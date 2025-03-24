@@ -47,7 +47,7 @@ void addIREEComprehensiveBufferizePasses(
         std::nullopt,
     std::optional<BufferizationOptions::MemCpyFn> memCpyFn = std::nullopt);
 
-// void addConstantBufferizePasses(OpPassManager &funcPassManager);
+void addConstantBufferizePasses(OpPassManager &funcPassManager);
 
 // /// Populate Encoding to Nop pass and canonicalizer pass to the pipeline
 // void addEncodingToNopPasses(FunctionLikeNest &passManager);
@@ -129,8 +129,8 @@ void addIREEComprehensiveBufferizePasses(
 // /// Collect patterns to fold tensor.extract_slice -> vector.transfer_read and
 // /// vector.transfer_write -> tensor.insert_slice op chains into vector tranfer
 // /// read and write ops.
-// void populateVectorTransferTensorSliceTransforms(RewritePatternSet &patterns,
-//                                                  PatternBenefit benefit = 1);
+void populateVectorTransferTensorSliceTransforms(RewritePatternSet &patterns,
+                                                 PatternBenefit benefit = 1);
 
 //----------------------------------------------------------------------------//
 // Register CodeGen Common Passes

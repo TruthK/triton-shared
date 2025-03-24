@@ -13,11 +13,11 @@ include "mlir/Pass/PassBase.td"
 // Common Passes used for GPU-like backends (keep alphabetical)
 //===---------------------------------------------------------------------===//
 
-// def GPUCheckResourceUsagePass :
-//     InterfacePass<"iree-codegen-gpu-check-resource-usage", "mlir::FunctionOpInterface"> {
-//   let summary = "Checks GPU specific resource usage constraints like shared memory limits";
-//   let constructor = "mlir::iree_compiler::createGPUCheckResourceUsagePass()";
-// }
+def GPUCheckResourceUsagePass :
+    InterfacePass<"iree-codegen-gpu-check-resource-usage", "mlir::FunctionOpInterface"> {
+  let summary = "Checks GPU specific resource usage constraints like shared memory limits";
+  let constructor = "mlir::tts::createGPUCheckResourceUsagePass()";
+}
 
 // def GPUCombineValueBarriersPass :
 //     Pass<"iree-codegen-gpu-combine-value-barriers", ""> {
@@ -52,13 +52,13 @@ include "mlir/Pass/PassBase.td"
 //   ];
 // }
 
-// def GPUDistributeSharedMemoryCopyPass :
-//     InterfacePass<"iree-codegen-gpu-distribute-shared-memory-copy", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass to distribute shared memory copies to threads.";
-//   let dependentDialects = [
-//     "::mlir::gpu::GPUDialect", "::mlir::scf::SCFDialect", "::mlir::vector::VectorDialect"
-//   ];
-// }
+def GPUDistributeSharedMemoryCopyPass :
+    InterfacePass<"iree-codegen-gpu-distribute-shared-memory-copy", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to distribute shared memory copies to threads.";
+  let dependentDialects = [
+    "::mlir::gpu::GPUDialect", "::mlir::scf::SCFDialect", "::mlir::vector::VectorDialect"
+  ];
+}
 
 // def GPUDistributeScfForPass :
 //     InterfacePass<"iree-codegen-gpu-distribute-scf-for", "mlir::FunctionOpInterface"> {
@@ -146,26 +146,26 @@ def GPUMultiBufferingPass :
 //   ];
 // }
 
-// def GPUPipeliningPass :
-//     InterfacePass<"iree-codegen-gpu-pipelining", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass to do software pipelining.";
-//   let options = [
-//     Option<"epiloguePeeling", "epilogue-peeling", "bool",
-//             /*default=*/"true",
-//            "Try to use un-peeling epilogue when false, peeled epilouge o.w.">,
-//     Option<"depth", "pipeline-depth", "int64_t",
-//             /*default=*/"2",
-//            "Number of stages ">,
-//     Option<"scheduleIndex", "schedule-index", "int64_t",
-//             /*default=*/"0",
-//            "Allows picking different schedule for the pipelining transformation.">,
-//     Option<"transformFileName", "transform-file-name", "std::string",
-//             /*default=*/"\"\"",
-//             "Optional filename containing a transform dialect specification to "
-//             "apply. If left empty, the IR is assumed to contain one top-level "
-//             "transform dialect operation somewhere in the module.">,
-//   ];
-// }
+def GPUPipeliningPass :
+    InterfacePass<"iree-codegen-gpu-pipelining", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to do software pipelining.";
+  let options = [
+    Option<"epiloguePeeling", "epilogue-peeling", "bool",
+            /*default=*/"true",
+           "Try to use un-peeling epilogue when false, peeled epilouge o.w.">,
+    Option<"depth", "pipeline-depth", "int64_t",
+            /*default=*/"2",
+           "Number of stages ">,
+    Option<"scheduleIndex", "schedule-index", "int64_t",
+            /*default=*/"0",
+           "Allows picking different schedule for the pipelining transformation.">,
+    Option<"transformFileName", "transform-file-name", "std::string",
+            /*default=*/"\"\"",
+            "Optional filename containing a transform dialect specification to "
+            "apply. If left empty, the IR is assumed to contain one top-level "
+            "transform dialect operation somewhere in the module.">,
+  ];
+}
 
 // def GPUPromoteMatmulOperandsPass :
 //     InterfacePass<"iree-codegen-gpu-promote-matmul-operands",
@@ -180,10 +180,10 @@ def GPUMultiBufferingPass :
 //   ];
 // }
 
-// def GPUPropagateDispatchSizeBoundsPass :
-//     InterfacePass<"iree-codegen-gpu-propagate-dispatch-size-bounds", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass to annotate workitem and workgroup IDs with known bounds";
-// }
+def GPUPropagateDispatchSizeBoundsPass :
+    InterfacePass<"iree-codegen-gpu-propagate-dispatch-size-bounds", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to annotate workitem and workgroup IDs with known bounds";
+}
 
 // def GPUReduceBankConflictsPass :
 //     InterfacePass<"iree-codegen-gpu-reduce-bank-conflicts", "mlir::FunctionOpInterface"> {
@@ -207,7 +207,7 @@ def GPUMultiBufferingPass :
 //     InterfacePass<"iree-codegen-gpu-tensor-alloc", "mlir::FunctionOpInterface"> {
 //   let summary = "Pass to create allocations for some tensor values to use"
 //                 "GPU shared memory";
-//   let constructor = "mlir::iree_compiler::createGPUTensorAlloc()";
+//   let constructor = "mlir::tts::createGPUTensorAlloc()";
 //   let dependentDialects = ["::mlir::bufferization::BufferizationDialect"];
 // }
 
@@ -303,19 +303,19 @@ def ReorderWorkgroupsPass :
 // def VectorReductionToGPUPass :
 //     InterfacePass<"iree-codegen-vector-reduction-to-gpu", "mlir::FunctionOpInterface"> {
 //   let summary = "Convert vector reduction to GPU ops.";
-//   let constructor = "mlir::iree_compiler::createConvertVectorReductionToGPUPass()";
+//   let constructor = "mlir::tts::createConvertVectorReductionToGPUPass()";
 //   let dependentDialects = [
 //     "::mlir::affine::AffineDialect", "::mlir::gpu::GPUDialect",
 //     "::mlir::memref::MemRefDialect", "::mlir::scf::SCFDialect",
 //   ];
 // }
 
-// def ExpandGPUOpsPass :
-//     InterfacePass<"iree-codegen-expand-gpu-ops", "mlir::FunctionOpInterface"> {
-//   let summary = "Expands high-level GPU ops, such as clustered gpu.subgroup_reduce.";
-//   let dependentDialects = [
-//     "::mlir::gpu::GPUDialect"
-//   ];
-// }
+def ExpandGPUOpsPass :
+    InterfacePass<"iree-codegen-expand-gpu-ops", "mlir::FunctionOpInterface"> {
+  let summary = "Expands high-level GPU ops, such as clustered gpu.subgroup_reduce.";
+  let dependentDialects = [
+    "::mlir::gpu::GPUDialect"
+  ];
+}
 
 #endif // IREE_CODEGEN_COMMON_GPU_PASSES

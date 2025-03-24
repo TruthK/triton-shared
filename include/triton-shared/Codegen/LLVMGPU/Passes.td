@@ -34,16 +34,16 @@ def MaterializeTargetPass : Pass<"iree-materialize-target", "ModuleOp"> {
 // }
 
 
-// def ExtractAddressComputationGPUPass: Pass<"extract-address-computation-gpu"> {
-//   let summary = "Extract address computations from memory accesses";
-//   let description = [{
-//      This pass is similar to `extract-address-computation` except it also
-//      supports memory accesses that are specific to GPUs.
-//   }];
-//   let dependentDialects = [
-//       "memref::MemRefDialect", "nvgpu::NVGPUDialect", "affine::AffineDialect"
-//   ];
-// }
+def ExtractAddressComputationGPUPass: Pass<"extract-address-computation-gpu"> {
+  let summary = "Extract address computations from memory accesses";
+  let description = [{
+     This pass is similar to `extract-address-computation` except it also
+     supports memory accesses that are specific to GPUs.
+  }];
+  let dependentDialects = [
+      "memref::MemRefDialect", "nvgpu::NVGPUDialect", "affine::AffineDialect"
+  ];
+}
 
 
 // def LLVMGPUCastAddressSpaceFunctionPass :
@@ -68,10 +68,10 @@ def LLVMGPULowerExecutableTargetPass :
 }
 
 
-// def LLVMGPUPackSharedMemoryAllocPass :
-//     InterfacePass<"iree-llvmgpu-pack-shared-memory-alloc", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass pack shared memory allocation in order to reduce memory usage.";
-// }
+def LLVMGPUPackSharedMemoryAllocPass :
+    InterfacePass<"iree-llvmgpu-pack-shared-memory-alloc", "mlir::FunctionOpInterface"> {
+  let summary = "Pass pack shared memory allocation in order to reduce memory usage.";
+}
 
 // def LLVMGPUPrefetchSharedMemoryPass :
 //     InterfacePass<"iree-llvmgpu-prefetch-shared-memory", "mlir::FunctionOpInterface"> {
@@ -88,10 +88,10 @@ def LLVMGPUSelectLoweringStrategyPass :
   let summary = "Select a IREE::HAL::DispatchLoweringPassPipeline for lowering the target variant";
 }
 
-// def LLVMGPUTensorCoreVectorizationPass :
-//     InterfacePass<"iree-llvmgpu-tensorcore-vectorization", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass to convert linalg into Vector and transform it to a form that can be lowered to GPU MMA ops";
-// }
+def LLVMGPUTensorCoreVectorizationPass :
+    InterfacePass<"iree-llvmgpu-tensorcore-vectorization", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to convert linalg into Vector and transform it to a form that can be lowered to GPU MMA ops";
+}
 
 // def LLVMGPUTensorPadPass :
 //     InterfacePass<"iree-llvmgpu-tensor-pad", "mlir::FunctionOpInterface"> {
@@ -108,15 +108,15 @@ def LLVMGPUTileAndDistributePass :
 //   let summary = "Pass to distribute vectorized functions.";
 // }
 
-// def LLVMGPUVectorLoweringPass :
-//     InterfacePass<"iree-llvmgpu-vector-lowering", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass to lower Vector ops before conversion to LLVM.";
-// }
+def LLVMGPUVectorLoweringPass :
+    InterfacePass<"iree-llvmgpu-vector-lowering", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to lower Vector ops before conversion to LLVM.";
+}
 
-// def LLVMGPUVectorToGPUPass :
-//     InterfacePass<"iree-llvmgpu-vector-to-gpu", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass to convert vector to gpu.";
-// }
+def LLVMGPUVectorToGPUPass :
+    InterfacePass<"iree-llvmgpu-vector-to-gpu", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to convert vector to gpu.";
+}
 
 
 

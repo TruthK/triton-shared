@@ -7,7 +7,6 @@
 #ifndef IREE_COMPILER_CODEGEN_UTILS_UTILS_H_
 #define IREE_COMPILER_CODEGEN_UTILS_UTILS_H_
 
-#include "llvm/TargetParser/Triple.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -18,6 +17,7 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
+#include "llvm/TargetParser/Triple.h"
 
 #include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUOps.h"
 namespace mlir::tts {
@@ -240,8 +240,20 @@ computeDimUpperBound(Value shapedValue, unsigned dimNum,
 // Utility to make sure we are storing the full incoming subspan. Otherwise we
 // cannot simply adjust the subspan's resultant type later.
 bool isFullSlice(OffsetSizeAndStrideOpInterface sliceLoadStoreOp,
-                 mlir::TensorType tensorType,
-                 ValueRange dynamicDims);
+                 mlir::TensorType tensorType, ValueRange dynamicDims);
+
+// Returns the bit-width of the scalar type. If the type is complex, it returns
+// the type of individual elements * 2 (1 for real and 1 for complex).
+static inline unsigned getTypeBitWidth(mlir::Type type) {
+  if (auto complexType = dyn_cast<mlir::ComplexType>(type)) {
+    return 2 * complexType.getElementType().getIntOrFloatBitWidth();
+  }
+  if (auto vectorType = dyn_cast<mlir::VectorType>(type)) {
+    return vectorType.getNumElements() *
+           getTypeBitWidth(vectorType.getElementType());
+  }
+  return type.getIntOrFloatBitWidth();
+}
 
 } // namespace mlir::tts
 

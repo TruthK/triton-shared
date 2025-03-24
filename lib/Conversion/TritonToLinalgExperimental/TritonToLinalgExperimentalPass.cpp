@@ -66,6 +66,8 @@ public:
 
     pm.addPass(createCSEPass());
     pm.addPass(createCanonicalizerPass());
+    pm.nest<mlir::func::FuncOp>().addPass(
+        createHoistTensorEmptyFromLoopsPass());
 
     if (failed(runPipeline(pm, getOperation()))) {
       signalPassFailure();

@@ -100,6 +100,7 @@ struct ScalarLoadConverter : public OpConversionPattern<tts::GatherOp> {
         basePtr, getAsOpFoldResult(loadIndex) /*offset*/,
         ArrayRef<OpFoldResult>{rewriter.getIndexAttr(1)} /*sizes*/,
         ArrayRef<OpFoldResult>{rewriter.getIndexAttr(1)} /*strides*/);
+    rewriter.create<mlir::memref::AssumeAlignmentOp>(loc, memref.getResult(), 64);
 
     auto zeroMap = AffineMap::getConstantMap(0, rewriter.getContext());
 
@@ -145,7 +146,7 @@ struct ScalarStoreConverter : public OpConversionPattern<tts::ScatterOp> {
         basePtr, getAsOpFoldResult(storeIndex) /*offset*/,
         ArrayRef<OpFoldResult>{rewriter.getIndexAttr(1)} /*sizes*/,
         ArrayRef<OpFoldResult>{rewriter.getIndexAttr(1)} /*strides*/);
-
+    rewriter.create<mlir::memref::AssumeAlignmentOp>(loc, memref.getResult(), 64);
     auto storeVal = scatterOp.getValue();
     auto zeroMap = AffineMap::getConstantMap(0, rewriter.getContext());
 

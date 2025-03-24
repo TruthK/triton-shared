@@ -3,6 +3,10 @@ add_triton_library(IREECodegenCommonGPUPasses
     GPUMultiBuffering.cpp
     Passes.cpp
     WorkgroupReordering.cpp
+    GPUDistributeSharedMemoryCopy.cpp
+    GPUPipelining.cpp
+    GPUPropagateDispatchSizeBounds.cpp
+    GPUCheckResourceUsage.cpp
 
   DEPENDS
     CommonGPUPassIncGen
@@ -59,7 +63,7 @@ add_triton_library(IREECodegenCommonGPUPasses
     IREECodegenTransforms
     IREECodegenUtils
     IREECodegenVectorOpUtils
+    IREEGPUDialectTransforms
 )
 
 # iree::compiler::Codegen::Common::VectorLayoutAnalysis
-# iree::compiler::Codegen::Dialect::GPU::Transforms::GPUTransforms

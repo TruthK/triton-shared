@@ -3,6 +3,7 @@ add_triton_library(StructuredToMemref
   StructuredToMemrefPass.cpp
   SimplifyTTSMakeTPtr.cpp
   SimplifyTTSMakeTPtrPass.cpp
+  HoistTensorEmptyFromLoopsPass.cpp
   
   DEPENDS
   StructuredToMemrefConversionPassIncGen

@@ -15,9 +15,9 @@
 #include <optional>
 
 // #include "triton-shared/Codegen/Common/GPU/Passes.h"
+#include "mlir/Pass/Pass.h"
 #include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
 #include "triton-shared/Codegen/Dialect/GPU/TargetUtils/ConfigUtils.h"
-#include "mlir/Pass/Pass.h"
 
 namespace mlir::tts {
 
@@ -76,7 +76,6 @@ void addGPUWarpReductionPassPipeline(OpPassManager &funcPassManager);
 /// Default pass pipeline on GPU, currently used only for the ukernel path.
 void addGPUDefaultPassPipeline(OpPassManager &funcPassManager,
                                const GPUPipelineOptions &options);
-
 
 /// Populates passes needed to preprocess and select the translation strategy.
 void buildLLVMGPUCodegenConfigurationPassPipeline(

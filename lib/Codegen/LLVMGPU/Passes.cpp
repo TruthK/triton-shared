@@ -632,40 +632,40 @@ void addGPUMatmulTensorCoreMmaSyncPassPipeline(
   funcPassManager.addPass(createCanonicalizerPass());
   funcPassManager.addPass(createCSEPass());
 
-  // // Linalg -> vector
-  // funcPassManager.addPass(
-  //     createLLVMGPUTensorCoreVectorizationPass(GPUTensorCoreType::MMA_SYNC));
-  // funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
-  // funcPassManager.addPass(createCSEPass());
-  // funcPassManager.addPass(createOptimizeVectorTransferPass());
-  // funcPassManager.addPass(createOptimizeTensorInsertExtractSlicesPass());
+  // Linalg -> vector
+  funcPassManager.addPass(
+      createLLVMGPUTensorCoreVectorizationPass(GPUTensorCoreType::MMA_SYNC));
+  funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
+  funcPassManager.addPass(createCSEPass());
+  funcPassManager.addPass(createOptimizeVectorTransferPass());
+  funcPassManager.addPass(createOptimizeTensorInsertExtractSlicesPass());
 
-  // // Distribute shared memory copies.
-  // funcPassManager.addPass(createMemrefCopyToLinalgPass());
-  // funcPassManager.addPass(createGPUDistributeSharedMemoryCopyPass());
-  // funcPassManager.addPass(createCanonicalizerPass());
-  // funcPassManager.addPass(createCSEPass());
+  // Distribute shared memory copies.
+  funcPassManager.addPass(createMemrefCopyToLinalgPass());
+  funcPassManager.addPass(createGPUDistributeSharedMemoryCopyPass());
+  funcPassManager.addPass(createCanonicalizerPass());
+  funcPassManager.addPass(createCSEPass());
 
-  // // Vector -> MMA ops
-  // funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
-  // funcPassManager.addPass(createCanonicalizerPass());
-  // funcPassManager.addPass(createCSEPass());
-  // funcPassManager.addPass(
-  //     createLLVMGPUVectorToGPUPass(GPUTensorCoreType::MMA_SYNC));
-  // funcPassManager.addPass(createCanonicalizerPass());
-  // funcPassManager.addPass(createCSEPass());
+  // Vector -> MMA ops
+  funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
+  funcPassManager.addPass(createCanonicalizerPass());
+  funcPassManager.addPass(createCSEPass());
+  funcPassManager.addPass(
+      createLLVMGPUVectorToGPUPass(GPUTensorCoreType::MMA_SYNC));
+  funcPassManager.addPass(createCanonicalizerPass());
+  funcPassManager.addPass(createCSEPass());
 
-  // // Hoist loop invariant code to avoid pipelining it.
-  // funcPassManager.addPass(createIREELoopInvariantCodeMotionPass());
-  // // Pipeline memory operations.
-  // GPUPipeliningPassOptions pipelieningOptions = {};
-  // pipelieningOptions.epiloguePeeling = false;
-  // pipelieningOptions.depth = pipelineDepth;
-  // pipelieningOptions.scheduleIndex =
-  //     llvm::to_underlying(PipeliningSchedulingStrategy::nvidiaTensorCore);
-  // funcPassManager.addPass(createGPUPipeliningPass(pipelieningOptions));
-  // // Optimize shared memory usage.
-  // funcPassManager.addPass(createLLVMGPUPackSharedMemoryAllocPass());
+  // Hoist loop invariant code to avoid pipelining it.
+  funcPassManager.addPass(createIREELoopInvariantCodeMotionPass());
+  // Pipeline memory operations.
+  GPUPipeliningPassOptions pipelieningOptions = {};
+  pipelieningOptions.epiloguePeeling = false;
+  pipelieningOptions.depth = pipelineDepth;
+  pipelieningOptions.scheduleIndex =
+      llvm::to_underlying(PipeliningSchedulingStrategy::nvidiaTensorCore);
+  funcPassManager.addPass(createGPUPipeliningPass(pipelieningOptions));
+  // Optimize shared memory usage.
+  funcPassManager.addPass(createLLVMGPUPackSharedMemoryAllocPass());
 }
 
 // //===---------------------------------------------------------------------===//
@@ -1014,115 +1014,96 @@ void addGPUWarpReductionPassPipeline(OpPassManager &funcPassManager) {
 // // loops.
 // //
 // // Note that this needs to run before SCF -> CF.
-// static void
-// addLowerAndOptimizeAddressComputationPasses(FunctionLikeNest
-// &funcPassManager) {
-//   funcPassManager.addPass(createExtractAddressComputationGPUPass)
-//       .addPass(memref::createExpandOpsPass)
-//       .addPass(memref::createFoldMemRefAliasOpsPass)
-//       .addPass(memref::createExpandStridedMetadataPass)
-//       // Hoist loop invariant variables to give affine decomposition pass
-//       the
-//       // right loop dependencies.
-//       .addPass(createIREELoopInvariantCodeMotionPass)
-//       // Decompose affine ops.
-//       .addPass(createDecomposeAffineOpsPass)
-//       // Get rid of the redundant computations.
-//       .addPass(createCSEPass)
-//       // Hoist the resulting decompositions.
-//       .addPass(createIREELoopInvariantCodeMotionPass)
-//       .addPass(affine::createAffineExpandIndexOpsPass)
-//       .addPass(createLowerAffinePass)
-//       .addPass(IREE::Util::createOptimizeIntArithmeticPass)
-//       // Do another round of LICM now that we've lowered and optimized
-//       // arithmetic
-//       .addPass(createCSEPass)
-//       .addPass(createIREELoopInvariantCodeMotionPass);
-// }
+static void
+addLowerAndOptimizeAddressComputationPasses(FunctionLikeNest
+&funcPassManager) {
+  funcPassManager.addPass(createExtractAddressComputationGPUPass)
+      .addPass(memref::createExpandOpsPass)
+      .addPass(memref::createFoldMemRefAliasOpsPass)
+      .addPass(memref::createExpandStridedMetadataPass)
+      // Hoist loop invariant variables to give affine decomposition pass the
+      // right loop dependencies.
+      .addPass(createIREELoopInvariantCodeMotionPass)
+      // Decompose affine ops.
+      .addPass(createDecomposeAffineOpsPass)
+      // Get rid of the redundant computations.
+      .addPass(createCSEPass)
+      // Hoist the resulting decompositions.
+      .addPass(createIREELoopInvariantCodeMotionPass)
+      .addPass(affine::createAffineExpandIndexOpsPass)
+      .addPass(createLowerAffinePass)
+      // Do another round of LICM now that we've lowered and optimized
+      // arithmetic
+      .addPass(createCSEPass)
+      .addPass(createIREELoopInvariantCodeMotionPass);
+}
 
-// static void addLowerToLLVMGPUPasses(OpPassManager &modulePassManager,
-//                                     bool forROCDL) {
-//   modulePassManager.addPass(
-//       createConvertHALDescriptorTypeToGPUAddressSpacePass());
-//   modulePassManager.addPass(createCanonicalizerPass());
-//   modulePassManager.addPass(createCSEPass());
+static void addLowerToLLVMGPUPasses(OpPassManager &modulePassManager,
+                                    bool forROCDL) {
+  modulePassManager.addPass(createCanonicalizerPass());
+  modulePassManager.addPass(createCSEPass());
 
-//   modulePassManager.addPass(createLowerUKernelOpsToCallsPass());
+  // modulePassManager.addPass(createLowerUKernelOpsToCallsPass());
 
-//   FunctionLikeNest(modulePassManager)
-//       // LinalgExt -> SCF
-//       .addPass(IREE::LinalgExt::createLinalgExtToLoopsPass)
+  FunctionLikeNest(modulePassManager)
+      // Linalg -> SCF
+      .addPass(createMemrefCopyToLinalgPass)
+      .addPass(createConvertLinalgToLoopsPass)
+      .addPass(createCanonicalizerPass)
+      .addPass(createCSEPass)
+      // Pad allocations with dynamic dimension after linalg lowering but before
+      // lowering SCF and affine ops.
+      .addPass(createPadDynamicAllocPass)
+      // Hoist any newly static allocations from PadDynamicAlloc.
+      .addPass(createHoistStaticallyBoundAllocationsPass)
+      .addPass(createLowerAffinePass)
+      .addPass(createCanonicalizerPass)
+      .addPass(createCSEPass);
 
-//       // Linalg -> SCF
-//       .addPass(createMemrefCopyToLinalgPass)
-//       .addPass(createConvertLinalgToLoopsPass)
-//       .addPass(createCanonicalizerPass)
-//       .addPass(createCSEPass)
+  // Handled tensor constants.
+  addConstantBufferizePasses(modulePassManager);
 
-//       // Pad allocations with dynamic dimension after linalg lowering but
-//       before
-//       // lowering SCF and affine ops.
-//       .addPass(createPadDynamicAllocPass)
-//       // Hoist any newly static allocations from PadDynamicAlloc.
-//       .addPass(createHoistStaticallyBoundAllocationsPass)
+  FunctionLikeNest funcPassManager(modulePassManager);
+  funcPassManager.addPass(createFoldTensorExtractOpPass)
+      .addPass(createLLVMGPUVectorLoweringPass)
+      .addPass(createExpandGPUOpsPass)
+      // Expose workitem and workgroup counts to range inference later.
+      .addPass(createGPUPropagateDispatchSizeBoundsPass);
 
-//       .addPass(createLowerAffinePass)
-//       .addPass(createCanonicalizerPass)
-//       .addPass(createCSEPass);
+  // This pass needs to run before SCF -> CF.
+  addLowerAndOptimizeAddressComputationPasses(funcPassManager);
 
-//   // Handled tensor constants.
-//   addConstantBufferizePasses(modulePassManager);
+  // // Run checks on shared memory usage.
+  // funcPassManager
+  //     .addPass([&]() {
+  //       auto getIndexBitwidth = [](mlir::FunctionOpInterface) { return 64;
+  //       }; return createGPUCheckResourceUsagePass(getIndexBitwidth);
+  //     })
+  //     // SCF -> CF
+  //     .addPass(createConvertSCFToCFPass)
+  //     .addPass(createCanonicalizerPass)
+  //     .addPass(createCSEPass)
+  //     // Handle complex operation conversion.
+  //     .addPass(createConvertComplexToStandardPass)
+  //     // Convert BF16 operations to occur as F32.
+  //     .addPass(createConvertBf16ArithToF32Pass)
+  //     .addPass(createConvertBf16ToUInt16BuffersPass)
+  //     // Convert math dialect elementry functions to polynomial form.
+  //     .addPass(createPolynomialApproximationPass)
+  //     .addPass(memref::createExpandOpsPass)
+  //     .addPass(memref::createFoldMemRefAliasOpsPass)
+  //     .addPass(memref::createExpandStridedMetadataPass)
+  //     .addPass(createEmulateNarrowTypePass)
+  //     .addPass(affine::createAffineExpandIndexOpsPass)
+  //     .addPass(createLowerAffinePass);
 
-//   FunctionLikeNest funcPassManager(modulePassManager);
-//   funcPassManager.addPass(createFoldTensorExtractOpPass)
-//       .addPass(createLLVMGPUVectorLoweringPass)
-//       .addPass(createExpandGPUOpsPass)
-//       // Expose workitem and workgroup counts to range inference later.
-//       .addPass(createGPUPropagateDispatchSizeBoundsPass);
-
-//   // This pass needs to run before SCF -> CF.
-//   addLowerAndOptimizeAddressComputationPasses(funcPassManager);
-
-//   // Run checks on shared memory usage.
-//   funcPassManager
-//       .addPass([&]() {
-//         auto getIndexBitwidth = [](mlir::FunctionOpInterface) { return 64;
-//         }; return createGPUCheckResourceUsagePass(getIndexBitwidth);
-//       })
-//       // SCF -> CF
-//       .addPass(createConvertSCFToCFPass)
-//       .addPass(createCanonicalizerPass)
-//       .addPass(createCSEPass)
-//       // Handle complex operation conversion.
-//       .addPass(createConvertComplexToStandardPass)
-//       // Convert BF16 operations to occur as F32.
-//       .addPass(createConvertBf16ArithToF32Pass)
-//       .addPass(createConvertBf16ToUInt16BuffersPass)
-//       // Convert math dialect elementry functions to polynomial form.
-//       .addPass(createPolynomialApproximationPass)
-//       .addPass(memref::createExpandOpsPass)
-//       .addPass(memref::createFoldMemRefAliasOpsPass)
-//       .addPass(memref::createExpandStridedMetadataPass)
-//       .addPass(createEmulateNarrowTypePass)
-//       .addPass(affine::createAffineExpandIndexOpsPass)
-//       .addPass(createLowerAffinePass);
-
-//   // Strip out the debug info for the kernel.
-//   modulePassManager.addPass(createStripDebugInfoPass());
-//   // Cast address spaces of all function arguments to generic.
-//   modulePassManager.addPass(createLLVMGPUCastAddressSpaceFunctionPass());
-//   modulePassManager.addPass(IREE::Util::createDropCompilerHintsPass());
-
-//   if (forROCDL) {
-//     // convert to ROCDL.
-//     modulePassManager.addPass(createConvertToROCDLPass());
-//     modulePassManager.addNestedPass<LLVM::LLVMFuncOp>(
-//         createROCDLAnnotateKernelForTranslationPass());
-//   } else {
-//     // convert to NVVM.
-//     modulePassManager.addPass(createConvertToNVVMPass());
-//   }
-// }
+  // // Strip out the debug info for the kernel.
+  // modulePassManager.addPass(createStripDebugInfoPass());
+  // // Cast address spaces of all function arguments to generic.
+  // modulePassManager.addPass(createLLVMGPUCastAddressSpaceFunctionPass());
+  //   // convert to NVVM.
+  //   modulePassManager.addPass(createConvertToNVVMPass());
+}
 
 // void addGPUTransformDialectPasses(OpPassManager &funcPassManager,
 //                                   StringRef entryPoint) {
@@ -1168,11 +1149,10 @@ void buildLLVMGPUCodegenPassPipeline(OpPassManager &variantPassManager,
   {
     OpPassManager &modulePassManager = variantPassManager.nest<ModuleOp>();
     FunctionLikeNest(modulePassManager)
-        .addPass(createLLVMGPULowerExecutableTargetPass);
-
-    // .addPass(createVerifyWorkgroupDistributionPass);
+        .addPass(createLLVMGPULowerExecutableTargetPass)
+        .addPass(createVerifyWorkgroupDistributionPass);
   }
-  //   variantPassManager.addPass(createReconcileTranslationInfoPass());
+    variantPassManager.addPass(createReconcileTranslationInfoPass());
 
   //   //===--------------------------------------------------------------------===//
   //   // Convert Linalg ops to LLVM+NVVM/ROCDL ops.

@@ -3,6 +3,8 @@ add_triton_library(IREECodegenUtils
     LinalgOpInfo.cpp
     MarkerUtils.cpp
     Utils.cpp
+    ConversionUtils.cpp
+    
   LINK_LIBS PUBLIC
     LLVMSupport
     LLVMTargetParser

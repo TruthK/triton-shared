@@ -9,6 +9,11 @@ add_triton_library(IREECodegenLLVMGPU
  Verifiers.cpp
  LLVMGPUCodegen.cpp
  LLVMGPUTileAndDistribute.cpp
+ LLVMGPUTensorCoreVectorization.cpp
+ LLVMGPUPackSharedMemoryAlloc.cpp
+ LLVMGPUVectorToGPU.cpp
+ LLVMGPUVectorLowering.cpp
+ ExtractAddressComputationGPUPass.cpp
  
   DEPENDS
     LLVMGPUCodegenPassIncGen

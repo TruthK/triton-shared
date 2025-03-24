@@ -5,11 +5,7 @@ mlir_tablegen(Passes.h.inc -gen-pass-decls)
 add_public_tablegen_target(CommonCodegenPassIncGen)
 
 
-# iree_tablegen_library(
-#   NAME
-#     FoldTensorExtractOpIncGen
-#   TD_FILE
-#     "FoldTensorExtractOp.td"
-#   OUTS
-#     --gen-rewriters FoldTensorExtractOp.cpp.inc
-# )
+set(LLVM_TARGET_DEFINITIONS FoldTensorExtractOp.td)
+mlir_tablegen(FoldTensorExtractOp.cpp.inc -gen-rewriters)
+add_public_tablegen_target(FoldTensorExtractOpIncGen)
+

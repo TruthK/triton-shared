@@ -8,6 +8,7 @@
 #include "triton-shared/Analysis/PtrAnalysis.h"
 #include "triton-shared/Analysis/OpFoldResultUtils.h"
 
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/Transforms/DialectConversion.h"
 
@@ -227,13 +228,15 @@ PtrState::createStackedCastOps(ArrayRef<int64_t> resultShape,
       loc, resultType, source, targetOffset, sizes1,
       ValueRange{strideRow, strideCol});
 
+  rewriter.create<mlir::memref::AssumeAlignmentOp>(loc, cast1.getResult(), 64);
+
   // Second chunk
   Value d2 = rewriter.create<arith::SubIOp>(loc, rowSize, d1);
   SmallVector<Value> sizes2{d2, colSize};
   memref::ReinterpretCastOp cast2 = rewriter.create<memref::ReinterpretCastOp>(
       loc, resultType, source, wrappedAroundOff, sizes2,
       ValueRange{strideRow, strideCol});
-
+  rewriter.create<mlir::memref::AssumeAlignmentOp>(loc, cast2.getResult(), 64);
   return {cast1, cast2};
 }
 
@@ -315,14 +318,14 @@ PtrState::createSideBySideCastOps(ArrayRef<int64_t> resultShape,
 
   auto cast1 = rewriter.create<memref::ReinterpretCastOp>(
       loc, resultType, source, targetOffset, sizes1, strideVals);
-
+  rewriter.create<mlir::memref::AssumeAlignmentOp>(loc, cast1.getResult(), 64);
   // Second chunk
   Value d2 = rewriter.create<arith::SubIOp>(loc, colSize, d1);
   SmallVector<Value> sizes2{rowSize, d2};
 
   auto cast2 = rewriter.create<memref::ReinterpretCastOp>(
       loc, resultType, source, y, sizes2, strideVals);
-
+  rewriter.create<mlir::memref::AssumeAlignmentOp>(loc, cast2.getResult(), 64);
   return {cast1, cast2};
 }
 
@@ -341,8 +344,10 @@ PtrState::createCastOp(ArrayRef<int64_t> resultShape, const Location loc,
       getResultMemrefType(rewriter.getContext(), staticOffset[0], resultShape);
 
   // Create reinterpret cast
-  return rewriter.create<memref::ReinterpretCastOp>(
+  auto result = rewriter.create<memref::ReinterpretCastOp>(
       loc, resultType, source, targetOffset, sizes, strides);
+  rewriter.create<mlir::memref::AssumeAlignmentOp>(loc, result.getResult(), 64);
+  return result;
 }
 
 void PtrAnalysis::visitOperandAdd(

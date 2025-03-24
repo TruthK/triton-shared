@@ -9,9 +9,29 @@ add_triton_library(IREECodegenCommon
     TileDispatchUsingForall.cpp
     TileDispatchUsingInterface.cpp
     PassUtils.cpp
-    
+    OptimizeTensorInsertExtractSlices.cpp
+    OptimizeVectorTransferPass.cpp
+    FoldTensorSubsetIntoVectorTransferOps.cpp
+    MemrefCopyToLinalg.cpp
+    IREELoopInvariantCodeMotion.cpp
+    ReconcileTranslationInfo.cpp
+    VerifyWorkgroupDistribution.cpp
+    HoistStaticallyBoundAllocations.cpp
+    PadDynamicAlloc.cpp
+    FoldTensorExtractOpPass.cpp
+    ExpandGPUOps.cpp
+    DecomposeAffineOpsPass.cpp
+    ExtractAddressComputation.cpp
+    ConvertBf16ArithToF32.cpp
+    ConvertBf16ToUInt16Buffers.cpp
+    PolynomialApproximationPass.cpp
+    EmulateNarrowType.cpp
+    IREEExpandStridedMetadata.cpp
+
+
 DEPENDS
     CommonCodegenPassIncGen
+    FoldTensorExtractOpIncGen
 LINK_LIBS PUBLIC
     LLVMSupport
     MLIRAffineAnalysis

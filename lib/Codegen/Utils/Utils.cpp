@@ -38,18 +38,7 @@
 #define DEBUG_TYPE "iree-codegen-utils"
 
 namespace mlir::tts {
-// Returns the bit-width of the scalar type. If the type is complex, it returns
-// the type of individual elements * 2 (1 for real and 1 for complex).
-static inline unsigned getTypeBitWidth(mlir::Type type) {
-  if (auto complexType = dyn_cast<mlir::ComplexType>(type)) {
-    return 2 * complexType.getElementType().getIntOrFloatBitWidth();
-  }
-  if (auto vectorType = dyn_cast<mlir::VectorType>(type)) {
-    return vectorType.getNumElements() *
-           getTypeBitWidth(vectorType.getElementType());
-  }
-  return type.getIntOrFloatBitWidth();
-}
+
 //===----------------------------------------------------------------------===//
 // Utility functions to get entry points
 //===----------------------------------------------------------------------===//

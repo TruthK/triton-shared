@@ -527,6 +527,28 @@ void moveLoopInvariantCodeFromGuaranteedLoops(Operation *target) {
     // then the loop may have a zero trip count.
     for (auto [lb, ub] :
          llvm::zip_equal(*maybeLowerBounds, *maybeUpperBounds)) {
+      if (isa<Value>(ub)) {
+        Value ubValue = cast<Value>(ub);
+        if (!ubValue.getType().isIndex()) {
+          // Create index cast operation
+          OpBuilder builder(ubValue.getContext());
+          builder.setInsertionPointAfter(ubValue.getDefiningOp());
+          Value newUb = builder.create<arith::IndexCastOp>(
+              ubValue.getLoc(), builder.getIndexType(), ubValue);
+          ub = newUb;
+        }
+      }
+      if (isa<Value>(lb)) {
+        Value lbValue = cast<Value>(lb);
+        if (!lbValue.getType().isIndex()) {
+          // Create index cast operation
+          OpBuilder builder(lbValue.getContext());
+          builder.setInsertionPointAfter(lbValue.getDefiningOp());
+          Value newlb = builder.create<arith::IndexCastOp>(
+              lbValue.getLoc(), builder.getIndexType(), lbValue);
+          lb = newlb;
+        }
+      }
       if (!ValueBoundsConstraintSet::compare(lb, ValueBoundsConstraintSet::LT,
                                              ub)) {
         return;
@@ -1096,7 +1118,6 @@ void moveLoopInvariantCodeFromGuaranteedLoops(Operation *target) {
 //===--------------------------------------------------------------------====//
 
 namespace {
-
 // Erases the operation if its only users are memref.assume_alignment ops.
 static LogicalResult eraseAlignmentOnlyDeadOp(PatternRewriter &rewriter,
                                               Operation *op) {
@@ -1131,16 +1152,18 @@ struct RemoveDeadMemAllocs : RewritePattern {
   }
 };
 
-// // Removes hal.interface.binding.subspan ops with only assume_alignment uses.
-// struct RemoveDeadInterfaceBindings
+// // Removes hal.interface.binding.subspan ops with only assume_alignment
+// uses. struct RemoveDeadInterfaceBindings
 //     : OpRewritePattern<IREE::HAL::InterfaceBindingSubspanOp> {
-//   RemoveDeadInterfaceBindings(MLIRContext *context, PatternBenefit benefit =
-//   1)
+//   RemoveDeadInterfaceBindings(MLIRContext *context, PatternBenefit
+//   benefit = 1)
 //       : OpRewritePattern<IREE::HAL::InterfaceBindingSubspanOp>(context,
-//                                                                benefit) {}
+//                                                                benefit)
+//                                                                {}
 
 //   LogicalResult matchAndRewrite(IREE::HAL::InterfaceBindingSubspanOp op,
-//                                 PatternRewriter &rewriter) const override {
+//                                 PatternRewriter &rewriter) const override
+//                                 {
 //     return eraseAlignmentOnlyDeadOp(rewriter, op);
 //   }
 // };
@@ -1404,7 +1427,8 @@ struct HoistForallFromFor : public OpRewritePattern<scf::ForOp> {
                                          [](int64_t i) { return i == 1; });
 
     // Step 2. Collect the set of tensor.parallel_insert_slice ops in the
-    // terminator and their paired extract_slice ops from the for loop iter arg.
+    // terminator and their paired extract_slice ops from the for loop iter
+    // arg.
     SmallVector<Operation *> sliceOperandProducers;
 
     BackwardSliceOptions backwardOptions;
@@ -1445,8 +1469,9 @@ struct HoistForallFromFor : public OpRewritePattern<scf::ForOp> {
       }
 
       // Verify they operate on equivalent subsets, ensuring the slices are
-      // hoistable. It is still possible to hoist the loop if this is not true,
-      // however in such cases we likely formed the loops in the wrong order.
+      // hoistable. It is still possible to hoist the loop if this is not
+      // true, however in such cases we likely formed the loops in the wrong
+      // order.
       if (destSlice && !cast<SubsetOpInterface>(*destSlice)
                             .operatesOnEquivalentSubset(
                                 cast<SubsetOpInterface>(*parallelInsert),
@@ -1527,10 +1552,11 @@ struct HoistForallFromFor : public OpRewritePattern<scf::ForOp> {
           loop, "Slice operand producers not safe to hoist out of loop");
     }
 
-    // Sort the backwards slice of the producers for the insertion/extraction
-    // indices by the block order in the scf.forall body. This ensures that we
-    // hoist operations in the same order they started. Any topological ordering
-    // would work too because the operations are speculatable.
+    // Sort the backwards slice of the producers for the
+    // insertion/extraction indices by the block order in the scf.forall
+    // body. This ensures that we hoist operations in the same order they
+    // started. Any topological ordering would work too because the
+    // operations are speculatable.
     slice = mlir::topologicalSort(slice);
 
     // Step 3. Create the ForallOp.
@@ -1562,7 +1588,8 @@ struct HoistForallFromFor : public OpRewritePattern<scf::ForOp> {
           [](OpBuilder &, Location, Value, ValueRange) {});
 
       {
-        // Step 5. Inline the body of the original forall into the new for loop.
+        // Step 5. Inline the body of the original forall into the new for
+        // loop.
         OpBuilder::InsertionGuard g2(rewriter);
         SmallVector<Value> argReplacements(newForallOp.getInductionVars());
         for (auto [forallIterArg, forIterArg, maybeSlice] :
@@ -1598,8 +1625,8 @@ struct HoistForallFromFor : public OpRewritePattern<scf::ForOp> {
         rewriter.create<scf::YieldOp>(loop.getLoc(), newYields);
       }
 
-      // Move all producers for the indices of the slices outside of the body
-      // of the loop (and the extract_slice ops themselves).
+      // Move all producers for the indices of the slices outside of the
+      // body of the loop (and the extract_slice ops themselves).
       for (auto sliceOperandProducer : slice) {
         rewriter.moveOpBefore(sliceOperandProducer, newLoop);
       }
@@ -1609,8 +1636,8 @@ struct HoistForallFromFor : public OpRewritePattern<scf::ForOp> {
         }
       }
 
-      // Create the new terminator for the hoisted forall loop using the results
-      // of the new for loop.
+      // Create the new terminator for the hoisted forall loop using the
+      // results of the new for loop.
       rewriter.setInsertionPointToEnd(newForallOp.getTerminator().getBody());
       for (auto [parallelSlice, source, dest] :
            llvm::zip_equal(terminators, newLoop.getResults(),

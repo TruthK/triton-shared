@@ -12,6 +12,7 @@
 #include "triton-shared/Dialect/TritonTilingExt/IR/TritonTilingExtDialect.h"
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
@@ -91,9 +92,12 @@ public:
             .create<UnrealizedConversionCastOp>(loc, memrefType, inputs)
             .getResult(0);
       }
-      return builder.create<memref::ReinterpretCastOp>(
+      auto result = builder.create<memref::ReinterpretCastOp>(
           loc, memrefType, inputs[0], reinterpretCast.getMixedOffsets()[0],
           reinterpretCast.getMixedSizes(), reinterpretCast.getMixedStrides());
+      builder.create<mlir::memref::AssumeAlignmentOp>(loc, result.getResult(),
+                                                      64);
+      return result;
     });
 
     addSourceMaterialization([&](OpBuilder &builder, Type resultType,
@@ -157,7 +161,6 @@ public:
     target.addLegalOp<UnrealizedConversionCastOp>();
 
     PtrToUnrankedMemrefConverter typeConverter;
-
 
     triton::populateStructuredToMemrefConversionPatterns(patterns,
                                                          typeConverter);
