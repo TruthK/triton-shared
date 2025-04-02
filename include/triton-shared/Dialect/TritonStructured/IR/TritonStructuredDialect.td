@@ -42,6 +42,8 @@ def TritonPtrAttr : TritonStructured_Attr<"TritonPtr", "triton_ptr"> {
   let summary = "Attribute to indicate if a pointer is from Triton";
 }
 
+def TTS_Ptr : AnyTypeOf<[AnyMemRef, TT_Ptr, TT_PtrLike]>;
+def TTS_Vector : AnyTypeOf<[AnyVectorOfAnyRank,TT_Tensor]>;
 //
 // Op Base
 //
@@ -270,5 +272,99 @@ def TTS_StoreOp : TTS_Op<"store", [
   // TODO
   //let hasCustomAssemblyFormat = 1;
   //let hasVerifier = 1;
+}
+
+
+def TTS_TransferReadOp
+  : TTS_Op<"transfer_read", [ 
+      AttrSizedOperandSegments,
+      MemoryEffects<[MemRead]>
+    ]> {
+  let summary = "points to a tensor in memory";
+
+
+  let arguments = (ins AnyMemRef:$base,
+                       Variadic<Index>:$mask_dims,
+                       DenseI64ArrayAttr:$static_mask_dims,
+                       Optional<AnyTypeOf<[TT_Float, TT_Int, TTS_Ptr]>>:$other);
+
+  let results = (outs TTS_Vector:$result);
+
+  let assemblyFormat = [{
+    $base 
+    `` `,` `mask_dims` `` `:` custom<DynamicIndexList>($mask_dims, $static_mask_dims)
+    (`,` `other` `=` $other `:` qualified(type($other))^)?
+    attr-dict `:` qualified(type($base)) `to` qualified(type($result))
+  }];
+
+
+  let builders = [
+    // Build with mixed static and dynamic entries.
+    OpBuilder<(ins
+      "Value":$base,
+      "ArrayRef<OpFoldResult>":$mask_dims,
+      "Value":$other)>,
+  ];
+
+  let extraClassDeclaration = [{
+    /// Return a vector of all the static or dynamic fields
+    SmallVector<OpFoldResult> getMixedMaskDims() {
+      Builder b(getContext());
+      return ::mlir::getMixedValues(getStaticMaskDims(), getMaskDims(), b);
+    }
+
+    bool hasMask() {
+      return !getMixedMaskDims().empty();
+    }
+  }];
+
+  // TODO
+  //let hasVerifier = 1;
+  //let hasCanonicalizer = 1;
+}
+
+
+
+def TTS_TransferWriteOp
+  : TTS_Op<"transfer_write", [ 
+      MemoryEffects<[MemWrite]>
+    ]> {
+  let summary = " a tensor points write to memory";
+
+  let arguments = (ins AnyMemRef:$base,
+                       TTS_Vector:$value,
+                       Variadic<Index>:$mask_dims,
+                       DenseI64ArrayAttr:$static_mask_dims);
+
+  let assemblyFormat = [{
+    $base `to` $value 
+    `` `,` `mask_dims` `` `:` custom<DynamicIndexList>($mask_dims, $static_mask_dims)
+    attr-dict `:` qualified(type($base)) `to` qualified(type($value))
+  }];
+
+
+  let builders = [
+    // Build with mixed static and dynamic entries.
+    OpBuilder<(ins
+      "Value":$base,
+      "Value":$value, 
+      "ArrayRef<OpFoldResult>":$mask_dims)>,
+  ];
+
+  let extraClassDeclaration = [{
+        /// Return a vector of all the static or dynamic fields
+    SmallVector<OpFoldResult> getMixedMaskDims() {
+      Builder b(getContext());
+      return ::mlir::getMixedValues(getStaticMaskDims(), getMaskDims(), b);
+    }
+
+    bool hasMask() {
+      return !getMixedMaskDims().empty();
+    }
+  }];
+
+  // TODO
+  //let hasVerifier = 1;
+  //let hasCanonicalizer = 1;
 }
 #endif // TRITON_STRUCTURED_DIALECT

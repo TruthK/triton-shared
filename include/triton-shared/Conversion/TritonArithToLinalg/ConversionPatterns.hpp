@@ -8,11 +8,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/IR/BuiltinAttributes.h"
 #include "triton-shared/Analysis/MaskAnalysis.h"
 #include "triton-shared/Analysis/OpFoldResultUtils.h"
 #include "triton-shared/Analysis/PtrAnalysis.h"
-#include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 #include "triton-shared/Dialect/TritonTilingExt/IR/TritonTilingExtDialect.h"
 
 #include "triton/Dialect/Triton/IR/Dialect.h"
@@ -636,9 +634,7 @@ struct SplatConverter : public OpConversionPattern<triton::SplatOp> {
             .create<linalg::FillOp>(loc, ValueRange{adaptor.getSrc()},
                                     ValueRange{init})
             .result();
-    auto context = op.getContext();
-    filledTensor.getDefiningOp()->setAttr(
-        "triton_ptr", mlir::tts::TritonPtrAttr::get(context));
+
     rewriter.replaceOp(op, filledTensor);
     return success();
   }
@@ -1152,40 +1148,54 @@ struct MatmulConverter : public OpConversionPattern<triton::DotOp> {
     auto opb = op.getB();
     auto opc = op.getC();
 
+    // 获取opa的元素类型作为matmul的计算类型
+    auto opaType = cast<RankedTensorType>(opa.getType());
+    auto computeType = opaType.getElementType();
+    
+    // 获取最终结果类型
     auto dstType = cast<RankedTensorType>(op.getType());
-    auto elementType = dstType.getElementType();
-    bool integers = elementType.isInteger();
+    auto resultType = dstType.getElementType();
+
+    bool integers = computeType.isInteger();
     bool skipC = isZeroTensor(opc, integers);
-    auto init =
-        rewriter.create<tensor::EmptyOp>(loc, dstType.getShape(), elementType);
-    TypedAttr constantAttr =
-        integers
-            ? static_cast<TypedAttr>(rewriter.getIntegerAttr(elementType, 0))
-            : static_cast<TypedAttr>(rewriter.getFloatAttr(elementType, 0));
 
-    auto zero = rewriter.create<mlir::arith::ConstantOp>(
-        op.getLoc(), elementType, constantAttr);
+    // 使用computeType创建EmptyOp
+    auto init = rewriter.create<tensor::EmptyOp>(loc, dstType.getShape(), computeType);
 
-    auto zeroes =
-        rewriter.create<linalg::FillOp>(loc, ValueRange{zero}, ValueRange{init})
-            .result();
+    auto matmulRes = rewriter.create<linalg::MatmulOp>(loc, ValueRange{opa, opb},
+                                                       ValueRange{init})
+                         .getResult(0);
 
-    auto res = rewriter
-                   .create<linalg::MatmulOp>(loc, ValueRange{opa, opb},
-                                             ValueRange{zeroes})
-                   .getResult(0);
-
+    // 如果计算类型与结果类型不同,需要进行类型转换
+    if(computeType != resultType) {
+      auto resultTensorType = RankedTensorType::get(dstType.getShape(), resultType);
+      if(computeType.getIntOrFloatBitWidth() > resultType.getIntOrFloatBitWidth()) {
+        // 需要截断到较小位宽
+        if(integers) {
+          matmulRes = rewriter.create<arith::TruncIOp>(loc, resultTensorType, matmulRes);
+        } else {
+          matmulRes = rewriter.create<arith::TruncFOp>(loc, resultTensorType, matmulRes);
+        }
+      } else {
+        // 需要扩展到较大位宽
+        if(integers) {
+          matmulRes = rewriter.create<arith::ExtSIOp>(loc, resultTensorType, matmulRes);
+        } else {
+          matmulRes = rewriter.create<arith::ExtFOp>(loc, resultTensorType, matmulRes);
+        }
+      }
+    }
+    
+    // 如果有opc且不为0,需要加上opc
     if (!skipC) {
       if (integers) {
-        res = rewriter.create<arith::AddIOp>(loc, opc, res);
+        matmulRes = rewriter.create<arith::AddIOp>(loc, opc, matmulRes);
       } else {
-        res = rewriter.create<arith::AddFOp>(loc, opc, res);
+        matmulRes = rewriter.create<arith::AddFOp>(loc, opc, matmulRes);
       }
-      res.getDefiningOp()->setAttr("dot_c",
-                                   UnitAttr::get(rewriter.getContext()));
     }
-
-    rewriter.replaceOp(op, res);
+    
+    rewriter.replaceOp(op, matmulRes);
     return success();
   }
 };
@@ -1522,13 +1532,10 @@ class ArgMinMaxBaseConverter : public OpConversionPattern<triton::ReduceOp> {
                       Location loc) const {
     Value initTensor =
         rewriter.create<tensor::EmptyOp>(loc, shape, fillValue.getType());
-    auto fillResult = rewriter
-                          .create<linalg::FillOp>(loc, ValueRange{fillValue},
-                                                  ValueRange{initTensor})
-                          .result();
-    fillResult.getDefiningOp()->setAttr(
-        "triton_ptr", mlir::tts::TritonPtrAttr::get(rewriter.getContext()));
-    return fillResult;
+    return rewriter
+        .create<linalg::FillOp>(loc, ValueRange{fillValue},
+                                ValueRange{initTensor})
+        .result();
   }
 
 public:
@@ -1879,19 +1886,23 @@ struct DenseConstantConverter : public OpConversionPattern<arith::ConstantOp> {
                   ConversionPatternRewriter &rewriter) const override {
     auto attr = cast<DenseElementsAttr>(op.getValue());
     auto loc = op.getLoc();
-
     auto splatConst = arith::ConstantOp::materialize(
         rewriter, attr.getSplatValue<Attribute>(), attr.getElementType(), loc);
 
-    auto init = rewriter.create<tensor::EmptyOp>(
-        loc, cast<RankedTensorType>(op.getResult().getType()).getShape(),
+    // Get the result type of the original constant op
+    auto resultType = op.getResult().getType();
+
+    // Create the empty tensor operation
+    auto emptyOp = rewriter.create<tensor::EmptyOp>(
+        loc, cast<RankedTensorType>(resultType).getShape(),
         attr.getElementType());
 
-    auto fillOp = rewriter.replaceOpWithNewOp<linalg::FillOp>(
-        op, ValueRange{splatConst}, ValueRange{init});
-    fillOp->setAttr("triton_ptr",
-                    mlir::tts::TritonPtrAttr::get(rewriter.getContext()));
+    // Create the fill operation
+    auto fillOp = rewriter.create<linalg::FillOp>(loc, ValueRange{splatConst},
+                                                  ValueRange{emptyOp});
 
+
+    rewriter.replaceOp(op, fillOp.getResult(0));
     return success();
   }
 };
@@ -2134,85 +2145,6 @@ public:
     return failure();
   }
 };
-
-bool isElementwiseMappableOpOnRankedTensors(Operation *op) {
-  if (!OpTrait::hasElementwiseMappableTraits(op))
-    return false;
-
-  // TODO: The conversion pattern can be made to work for `any_of` here, but
-  // it's more complex as it requires tracking which operands are scalars.
-  return llvm::all_of(op->getOperandTypes(), llvm::IsaPred<RankedTensorType>);
-}
-
-SmallVector<Value, 4> getOrCreateOperandsMatchingResultTypes(OpBuilder &b,
-                                                             Operation *op) {
-  assert(isElementwiseMappableOpOnRankedTensors(op));
-  SmallVector<Value, 4> res;
-  if(op->getAttr("dot_c")){
-    op->dump();
-    res.push_back(op->getOperand(0));
-    return res;
-  }
-  Location loc = op->getLoc();
-  ValueRange operands = op->getOperands();
-  TypeRange rankedTensorTypes = op->getResultTypes();
-  res.reserve(rankedTensorTypes.size());
-  for (Type t : rankedTensorTypes) {
-    // 始终创建新的tensor.empty操作，忽略原有操作数的匹配检查
-    res.push_back(b.create<tensor::EmptyOp>(
-        loc, tensor::getMixedSizes(b, loc, operands.front()),
-        cast<RankedTensorType>(t).getElementType()));
-  }
-  return res;
-}
-
-namespace {
-struct ConvertTTSAnyElementwiseMappableOpOnRankedTensors
-    : public RewritePattern {
-  ConvertTTSAnyElementwiseMappableOpOnRankedTensors(MLIRContext *context)
-      : RewritePattern(MatchAnyOpTypeTag(), /*benefit=*/1, context) {}
-  LogicalResult matchAndRewrite(Operation *op,
-                                PatternRewriter &rewriter) const final {
-    if (!isElementwiseMappableOpOnRankedTensors(op))
-      return rewriter.notifyMatchFailure(
-          op, "requires elementwise op on ranked tensors");
-
-    auto rank = cast<RankedTensorType>(op->getResult(0).getType()).getRank();
-    SmallVector<AffineMap, 3> indexingMaps(
-        op->getNumResults() + op->getNumOperands(),
-        rewriter.getMultiDimIdentityMap(rank));
-    SmallVector<utils::IteratorType, 6> iteratorTypes(
-        rank, utils::IteratorType::parallel);
-    auto outputs = getOrCreateOperandsMatchingResultTypes(rewriter, op);
-    auto x = rewriter.replaceOpWithNewOp<linalg::GenericOp>(
-        op, /*resultTensorTypes=*/op->getResultTypes(),
-        /*inputs=*/op->getOperands(),
-        /*outputs=*/outputs,
-        /*indexingMaps=*/indexingMaps,
-        /*iteratorTypes=*/iteratorTypes,
-        /*bodyBuilder=*/
-        [&](OpBuilder &builder, Location loc, ValueRange regionArgs) {
-          auto resultTypes = llvm::to_vector<6>(
-              llvm::map_range(op->getResultTypes(), [](Type type) {
-                return cast<TensorType>(type).getElementType();
-              }));
-          auto *scalarOp =
-              builder.create(loc, op->getName().getIdentifier(),
-                             regionArgs.take_front(op->getNumOperands()),
-                             resultTypes, op->getAttrs());
-          builder.create<linalg::YieldOp>(loc, scalarOp->getResults());
-        });
-        x->dump();
-    return success();
-  }
-};
-} // namespace
-
-static void
-populateTTSElementwiseToLinalgConversionPatterns(RewritePatternSet &patterns) {
-  patterns.add<ConvertTTSAnyElementwiseMappableOpOnRankedTensors>(
-      patterns.getContext());
-}
 
 static void populateExternElementwiseOpToMLIROps(RewritePatternSet &patterns) {
   patterns.add<ExternElementwiseBinaryOpConverter,

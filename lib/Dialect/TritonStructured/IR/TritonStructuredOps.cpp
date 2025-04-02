@@ -249,5 +249,49 @@ GetStructuredStateOp::getOffsetAndStrideSegmentSizes(Type type) {
   return std::make_pair(offsetSegmentSize, strideSegmentSize);
 }
 
+void TransferReadOp::build(OpBuilder &b, OperationState &state, Value base,
+                           ArrayRef<OpFoldResult> mask_dims, Value other) {
+  SmallVector<int64_t> staticMaskDims;
+  SmallVector<Value> dynamicMaskDims;
+
+  // 分离静态和动态的mask维度
+  dispatchIndexOpFoldResults(mask_dims, dynamicMaskDims, staticMaskDims);
+
+  // 获取结果类型
+  Type resType;
+  auto ptrTensorType = dyn_cast<RankedTensorType>(base.getType());
+  // block pointer type
+  auto tensorPtrType = dyn_cast<triton::PointerType>(base.getType());
+  auto memRefType = dyn_cast<MemRefType>(base.getType());
+
+  if (memRefType) {
+    resType = RankedTensorType::get(memRefType.getShape(),
+                                    memRefType.getElementType());
+  } else if (ptrTensorType) {
+    auto ptrType = cast<triton::PointerType>(ptrTensorType.getElementType());
+    auto elemType = ptrType.getPointeeType();
+    resType = RankedTensorType::get(ptrTensorType.getShape(), elemType);
+  } else if (tensorPtrType) {
+    auto tensorType = cast<ShapedType>(tensorPtrType.getPointeeType());
+    resType = RankedTensorType::get(tensorType.getShape(),
+                                    tensorType.getElementType());
+  }
+
+  build(b, state, resType, base, dynamicMaskDims,
+        b.getDenseI64ArrayAttr(staticMaskDims), other);
+}
+
+void TransferWriteOp::build(OpBuilder &b, OperationState &state, Value base,
+                            Value value, ArrayRef<OpFoldResult> mask_dims) {
+  SmallVector<int64_t> staticMaskDims;
+  SmallVector<Value> dynamicMaskDims;
+
+  // 分离静态和动态的mask维度
+  dispatchIndexOpFoldResults(mask_dims, dynamicMaskDims, staticMaskDims);
+
+  build(b, state, base, value, dynamicMaskDims,
+        b.getDenseI64ArrayAttr(staticMaskDims));
+}
+
 } // namespace tts
 } // namespace mlir

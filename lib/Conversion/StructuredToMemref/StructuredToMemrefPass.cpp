@@ -158,6 +158,7 @@ public:
 
     target.addIllegalOp<tts::LoadOp, tts::StoreOp, tts::MakeTensorPtrOp>();
 
+    target.addLegalOp<tts::TransferReadOp, tts::TransferWriteOp>();
     target.addLegalOp<UnrealizedConversionCastOp>();
 
     PtrToUnrankedMemrefConverter typeConverter;

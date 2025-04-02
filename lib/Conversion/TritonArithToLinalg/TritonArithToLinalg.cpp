@@ -92,5 +92,4 @@ void mlir::triton::populateTritonArithToLinalgConversionPatterns(
 
   // Note: the ordering here matters!
   // These patterns are added last to they will be tried last.
-  populateTTSElementwiseToLinalgConversionPatterns(patterns);
 }

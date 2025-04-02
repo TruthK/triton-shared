@@ -21,6 +21,7 @@
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/DialectConversion.h"
 
+#include "triton-shared/Utils/PassUtils.h"
 #include "triton-shared/Analysis/OpFoldResultUtils.h"
 #include "triton-shared/Conversion/StructuredToMemref/StructuredToMemref.h"
 #include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
@@ -98,9 +99,10 @@ private:
   /// Checks whether the given linalg op uses the tts.load result only as an
   /// input. Returns true if at least one operand (with operand number <
   /// numDpsInputs) matches.
-  bool isValidLinalgUser(Operation *linalgOp, tts::LoadOp *loadOp) const {
-    auto linalg = cast<linalg::LinalgOp>(linalgOp);
-    for (OpOperand &operand : linalgOp->getOpOperands()) {
+  bool isValidLinalgUser(Operation *linalgOpOrElemWiseOp,
+                         tts::LoadOp *loadOp) const {
+    auto linalg = cast<linalg::LinalgOp>(linalgOpOrElemWiseOp);
+    for (OpOperand &operand : linalgOpOrElemWiseOp->getOpOperands()) {
       if (operand.get() == loadOp->getResult()) {
         // Check that the operand is used as a data (input) operand.
         if (operand.getOperandNumber() < linalg.getNumDpsInputs())
@@ -148,9 +150,10 @@ private:
   }
 
   // Helper function: Verify single operation in the chain
-  LogicalResult verifyLinalgOperation(Operation *linalgOp, Value sourceValue,
+  LogicalResult verifyLinalgOperation(Operation *linalgOpOrElemWiseOp,
+                                      Value sourceValue,
                                       unsigned makeTPtrShapeDim) const {
-    auto cuurentLinalgOp = cast<linalg::LinalgOp>(linalgOp);
+    auto cuurentLinalgOp = cast<linalg::LinalgOp>(linalgOpOrElemWiseOp);
 
     // Check operation type,只允许elementwise操作和matmul操作
     const bool isValidType =
@@ -160,7 +163,7 @@ private:
     }
 
     // Check single-user constraint
-    if (!linalgOp->hasOneUse()) {
+    if (!linalgOpOrElemWiseOp->hasOneUse()) {
       return failure();
     }
 
@@ -185,7 +188,7 @@ private:
   }
 
   // Trace use chain until reaching store operation，
-  // tts.load -> (linalg.matmul / linalg.elemwise)* ->tts.store
+  // tts.load -> (linalg.matmul / elemwise)* ->tts.store
   LogicalResult traceUseChainToStore(Value ttsLoadOpResult,
                                      unsigned makeTPtrShapeDim,
                                      Value &storeMaskCandidate) const {
@@ -198,7 +201,9 @@ private:
     // This loop traverses the chain of Linalg operations (which can be
     // elementwise or matmul) that are directly using the source value from
     // tts.load.
-    while (isa<linalg::LinalgOp>(*sourceValue.user_begin())) {
+    while (isa<linalg::LinalgOp>(*sourceValue.user_begin()) ||
+           mlir::tts::isElementwiseMappableOpOnRankedShape(*sourceValue.user_begin())) {
+      LLVM_DEBUG((*sourceValue.user_begin())->dump());
       // Ensure that the source value has exactly one user to maintain a strict
       // use-def chain.
       if (!sourceValue.hasOneUse())
@@ -206,34 +211,34 @@ private:
 
       // Get the only user operation.
       Operation *currentUser = *sourceValue.user_begin();
-      if (auto linalgOp = dyn_cast<linalg::LinalgOp>(currentUser)) {
-        // If the op is a matmul, check that we haven't seen one before.
-        if (isMatmulLinalg(linalgOp)) {
-          if (seenMatmul)
-            return failure(); // More than one matmul op is not allowed.
-          seenMatmul = true;
+      if (isa<linalg::LinalgOp>(currentUser)) {
+        if (auto linalgOpOrElemWiseOp =
+                dyn_cast<linalg::LinalgOp>(currentUser)) {
+          // If the op is a matmul, check that we haven't seen one before.
+          if (isMatmulLinalg(linalgOpOrElemWiseOp)) {
+            if (seenMatmul)
+              return failure(); // More than one matmul op is not allowed.
+            seenMatmul = true;
+          }
+          // For non-matmul ops, ensure they are elementwise.
+          else if (!isElementwiseLinalg(linalgOpOrElemWiseOp)) {
+            return failure(); // Unsupported linalg op type encountered.
+          }
+          // Verify that the current linalg op uses sourceValue appropriately.
+          if (failed(verifyLinalgOperation(currentUser, sourceValue,
+                                           makeTPtrShapeDim))) {
+            return failure();
+          }
         }
-        // For non-matmul ops, ensure they are elementwise.
-        else if (!isElementwiseLinalg(linalgOp)) {
-          return failure(); // Unsupported linalg op type encountered.
-        }
-
-        // Verify that the current linalg op uses sourceValue appropriately.
-        if (failed(verifyLinalgOperation(currentUser, sourceValue,
-                                         makeTPtrShapeDim))) {
-          return failure();
-        }
-
-        // Advance to the next value in the chain.
-        sourceValue = currentUser->getResult(0);
-        continue;
       }
-      return failure(); // Unexpected op type encountered.
+      // Advance to the next value in the chain.
+      sourceValue = currentUser->getResult(0);
     }
 
     // --- Handle loop yield cases ---
     // The value might be yielded inside an scf.for loop.
     if (auto yieldOp = dyn_cast<scf::YieldOp>(*sourceValue.user_begin())) {
+      LLVM_DEBUG((*sourceValue.user_begin())->dump());
       // Get the parent op which should be the body of an scf.for loop.
       Operation *parentOp = yieldOp->getParentOp();
       auto forOp = dyn_cast<scf::ForOp>(parentOp);
@@ -261,6 +266,7 @@ private:
     // Sometimes sourceValue is directly used as an iteration variable in an
     // scf.for op.
     if (auto forOp = dyn_cast<scf::ForOp>(*sourceValue.user_begin())) {
+      LLVM_DEBUG((*sourceValue.user_begin())->dump());
       bool foundIter = false;
       for (unsigned i = 0, n = forOp.getNumResults(); i < n; ++i) {
         if (forOp.getResult(i) == sourceValue) {
@@ -275,20 +281,22 @@ private:
 
     // --- Process the second chain of Linalg operations, if present ---
     // There may be additional Linalg ops after handling scf constructs.
-    while (isa<linalg::LinalgOp>(*sourceValue.user_begin())) {
+    while (isa<linalg::LinalgOp>(*sourceValue.user_begin()) ||
+           mlir::tts::isElementwiseMappableOpOnRankedShape(*sourceValue.user_begin())) {
+      LLVM_DEBUG((*sourceValue.user_begin())->dump());
       if (!sourceValue.hasOneUse())
         return failure();
 
       Operation *currentUser = *sourceValue.user_begin();
-      if (auto linalgOp = dyn_cast<linalg::LinalgOp>(currentUser)) {
+      if (auto linalgOpOrElemWiseOp = dyn_cast<linalg::LinalgOp>(currentUser)) {
         // Again, ensure that matmul appears at most once.
-        if (isMatmulLinalg(linalgOp)) {
+        if (isMatmulLinalg(linalgOpOrElemWiseOp)) {
           if (seenMatmul)
             return failure();
           seenMatmul = true;
         }
         // Verify that non-matmul ops are elementwise.
-        else if (!isElementwiseLinalg(linalgOp)) {
+        else if (!isElementwiseLinalg(linalgOpOrElemWiseOp)) {
           return failure();
         }
 
@@ -297,13 +305,10 @@ private:
                                          makeTPtrShapeDim))) {
           return failure();
         }
-        // Continue along the chain.
-        sourceValue = currentUser->getResult(0);
-        continue;
       }
-      return failure();
+      sourceValue = currentUser->getResult(0);
     }
-
+    LLVM_DEBUG((*sourceValue.user_begin())->dump());
     // --- Termination: Encountering the tts.store op ---
     // The use chain should eventually terminate with a tts.store op.
     if (auto storeOp = dyn_cast<tts::StoreOp>(*sourceValue.user_begin())) {

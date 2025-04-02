@@ -18,8 +18,10 @@
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
@@ -27,22 +29,27 @@
 using namespace mlir;
 using namespace triton;
 
-#define GEN_PASS_CLASSES
+namespace mlir {
+namespace triton {
+#define GEN_PASS_DEF_TRITONTOLINALGEXPERIMENTAL
 #include "triton-shared/Conversion/TritonToLinalgExperimental/Passes.h.inc"
+} // namespace triton
+} // namespace mlir
 
 namespace {
 
 class TritonToLinalgExperimentalPass
-    : public TritonToLinalgExperimentalBase<TritonToLinalgExperimentalPass> {
+    : public triton::impl::TritonToLinalgExperimentalBase<
+          TritonToLinalgExperimentalPass> {
 
 public:
   void getDependentDialects(DialectRegistry &registry) const override {
     registry
         .insert<func::FuncDialect, arith::ArithDialect, math::MathDialect,
                 linalg::LinalgDialect, affine::AffineDialect, scf::SCFDialect,
-                tensor::TensorDialect, bufferization::BufferizationDialect,
-                memref::MemRefDialect, ttx::TritonTilingExtDialect,
-                tts::TritonStructuredDialect>();
+                vector::VectorDialect, tensor::TensorDialect, gpu::GPUDialect,
+                bufferization::BufferizationDialect, memref::MemRefDialect,
+                ttx::TritonTilingExtDialect, tts::TritonStructuredDialect>();
   }
 
   void runOnOperation() override {
@@ -66,8 +73,8 @@ public:
 
     pm.addPass(createCSEPass());
     pm.addPass(createCanonicalizerPass());
-    pm.nest<mlir::func::FuncOp>().addPass(
-        createHoistTensorEmptyFromLoopsPass());
+    // pm.addPass(createTritonTensorToVectorPass());
+    pm.addPass(createConvertTritonStructuredToVectorPass());
 
     if (failed(runPipeline(pm, getOperation()))) {
       signalPassFailure();

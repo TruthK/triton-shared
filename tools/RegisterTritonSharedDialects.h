@@ -1,10 +1,13 @@
 #pragma once
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
+#include "mlir/Dialect/Vector/Transforms/VectorTransforms.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllExtensions.h"
 #include "mlir/InitAllPasses.h"
@@ -41,9 +44,10 @@ void registerTestMembarPass();
 inline void registerTritonSharedDialects(mlir::DialectRegistry &registry) {
   mlir::registerAllDialects(registry);
 
-  registry.insert<mlir::ttx::TritonTilingExtDialect,
-                  mlir::tts::TritonStructuredDialect,
-                  mlir::triton::TritonDialect>();
+  registry
+      .insert<mlir::ttx::TritonTilingExtDialect,
+              mlir::tts::TritonStructuredDialect, mlir::vector::VectorDialect,
+              mlir::triton::TritonDialect, mlir::arith::ArithDialect>();
   mlir::registerAllExtensions(registry);
 
   mlir::registerAllPasses();
@@ -61,7 +65,8 @@ inline void registerTritonSharedDialects(mlir::DialectRegistry &registry) {
   mlir::triton::registerTritonToUnstructuredPasses();
   mlir::triton::registerTritonArithToLinalgPasses();
   mlir::triton::registerStructuredToMemrefPasses();
-  
+  mlir::triton::registerConvertTritonStructuredToVector();
+
   mlir::tts::registerCodegenDependentDialects(registry);
   mlir::tts::registerCodegenInterfaces(registry);
   mlir::tts::registerUKernelBufferizationInterface(registry);

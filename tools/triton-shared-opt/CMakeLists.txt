@@ -11,6 +11,10 @@ target_link_libraries(triton-shared-opt PRIVATE
   ${dialect_libs}
   ${conversion_libs}
   ${extension_libs}
+  MLIRVectorDialect
+  MLIRVectorTransforms
+  MLIRVectorUtils
+
   # tests
   TritonTestAnalysis
   # MLIR core

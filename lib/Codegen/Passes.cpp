@@ -65,7 +65,6 @@
 #include "triton-shared/Codegen/Transforms/Transforms.h"
 #include "triton-shared/Dialect/Encoding/IR/EncodingDialect.h"
 
-
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -87,7 +86,6 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Internalize.h"
-
 
 namespace mlir::tts {
 void registerTransformDialectTranslationDependentDialects(
@@ -126,8 +124,8 @@ void registerTransformDialectTranslationDependentDialects(
   vector::registerBufferizableOpInterfaceExternalModels(registry);
 
   // registry.addExtensions<
-      // mlir::tts::IREE::LinalgExt::LinalgExtTransformOpsExtension,
-      // transform_ext::StructuredTransformOpsExtension>();
+  // mlir::tts::IREE::LinalgExt::LinalgExtTransformOpsExtension,
+  // transform_ext::StructuredTransformOpsExtension>();
   // tts::registerTransformDialectCommonExtension(registry);
   // tts::registerTransformDialectFlowExtension(registry);
   // tts::registerTransformDialectLLVMCPUExtension(registry);
@@ -154,9 +152,9 @@ void registerCodegenPasses() {
   registerIREEVectorExtPasses();
 }
 
-void registerCodegenDependentDialects(DialectRegistry &registry)  {
+void registerCodegenDependentDialects(DialectRegistry &registry) {
 
-  registry.insert<gpu::GPUDialect, nvgpu::NVGPUDialect,
+  registry.insert<gpu::GPUDialect, nvgpu::NVGPUDialect, vector::VectorDialect,
                   IREE::Codegen::IREECodegenDialect,
                   transform::TransformDialect, IREE::GPU::IREEGPUDialect>();
   mlir::registerBuiltinDialectTranslation(registry);

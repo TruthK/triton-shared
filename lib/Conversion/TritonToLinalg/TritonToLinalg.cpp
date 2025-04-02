@@ -13,7 +13,7 @@
 
 #include "triton-shared/Conversion/TritonToLinalg/TritonToLinalg.h"
 
-#define DEBUG_TYPE "triton-to-linalg"
+#define DEBUG_TYPE "triton——a-to-linalg"
 #include "triton-shared/Conversion/TritonArithToLinalg/ConversionPatterns.hpp"
 
 using namespace mlir;
@@ -90,5 +90,5 @@ void mlir::triton::populateTritonToLinalgConversionPatterns(
   // will be tried last. Incorrect ordering or having MetaOpConverter has lower
   // PatternBenefit will result in element-wise meta ops being converted to
   // linalg.generic ops.
-  linalg::populateElementwiseToLinalgConversionPatterns(patterns);
+//   linalg::populateElementwiseToLinalgConversionPatterns(patterns);
 }

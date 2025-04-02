@@ -269,8 +269,10 @@ tts::MakeTensorPtrOp PtrState::createTTSMakeTensorPtrOp(OpBuilder &builder,
 
   auto op = builder.create<mlir::tts::MakeTensorPtrOp>(
       loc, source, staticSizes, strides, offsets, shape, order);
+  LLVM_DEBUG({
     llvm::dbgs() << "creating tts::make_tensor_ptr:\n";
     op->dump();
+  });
 
   return op;
 }
@@ -1119,8 +1121,10 @@ LogicalResult PtrAnalysis::rewriteLoadOp(triton::LoadOp op,
 
   auto loadOp = builder.create<tts::LoadOp>(loc, ptr, dims, scalarOther);
 
+  LLVM_DEBUG({
     llvm::dbgs() << "creating tts::load:\n";
     loadOp->dump();
+  });
 
   op.replaceAllUsesWith(loadOp.getResult());
   op->erase();
@@ -1243,16 +1247,20 @@ LogicalResult PtrAnalysis::rewriteStoreOp(triton::StoreOp op,
 
   auto storeOp = builder.create<tts::StoreOp>(loc, ptr, val, dims);
 
+  LLVM_DEBUG({
     llvm::dbgs() << "creating tts::store:\n";
     storeOp->dump();
+  });
 
   op->erase();
   return success();
 }
 
 LogicalResult PtrAnalysis::rewriteOp(Operation *rootOp, bool useUnsafeMask) {
+  LLVM_DEBUG({
     llvm::dbgs() << "rewriting rootOp\n";
     rootOp->dump();
+  });
 
   rootOp->walk<WalkOrder::PreOrder>([&](Operation *op) {
     if (op == rootOp) {

@@ -6,6 +6,8 @@
 
 add_triton_library(TritonToLinalgExperimental
   TritonToLinalgExperimentalPass.cpp
+  TritonStructuredToVector.cpp
+  TritonTensorToVector.cpp
 
   DEPENDS
   TritonToLinalgExperimentalConversionPassIncGen
@@ -17,6 +19,9 @@ add_triton_library(TritonToLinalgExperimental
   MLIRIR
   MLIRMathDialect
   MLIRPass
+  MLIRVectorDialect
+  MLIRVectorTransforms
+  MLIRVectorUtils
   MLIRTensorDialect
   MLIRTransforms
   MLIRSupport

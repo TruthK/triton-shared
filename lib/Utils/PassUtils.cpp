@@ -1,8 +1,9 @@
 #include "triton-shared/Utils/PassUtils.h"
 #include "llvm/Support/Debug.h"
+#include "mlir/IR/OpDefinition.h"
+#include "mlir/IR/BuiltinTypes.h"
 
 #define DEBUG_TYPE "pass-utils"
-
 
 namespace mlir::tts {
 
@@ -16,6 +17,12 @@ void signalFixedPointModified(Operation *rootOp) {
 
   LLVM_DEBUG(llvm::dbgs() << "Signalling fixed-point iterator modification");
   rootOp->setAttr("iree.fixedpoint.modified", UnitAttr::get(context));
+}
+
+bool isElementwiseMappableOpOnRankedShape(Operation *op) {
+  if (!OpTrait::hasElementwiseMappableTraits(op))
+    return false;
+  return llvm::all_of(op->getOperandTypes(), llvm::IsaPred<RankedTensorType>);
 }
 
 } // namespace mlir::tts

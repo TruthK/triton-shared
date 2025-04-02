@@ -23,15 +23,13 @@ namespace mlir::tts {
 ///   FunctionLikeNest(passManager)
 ///     .addPass(createMyPass)
 ///     .addPredicatedPass(enable, createMyOtherPass);
-template <typename... OpTys>
-struct MultiOpNest {
+template <typename... OpTys> struct MultiOpNest {
 public:
   MultiOpNest(OpPassManager &parentPm) : parentPm(parentPm) {
     addNest<0, OpTys...>();
   }
 
-  template <typename F>
-  MultiOpNest &addPass(F constructor) {
+  template <typename F> MultiOpNest &addPass(F constructor) {
     addPassInternal(constructor);
     return *this;
   }
@@ -53,17 +51,14 @@ public:
 
 private:
   // Initialize a nest.
-  template <int index, typename T, typename... Rest>
-  void addNest() {
+  template <int index, typename T, typename... Rest> void addNest() {
     std::get<index>(nestedPassManagers) = &parentPm.nest<T>();
     addNest<index + 1, Rest...>();
   }
-  template <int index>
-  void addNest() {}
+  template <int index> void addNest() {}
 
   // Add a pass to all nests by constructor.
-  template <typename F>
-  void addPassInternal(F constructor) {
+  template <typename F> void addPassInternal(F constructor) {
     addPassRecurse<F, 0, OpTys...>(constructor);
   }
   template <typename F, int index, typename T, typename... Rest>
@@ -71,8 +66,7 @@ private:
     std::get<index>(nestedPassManagers)->addPass(constructor());
     addPassRecurse<F, index + 1, Rest...>(constructor);
   }
-  template <typename F, int index>
-  void addPassRecurse(F constructor) {}
+  template <typename F, int index> void addPassRecurse(F constructor) {}
 
   OpPassManager &parentPm;
   std::array<OpPassManager *, sizeof...(OpTys)> nestedPassManagers;
@@ -82,6 +76,8 @@ private:
 // has been made which requires another iteration. No-op otherwise.
 void signalFixedPointModified(Operation *rootOp);
 
-} 
+bool isElementwiseMappableOpOnRankedShape(Operation *op);
 
-#endif 
+} // namespace mlir::tts
+
+#endif
