@@ -171,7 +171,7 @@ public:
     FunctionLikeNest(pm).addPass(createLLVMGPULowerExecutableTargetPass);
     // .addPass(createVerifyWorkgroupDistributionPass);
 
-    pm.addPass(createReconcileTranslationInfoPass());
+    // pm.addPass(createReconcileTranslationInfoPass());
 
     //===--------------------------------------------------------------------===//
     // Convert Linalg ops to LLVM+NVVM/ROCDL ops.
@@ -180,7 +180,7 @@ public:
     //   - All Linalg/Loops/GPU/Affine/Standard ops are converted away.
     //   - The module contains the final llvm.module ready to be serialized.
     //===--------------------------------------------------------------------===//
-    addLowerToLLVMGPUPasses(pm);
+    // addLowerToLLVMGPUPasses(pm);
 
     if (failed(runPipeline(pm, getOperation()))) {
       signalPassFailure();

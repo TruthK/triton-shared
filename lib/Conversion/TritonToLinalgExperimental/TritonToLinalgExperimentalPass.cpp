@@ -6,6 +6,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
+#include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtDialect.h"
 #include "triton-shared/Conversion/StructuredToMemref/StructuredToMemref.h"
 #include "triton-shared/Conversion/TritonArithToLinalg/TritonArithToLinalg.h"
 #include "triton-shared/Conversion/TritonPtrToMemref/TritonPtrToMemref.h"
@@ -15,6 +16,7 @@
 #include "triton-shared/Conversion/UnstructuredToMemref/UnstructuredToMemref.h"
 #include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 #include "triton-shared/Dialect/TritonTilingExt/IR/TritonTilingExtDialect.h"
+#include "triton-shared/Conversion/TritonToLinalg/TritonToLinalg.h"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
@@ -49,7 +51,8 @@ public:
                 linalg::LinalgDialect, affine::AffineDialect, scf::SCFDialect,
                 vector::VectorDialect, tensor::TensorDialect, gpu::GPUDialect,
                 bufferization::BufferizationDialect, memref::MemRefDialect,
-                ttx::TritonTilingExtDialect, tts::TritonStructuredDialect>();
+                ttx::TritonTilingExtDialect, tts::TritonStructuredDialect,
+                mlir::tts::IREE::VectorExt::IREEVectorExtDialect>();
   }
 
   void runOnOperation() override {
@@ -70,12 +73,17 @@ public:
     pm.addPass(createUnstructuredToMemrefPass());
     pm.addPass(createTritonPtrToMemrefPass());
     pm.addPass(createReconcileUnrealizedCastsPass());
+    // pm.addPass(createTritonToLinalgPass());
+    
+    // 添加LinalgGenericFusion Pass
+    // pm.addPass(createLinalgGenericFusionPass());
 
-    pm.addPass(createCSEPass());
     pm.addPass(createCanonicalizerPass());
-    // pm.addPass(createTritonTensorToVectorPass());
+    pm.addPass(createCSEPass());
     pm.addPass(createConvertTritonStructuredToVectorPass());
-
+    pm.addPass(createCanonicalizerPass());
+    pm.addPass(createCSEPass());
+    
     if (failed(runPipeline(pm, getOperation()))) {
       signalPassFailure();
     }

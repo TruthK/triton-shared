@@ -4,11 +4,6 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "triton-shared/Codegen/Common/Passes.h"
-#include "triton-shared/Codegen/Common/Transforms.h"
-#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenDialect.h"
-#include "triton-shared/Codegen/Interfaces/PartitionableLoopsInterface.h"
-#include "triton-shared/Codegen/Utils/Utils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
@@ -17,6 +12,11 @@
 #include "mlir/Dialect/SCF/Transforms/TileUsingInterface.h"
 #include "mlir/Dialect/Tensor/Transforms/Transforms.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "triton-shared/Codegen/Common/Passes.h"
+#include "triton-shared/Codegen/Common/Transforms.h"
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenDialect.h"
+#include "triton-shared/Codegen/Interfaces/PartitionableLoopsInterface.h"
+#include "triton-shared/Codegen/Utils/Utils.h"
 
 #define DEBUG_TYPE "tile-and-distribute-to-workgroups-using-forall-op"
 
@@ -57,6 +57,7 @@ getTiledAndDistributionInfo(RewriterBase &rewriter,
   // level.
   Operation *tilableOp = nullptr;
   for (Operation *op : llvm::reverse(computeOps)) {
+    op->dump();
     if (getLoweringConfig(op)) {
       if (!getLoweringConfig(op).hasWorkgroupTilingLevel()) {
         continue;
@@ -337,6 +338,7 @@ static void fuseProducersOfSlices(RewriterBase &rewriter,
   SmallVector<LoopLikeOpInterface> loops = {
       cast<LoopLikeOpInterface>(&*forallOp)};
   while (!worklist.empty()) {
+    worklist.front()->dump();
     auto candidateSlice = cast<tensor::ExtractSliceOp>(worklist.front());
     worklist.pop();
 
@@ -414,6 +416,8 @@ void TileAndDistributeToWorkgroupsUsingForallOpPass::runOnOperation() {
     // Did not find a tileable op. So do nothing.
     return;
   }
+  bool isMatmul = isa<linalg::MatmulOp>(tilableOp);
+
   mlir::DominanceInfo dominanceInfo(tilableOp);
   llvm::SmallDenseSet<Operation *> tiledAndFusedOps;
   collectTiledAndFusedOps(tilableOp, tiledAndFusedOps);
@@ -478,6 +482,9 @@ void TileAndDistributeToWorkgroupsUsingForallOpPass::runOnOperation() {
     }
     rewriter.eraseOp(tilableOp);
     std::swap(tilingResult->loops, tilingLoops);
+    if (isMatmul) {
+      tilingLoops[0]->setAttr("is_matmul", rewriter.getUnitAttr());
+    }
   } else {
     FailureOr<scf::SCFTileAndFuseResult> tileAndFuseResult =
         scf::tileConsumerAndFuseProducersUsingSCF(rewriter, tilableOp,

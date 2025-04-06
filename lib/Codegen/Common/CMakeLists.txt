@@ -27,6 +27,8 @@ add_triton_library(IREECodegenCommon
     PolynomialApproximationPass.cpp
     EmulateNarrowType.cpp
     IREEExpandStridedMetadata.cpp
+    TransferReadSubviewFusion.cpp
+    TransferReadToVectorTransferRead.cpp
 
 
 DEPENDS

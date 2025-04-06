@@ -12,6 +12,8 @@ include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtAttrs.td"
 include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtInterfaces.td"
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/Interfaces/TilingInterface.td"
+include "mlir/IR/OpAsmInterface.td"
 
 //===----------------------------------------------------------------------===//
 // Base class.
@@ -111,6 +113,74 @@ def IREEVectorExt_ToSIMTOp : IREEVectorExt_PureOp<"to_simt",
   let extraClassDeclaration = [{}];
   let assemblyFormat = "$input attr-dict `:` type($input) `->` type($output)";
   let hasFolder = 1;
+}
+
+
+//===----------------------------------------------------------------------===//
+// TransferWriteOp
+//===----------------------------------------------------------------------===//  
+
+
+def IREEVectorExt_TransferReadOp
+  : IREEVectorExt_PureOp<"transfer_read", [ 
+      AttrSizedOperandSegments,
+      MemoryEffects<[MemRead]>,
+      DeclareOpInterfaceMethods<TilingInterface,
+        ["getLoopIteratorTypes",
+         "getIterationDomain",
+         "getTiledImplementation",
+         "getResultTilePosition"]>
+    ]> {
+  let summary = "points to a tensor in memory";
+
+
+  let arguments = (ins AnyMemRef:$base,
+                       Variadic<Index>:$indices,
+                       DenseI64ArrayAttr:$static_indices,
+                       Variadic<Index>:$mask_dims,
+                       DenseI64ArrayAttr:$static_mask_dims,
+                       Optional<AnyTypeOf<[AnyType]>>:$other);
+
+  let results = (outs AnyMemRef:$result);
+
+  let assemblyFormat = [{
+    $base 
+    `` `,` `indices` `` `:` custom<DynamicIndexList>($indices, $static_indices)
+    `` `,` `mask_dims` `` `:` custom<DynamicIndexList>($mask_dims, $static_mask_dims)
+    (`,` `other` `=` $other `:` qualified(type($other))^)?
+    attr-dict `:` qualified(type($base)) `to` qualified(type($result))
+  }];
+
+
+  let builders = [
+    // Build with mixed static and dynamic entries.
+    OpBuilder<(ins
+      "Type":$resultType,
+      "Value":$base,
+      "ArrayRef<OpFoldResult>":$indices,
+      "ArrayRef<OpFoldResult>":$mask_dims,
+      "Value":$other)>,
+  ];
+
+  let extraClassDeclaration = [{
+    /// Return a vector of all the static or dynamic fields
+    SmallVector<OpFoldResult> getMixedMaskDims() {
+      Builder b(getContext());
+      return ::mlir::getMixedValues(getStaticMaskDims(), getMaskDims(), b);
+    }
+    SmallVector<OpFoldResult> getMixedIndices() {
+      Builder b(getContext());
+      return ::mlir::getMixedValues(getStaticIndices(), getIndices(), b);
+    } 
+
+    bool hasMask() {
+      return !getMixedMaskDims().empty();
+    }
+  }];
+
+  // TODO
+  //let hasVerifier = 1;
+  //let hasCanonicalizer = 1;
 }
 
 #endif  // IREE_DIALECT_VECTOREXT_OPS

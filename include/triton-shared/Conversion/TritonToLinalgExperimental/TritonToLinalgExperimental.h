@@ -22,8 +22,7 @@ namespace triton {
 std::unique_ptr<OperationPass<ModuleOp>> createTritonToLinalgExperimentalPass();
 std::unique_ptr<OperationPass<ModuleOp>>
 createConvertTritonStructuredToVectorPass();
-
-std::unique_ptr<OperationPass<ModuleOp>> createTritonTensorToVectorPass();
+std::unique_ptr<OperationPass<ModuleOp>> createLinalgGenericFusionPass();
 
 } // namespace triton
 } // namespace mlir

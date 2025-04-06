@@ -24,11 +24,13 @@ def ConvertTritonStructuredToVector : Pass<"convert-triton-structured-to-vector"
   let constructor = "triton::createConvertTritonStructuredToVectorPass()";
 }
 
-def TritonTensorToVector : Pass<"triton-tensor-to-vector", "mlir::ModuleOp"> {
-  let summary = "Convert tensor types to vector types in Triton IR";
+def LinalgGenericFusionPass : Pass<"linalg-generic-fusion", "mlir::ModuleOp"> {
+  let summary = "Fuse adjacent linalg.generic operations";
   let description = [{
-    This pass converts tensor types to vector types in the Triton IR.
+    This pass fuses adjacent linalg.generic operations into a single operation
+    when possible to reduce intermediate memory usage and improve performance.
   }];
+  let constructor = "triton::createLinalgGenericFusionPass()";
 }
 
 #endif

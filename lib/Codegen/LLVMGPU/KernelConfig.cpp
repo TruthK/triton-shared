@@ -15,6 +15,7 @@
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/IR/LinalgInterfaces.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/Matchers.h"
@@ -22,12 +23,14 @@
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/IR/Types.h"
 #include "mlir/IR/Value.h"
+
 #include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
 #include "triton-shared/Codegen/Dialect/GPU/IR/GPULoweringConfigUtils.h"
 #include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUAttrs.h"
 #include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUEnums.h"
 #include "triton-shared/Codegen/Dialect/GPU/TargetUtils/ConfigUtils.h"
 #include "triton-shared/Codegen/Dialect/GPU/TargetUtils/GPUHeuristics.h"
+#include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtOps.h"
 #include "triton-shared/Codegen/Interfaces/PartitionableLoopsInterface.h"
 #include "triton-shared/Codegen/Interfaces/UKernelOpInterface.h"
 #include "triton-shared/Codegen/LLVMGPU/Passes.h"
@@ -35,6 +38,7 @@
 #include "triton-shared/Codegen/Utils/GPUUtils.h"
 #include "triton-shared/Codegen/Utils/LinalgOpInfo.h"
 #include "triton-shared/Codegen/Utils/Utils.h"
+
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -1909,7 +1913,6 @@ static void propagateLoweringConfig(Operation *rootOperation,
     }
   }
 }
-
 //===----------------------------------------------------------------------===//
 // Entry Point
 //===----------------------------------------------------------------------===//
@@ -1936,11 +1939,13 @@ LogicalResult initGPULaunchConfig(FunctionOpInterface funcOp) {
   }
 
   Operation *rootOperation = nullptr;
-
+  llvm::errs() << "computeOps: " << computeOps.size() << "\n";
   // Find the root operation. linalg.generic, linalg.fill, and scatter are not
   // root operations if there are other compute operations present.
   for (Operation *op : llvm::reverse(computeOps)) {
-    if (!isa<linalg::GenericOp, linalg::FillOp>(op)) {
+    op->dump();
+    if (!isa<linalg::GenericOp, mlir::tts::IREE::VectorExt::TransferReadOp>(
+            op)) {
       rootOperation = op;
       break;
     }
@@ -1962,10 +1967,9 @@ LogicalResult initGPULaunchConfig(FunctionOpInterface funcOp) {
       }
     }
   }
-
   if (!rootOperation) {
     for (Operation *op : llvm::reverse(computeOps)) {
-      if (isa<linalg::FillOp>(op)) {
+      if (isa<mlir::tts::IREE::VectorExt::TransferReadOp>(op)) {
         rootOperation = op;
         break;
       }

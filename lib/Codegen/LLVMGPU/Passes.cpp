@@ -190,6 +190,7 @@ tileAndDistributeToWorkgroup(OpPassManager &funcPassManager, bool useForall,
   if (useForall) {
     funcPassManager.addPass(
         createTileAndDistributeToWorkgroupsUsingForallOpPass());
+    funcPassManager.addPass(createTransferReadSubviewFusionPass());
   } else {
     // funcPassManager.addPass(createTileAndDistributeToWorkgroupsPass(
     //     kNumMaxParallelDims,
@@ -637,35 +638,39 @@ void addGPUMatmulTensorCoreMmaSyncPassPipeline(
       createLLVMGPUTensorCoreVectorizationPass(GPUTensorCoreType::MMA_SYNC));
   funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
   funcPassManager.addPass(createCSEPass());
-  funcPassManager.addPass(createOptimizeVectorTransferPass());
-  funcPassManager.addPass(createOptimizeTensorInsertExtractSlicesPass());
+  funcPassManager.addPass(createTransferReadSubviewFusionPass());
+  // funcPassManager.addPass(createOptimizeVectorTransferPass());
+  // funcPassManager.addPass(createOptimizeTensorInsertExtractSlicesPass());
 
-  // Distribute shared memory copies.
-  funcPassManager.addPass(createMemrefCopyToLinalgPass());
-  funcPassManager.addPass(createGPUDistributeSharedMemoryCopyPass());
-  funcPassManager.addPass(createCanonicalizerPass());
-  funcPassManager.addPass(createCSEPass());
+  // // Distribute shared memory copies.
+  // funcPassManager.addPass(createMemrefCopyToLinalgPass());
+  // funcPassManager.addPass(createGPUDistributeSharedMemoryCopyPass());
+  // funcPassManager.addPass(createCanonicalizerPass());
+  // funcPassManager.addPass(createCSEPass());
 
-  // Vector -> MMA ops
-  funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
-  funcPassManager.addPass(createCanonicalizerPass());
-  funcPassManager.addPass(createCSEPass());
-  funcPassManager.addPass(
-      createLLVMGPUVectorToGPUPass(GPUTensorCoreType::MMA_SYNC));
-  funcPassManager.addPass(createCanonicalizerPass());
-  funcPassManager.addPass(createCSEPass());
+  // // Vector -> MMA ops
+  // funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
+  // funcPassManager.addPass(createCanonicalizerPass());
+  // funcPassManager.addPass(createCSEPass());
 
-  // Hoist loop invariant code to avoid pipelining it.
-  funcPassManager.addPass(createIREELoopInvariantCodeMotionPass());
+  // TODO remove builtin.unrealized_conversion_cast
+
+  // funcPassManager.addPass(
+  //     createLLVMGPUVectorToGPUPass(GPUTensorCoreType::MMA_SYNC));
+  // funcPassManager.addPass(createCanonicalizerPass());
+  // funcPassManager.addPass(createCSEPass());
+
+  // // Hoist loop invariant code to avoid pipelining it.
+  // funcPassManager.addPass(createIREELoopInvariantCodeMotionPass());
   // Pipeline memory operations.
-  GPUPipeliningPassOptions pipelieningOptions = {};
-  pipelieningOptions.epiloguePeeling = false;
-  pipelieningOptions.depth = pipelineDepth;
-  pipelieningOptions.scheduleIndex =
-      llvm::to_underlying(PipeliningSchedulingStrategy::nvidiaTensorCore);
-  funcPassManager.addPass(createGPUPipeliningPass(pipelieningOptions));
-  // Optimize shared memory usage.
-  funcPassManager.addPass(createLLVMGPUPackSharedMemoryAllocPass());
+  // GPUPipeliningPassOptions pipelieningOptions = {};
+  // pipelieningOptions.epiloguePeeling = false;
+  // pipelieningOptions.depth = pipelineDepth;
+  // pipelieningOptions.scheduleIndex =
+  //     llvm::to_underlying(PipeliningSchedulingStrategy::nvidiaTensorCore);
+  // funcPassManager.addPass(createGPUPipeliningPass(pipelieningOptions));
+  // // Optimize shared memory usage.
+  // funcPassManager.addPass(createLLVMGPUPackSharedMemoryAllocPass());
 }
 
 // //===---------------------------------------------------------------------===//
@@ -1015,8 +1020,7 @@ void addGPUWarpReductionPassPipeline(OpPassManager &funcPassManager) {
 // //
 // // Note that this needs to run before SCF -> CF.
 static void
-addLowerAndOptimizeAddressComputationPasses(FunctionLikeNest
-&funcPassManager) {
+addLowerAndOptimizeAddressComputationPasses(FunctionLikeNest &funcPassManager) {
   funcPassManager.addPass(createExtractAddressComputationGPUPass)
       .addPass(memref::createExpandOpsPass)
       .addPass(memref::createFoldMemRefAliasOpsPass)
@@ -1152,7 +1156,7 @@ void buildLLVMGPUCodegenPassPipeline(OpPassManager &variantPassManager,
         .addPass(createLLVMGPULowerExecutableTargetPass)
         .addPass(createVerifyWorkgroupDistributionPass);
   }
-    variantPassManager.addPass(createReconcileTranslationInfoPass());
+  variantPassManager.addPass(createReconcileTranslationInfoPass());
 
   //   //===--------------------------------------------------------------------===//
   //   // Convert Linalg ops to LLVM+NVVM/ROCDL ops.

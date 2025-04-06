@@ -263,10 +263,10 @@ void addIREEComprehensiveBufferizePasses(
     OpPassManager &funcPassManager,
     std::optional<BufferizationOptions::AllocationFn> allocationFn,
     std::optional<BufferizationOptions::MemCpyFn> memCpyFn) {
-  funcPassManager.addPass(createEliminateEmptyTensorsPass());
-  funcPassManager.addPass(bufferization::createEmptyTensorToAllocTensorPass());
-  funcPassManager.addPass(
-      createIREEComprehensiveBufferizePass(allocationFn, memCpyFn));
+  // funcPassManager.addPass(createEliminateEmptyTensorsPass());
+  // funcPassManager.addPass(bufferization::createEmptyTensorToAllocTensorPass());
+  // funcPassManager.addPass(
+  //     createIREEComprehensiveBufferizePass(allocationFn, memCpyFn));
   addIREEPostBufferizationPasses(funcPassManager);
 }
 

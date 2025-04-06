@@ -5,6 +5,8 @@ include "mlir/IR/OpBase.td"
 include "triton/Dialect/Triton/IR/TritonTypes.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/AttrTypeBase.td"
+include "mlir/Interfaces/TilingInterface.td"
+include "mlir/IR/OpAsmInterface.td"
 
 def Triton_Structured_Dialect : Dialect {
   let name = "tts";
@@ -278,20 +280,29 @@ def TTS_StoreOp : TTS_Op<"store", [
 def TTS_TransferReadOp
   : TTS_Op<"transfer_read", [ 
       AttrSizedOperandSegments,
-      MemoryEffects<[MemRead]>
-    ]> {
+      MemoryEffects<[MemRead]>,
+      DeclareOpInterfaceMethods<TilingInterface,
+        ["getLoopIteratorTypes",
+         "getIterationDomain",
+         "getTiledImplementation",
+         "getResultTilePosition"]>
+    ]>{
   let summary = "points to a tensor in memory";
 
 
   let arguments = (ins AnyMemRef:$base,
+                       Variadic<Index>:$indices,
+                       DenseI64ArrayAttr:$static_indices,
                        Variadic<Index>:$mask_dims,
                        DenseI64ArrayAttr:$static_mask_dims,
                        Optional<AnyTypeOf<[TT_Float, TT_Int, TTS_Ptr]>>:$other);
 
   let results = (outs TTS_Vector:$result);
 
+  
   let assemblyFormat = [{
     $base 
+    `` `,` `indices` `` `:` custom<DynamicIndexList>($indices, $static_indices)
     `` `,` `mask_dims` `` `:` custom<DynamicIndexList>($mask_dims, $static_mask_dims)
     (`,` `other` `=` $other `:` qualified(type($other))^)?
     attr-dict `:` qualified(type($base)) `to` qualified(type($result))
@@ -304,6 +315,13 @@ def TTS_TransferReadOp
       "Value":$base,
       "ArrayRef<OpFoldResult>":$mask_dims,
       "Value":$other)>,
+
+      OpBuilder<(ins
+      "Type":$resultType,
+      "Value":$base,
+      "ArrayRef<OpFoldResult>":$indices,
+      "ArrayRef<OpFoldResult>":$mask_dims,
+      "Value":$other)>,
   ];
 
   let extraClassDeclaration = [{
@@ -312,6 +330,10 @@ def TTS_TransferReadOp
       Builder b(getContext());
       return ::mlir::getMixedValues(getStaticMaskDims(), getMaskDims(), b);
     }
+    SmallVector<OpFoldResult> getMixedIndices() {
+      Builder b(getContext());
+      return ::mlir::getMixedValues(getStaticIndices(), getIndices(), b);
+    } 
 
     bool hasMask() {
       return !getMixedMaskDims().empty();

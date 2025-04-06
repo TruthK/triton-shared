@@ -1,13 +1,7 @@
-#===------------------------------------------------------------------------===#
-#
-# Copyright (c) Triton Project Contributors.
-#
-#===------------------------------------------------------------------------===#
-
 add_triton_library(TritonToLinalgExperimental
   TritonToLinalgExperimentalPass.cpp
   TritonStructuredToVector.cpp
-  TritonTensorToVector.cpp
+  LinalgGenericFusion.cpp
 
   DEPENDS
   TritonToLinalgExperimentalConversionPassIncGen
@@ -22,6 +16,8 @@ add_triton_library(TritonToLinalgExperimental
   MLIRVectorDialect
   MLIRVectorTransforms
   MLIRVectorUtils
+  MLIRFuncDialect
+  MLIRLinalgDialect
   MLIRTensorDialect
   MLIRTransforms
   MLIRSupport
@@ -35,4 +31,5 @@ add_triton_library(TritonToLinalgExperimental
   TritonToUnstructured
   TritonPtrToMemref
   UnstructuredToMemref
+  IREEVectorExtDialect
 )

@@ -13,7 +13,9 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
-
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
+#include "mlir/Interfaces/ViewLikeInterface.h"
+#include "mlir/Interfaces/TilingInterface.h"
 // clang-format off: must be included after all LLVM/MLIR headers
 
 #include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtDialect.h.inc" // IWYU pragma: keep

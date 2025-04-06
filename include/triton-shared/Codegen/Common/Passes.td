@@ -692,4 +692,47 @@ def VerifyWorkgroupDistributionPass :
   }];
 }
 
+def VectorExtTransferToVectorTransferPass :
+    InterfacePass<"iree-codegen-vector-ext-transfer-to-vector-transfer", "mlir::FunctionOpInterface"> {
+  let summary = "将 iree_vector_ext.transfer_read 降级到 vector.transfer_read";
+  let description = [{
+    此 Pass 将 iree_vector_ext.transfer_read 操作转换为对应的 vector.transfer_read 操作。
+    在转换过程中，掩码值的计算方式为：max(mask_dim % 结果类型形状[dim], 结果类型形状[dim])。
+    结果类型为向量类型，而非原始的 memref 类型。
+  }];
+  let dependentDialects = [
+    "vector::VectorDialect",
+    "arith::ArithDialect",
+    "memref::MemRefDialect"
+  ];
+}
+
+def TransferReadSubviewFusionPass :
+    InterfacePass<"iree-codegen-transfer-read-subview-fusion", "mlir::FunctionOpInterface"> {
+  let summary = "Fusion of memref.subview operations with iree_vector_ext.transfer_read operations";
+  let description = [{
+    This pass examines memref.subview operations with source from iree_vector_ext.transfer_read
+    and fuses them together into a single iree_vector_ext.transfer_read operation.
+    
+    For example:
+    ```mlir
+    %transferRead = iree_vector_ext.transfer_read %base, indices: [%i, %j]...
+    %subview = memref.subview %transferRead [%off0, %off1] [%size0, %size1] [%stride0, %stride1]
+    ```
+    
+    Will be transformed to:
+    ```mlir
+    %newTransferRead = iree_vector_ext.transfer_read %base, indices: [%i + %off0, %j + %off1], mask_dims: [%size0, %size1]...
+    ```
+    
+    This eliminates the intermediate memref.subview operation and creates a more optimized
+    data access pattern using a single transfer_read operation with adjusted indices.
+  }];
+  let dependentDialects = [
+    "mlir::tts::IREE::VectorExt::IREEVectorExtDialect",
+    "memref::MemRefDialect",
+    "arith::ArithDialect"
+  ];
+}
+
 #endif // IREE_CODEGEN_COMMON_PASSES

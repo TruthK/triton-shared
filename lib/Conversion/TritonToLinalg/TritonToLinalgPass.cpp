@@ -7,6 +7,7 @@
 
 #include "triton-shared/Analysis/UseAnalysis.h"
 #include "triton-shared/Conversion/TritonToLinalg/TritonToLinalg.h"
+#include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 #include "triton-shared/Dialect/TritonTilingExt/IR/TritonTilingExtDialect.h"
 
 #include "triton/Dialect/Triton/IR/Dialect.h"
@@ -91,7 +92,8 @@ public:
         .insert<func::FuncDialect, arith::ArithDialect, math::MathDialect,
                 linalg::LinalgDialect, affine::AffineDialect, scf::SCFDialect,
                 tensor::TensorDialect, bufferization::BufferizationDialect,
-                memref::MemRefDialect, ttx::TritonTilingExtDialect>();
+                memref::MemRefDialect, tts::TritonStructuredDialect,
+                ttx::TritonTilingExtDialect>();
   }
 
   void runOnOperation() override {
@@ -120,7 +122,7 @@ public:
         linalg::LinalgDialect, affine::AffineDialect, scf::SCFDialect,
         cf::ControlFlowDialect, tensor::TensorDialect,
         bufferization::BufferizationDialect, memref::MemRefDialect,
-        ttx::TritonTilingExtDialect>();
+        tts::TritonStructuredDialect, ttx::TritonTilingExtDialect>();
 
     target.addLegalOp<ModuleOp>();
 

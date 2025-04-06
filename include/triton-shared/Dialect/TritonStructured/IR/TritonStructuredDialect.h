@@ -5,6 +5,8 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/Attributes.h" 
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
+#include "mlir/Interfaces/ViewLikeInterface.h"
 
 #include "triton/Dialect/Triton/IR/Dialect.h"
 

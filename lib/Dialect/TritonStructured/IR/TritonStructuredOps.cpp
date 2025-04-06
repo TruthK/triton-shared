@@ -277,7 +277,42 @@ void TransferReadOp::build(OpBuilder &b, OperationState &state, Value base,
                                     tensorType.getElementType());
   }
 
-  build(b, state, resType, base, dynamicMaskDims,
+  // 将 OpFoldResult 数组转换为 ValueRange
+  SmallVector<Value> dynamicIndices;
+  SmallVector<int64_t> staticIndices;
+  SmallVector<OpFoldResult> indices;
+  // 从resType获取rank
+  int64_t rank = cast<RankedTensorType>(resType).getRank();
+  // 创建rank个0值的OpFoldResult
+  indices.reserve(rank);
+  for (int i = 0; i < rank; ++i) {
+    indices.push_back(b.getIndexAttr(0));
+  }
+  ArrayRef<OpFoldResult> indicesRef(indices);
+
+  dispatchIndexOpFoldResults(indicesRef, dynamicIndices, staticIndices);
+
+  build(b, state, resType, base, dynamicIndices,
+        b.getDenseI64ArrayAttr(staticIndices), dynamicMaskDims,
+        b.getDenseI64ArrayAttr(staticMaskDims), other);
+}
+
+void TransferReadOp::build(OpBuilder &b, OperationState &state, Type resultType,
+                           Value base, ArrayRef<OpFoldResult> indices,
+                           ArrayRef<OpFoldResult> mask_dims, Value other) {
+  // 将 OpFoldResult 数组转换为 ValueRange
+  SmallVector<Value> dynamicIndices;
+  SmallVector<int64_t> staticIndices;
+  dispatchIndexOpFoldResults(indices, dynamicIndices, staticIndices);
+
+  // 处理 mask_dims
+  SmallVector<Value> dynamicMaskDims;
+  SmallVector<int64_t> staticMaskDims;
+  dispatchIndexOpFoldResults(mask_dims, dynamicMaskDims, staticMaskDims);
+
+  // 调用底层 build 方法，使用 resultType 而不是 base.getType()
+  build(b, state, resultType, base, dynamicIndices,
+        b.getDenseI64ArrayAttr(staticIndices), dynamicMaskDims,
         b.getDenseI64ArrayAttr(staticMaskDims), other);
 }
 

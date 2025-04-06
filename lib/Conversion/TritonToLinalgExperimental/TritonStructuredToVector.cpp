@@ -33,11 +33,12 @@
 #include "mlir/Transforms/Passes.h"
 #include "triton/Dialect/Triton/IR/Types.h"
 
+#include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtDialect.h"
+#include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtOps.h"
 #include "triton-shared/Conversion/TritonArithToLinalg/TritonArithToLinalg.h"
 #include "triton-shared/Conversion/TritonToLinalgExperimental/Passes.h"
 #include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 #include "triton-shared/Dialect/TritonTilingExt/IR/TritonTilingExtDialect.h"
-
 using namespace mlir;
 using namespace mlir::tts;
 using namespace mlir::triton;
@@ -51,115 +52,90 @@ namespace triton {
 
 namespace {
 
-struct UnrealizedCastConverter
-    : public OpConversionPattern<UnrealizedConversionCastOp> {
-  using OpConversionPattern<UnrealizedConversionCastOp>::OpConversionPattern;
-  LogicalResult
-  matchAndRewrite(UnrealizedConversionCastOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    rewriter.eraseOp(op);
-    return success();
-  }
-};
+// 将函数声明移到类外部
+LogicalResult convertUnrealizedCastToVectorLoad(Operation *op,
+                                                OpBuilder &builder) {
+  auto castOp = dyn_cast<UnrealizedConversionCastOp>(op);
+  if (!castOp)
+    return failure();
+
+  // 检查是否是从 memref 到 vector 的转换
+  if (castOp.getNumOperands() != 1)
+    return failure();
+
+  auto memrefType = mlir::dyn_cast<MemRefType>(castOp.getOperand(0).getType());
+  auto vectorType = mlir::dyn_cast<VectorType>(castOp.getResult(0).getType());
+
+  if (!memrefType || !vectorType)
+    return failure();
+
+  // 创建全0索引数组
+  auto loc = castOp.getLoc();
+  SmallVector<Value> indices(memrefType.getRank(),
+                             builder.create<arith::ConstantIndexOp>(loc, 0));
+
+  // 创建 vector.load 操作
+  auto loadOp = builder.create<vector::LoadOp>(loc, vectorType,
+                                               castOp.getOperand(0), indices);
+
+  // 替换操作
+  castOp->replaceAllUsesWith(loadOp);
+  castOp->erase();
+
+  return success();
+}
 
 // 转换 TTS_TransferReadOp 到 vector.transfer_read
 class TransferReadOpConversion
     : public OpConversionPattern<tts::TransferReadOp> {
 public:
   using OpConversionPattern<tts::TransferReadOp>::OpConversionPattern;
-  TransferReadOpConversion(const TypeConverter &typeConverter,
-                           MLIRContext *context)
-      : OpConversionPattern<tts::TransferReadOp>(typeConverter, context) {}
+
   LogicalResult
   matchAndRewrite(tts::TransferReadOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    Value source = adaptor.getBase();
-    auto resultType = mlir::cast<RankedTensorType>(op.getResult().getType());
-    auto vectorType =
-        VectorType::get(resultType.getShape(), resultType.getElementType());
+    // 获取操作数
+    Value base = adaptor.getBase();
+    auto maskDims = op.getMixedMaskDims();
+    Value other = adaptor.getOther();
 
-    // 创建索引数组
-    SmallVector<Value> indices(
-        resultType.getRank(),
-        rewriter.create<arith::ConstantIndexOp>(op.getLoc(), 0));
+    // 创建默认的indices - 全0
+    auto loc = op.getLoc();
+    auto baseType = cast<MemRefType>(base.getType());
+    int64_t rank = baseType.getRank();
 
-    // 创建 AffineMapAttr (注意这里的改变)
-    auto map = AffineMapAttr::get(AffineMap::getMultiDimIdentityMap(
-        resultType.getRank(), rewriter.getContext()));
+    // 创建OpFoldResult数组,全部使用静态0
+    SmallVector<OpFoldResult> indices;
+    indices.resize(rank, rewriter.getI64IntegerAttr(0));
 
-    // 处理 padding/other
-    Value padding;
-    if (op.getOther()) {
-      padding = adaptor.getOther();
-    } else {
-      if (auto floatType =
-              mlir::dyn_cast<FloatType>(resultType.getElementType())) {
-        padding = rewriter.create<arith::ConstantFloatOp>(
-            op.getLoc(), APFloat(0.0), floatType);
-      } else if (auto intType =
-                     mlir::dyn_cast<IntegerType>(resultType.getElementType())) {
-        padding =
-            rewriter.create<arith::ConstantIntOp>(op.getLoc(), 0, intType);
-      }
+    // 创建带有 stride 的结果类型
+    auto shape = baseType.getShape();
+    int64_t offset = 0;
+    SmallVector<int64_t> strides;
+    int64_t stride = 1;
+    for (int i = shape.size() - 1; i >= 0; --i) {
+      strides.insert(strides.begin(), stride);
+      if (shape[i] != ShapedType::kDynamic)
+        stride *= shape[i];
     }
+    auto stridedLayout =
+        StridedLayoutAttr::get(rewriter.getContext(), offset, strides);
 
-    // 处理 mask
-    Value mask;
-    if (op.hasMask()) {
-      auto resultRank = resultType.getRank();
-      auto maskDims = op.getMixedMaskDims();
+    // 创建新的 memref 类型，保持原有的地址空间
+    auto resultType = MemRefType::get(shape, baseType.getElementType(),
+                                      stridedLayout, baseType.getMemorySpace());
 
-      // 创建完整的维度数组
-      SmallVector<Value> maskSizes;
-      int maskDimIdx = 0;
-
-      // 遍历所有维度
-      for (int i = 0; i < resultRank; ++i) {
-        if (maskDimIdx < maskDims.size()) {
-          // 如果有对应的 mask 维度，使用它
-          auto maskDim = maskDims[maskDimIdx];
-          if (auto attr = maskDim.dyn_cast<Attribute>()) {
-            // 处理静态维度
-            if (auto intAttr = mlir::dyn_cast<IntegerAttr>(attr)) {
-              maskSizes.push_back(rewriter.create<arith::ConstantIndexOp>(
-                  op.getLoc(), intAttr.getInt()));
-            }
-          } else {
-            // 处理动态维度
-            maskSizes.push_back(cast<Value>(maskDim));
-          }
-          maskDimIdx++;
-        } else {
-          // 如果没有对应的 mask 维度，使用结果类型的对应维度
-          maskSizes.push_back(rewriter.create<arith::ConstantIndexOp>(
-              op.getLoc(), resultType.getDimSize(i)));
-        }
-      }
-
-      // 创建向量掩码
-      mask = rewriter.create<vector::CreateMaskOp>(
-          op.getLoc(),
-          VectorType::get(resultType.getShape(), rewriter.getI1Type()),
-          maskSizes);
-      mask.dump();
-    }
-
-    // 创建 inBounds 属性
-    SmallVector<bool> inBoundsValues(resultType.getRank(), true);
-    auto inBounds = rewriter.getBoolArrayAttr(inBoundsValues);
-
-    // 创建 transfer_read
-    auto xferRead = rewriter.create<vector::TransferReadOp>(
-        op.getLoc(),
-        vectorType, // 结果类型
-        source,     // 源内存引用
+    // 使用builder创建新的操作
+    auto newOp = rewriter.create<mlir::tts::IREE::VectorExt::TransferReadOp>(
+        loc,
+        resultType, // 带有 stride 的结果类型
+        base,       // 基址
         indices,    // 索引
-        map,        // permutation map (现在是 AffineMapAttr)
-        padding,    // padding 值
-        mask,       // mask (可选)
-        inBounds    // inBounds (现在是 ArrayAttr)
+        maskDims,   // mask维度
+        other       // 其他值
     );
-    rewriter.replaceOp(op, xferRead);
+    newOp->dump();
+    rewriter.replaceOp(op, newOp.getResult());
     return success();
   }
 };
@@ -303,7 +279,6 @@ public:
   }
 };
 
-// Linalg MatMul 的转换模式
 class MatmulOpConverter : public OpConversionPattern<linalg::MatmulOp> {
 public:
   using OpConversionPattern<linalg::MatmulOp>::OpConversionPattern;
@@ -316,76 +291,58 @@ public:
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op.getLoc();
 
-    // 获取输入和输出值并转换为vector类型
+    // 获取输入和输出值
     Value lhs = adaptor.getInputs()[0];
     Value rhs = adaptor.getInputs()[1];
     Value output = adaptor.getOutputs()[0];
 
-    // 确保所有操作数都是vector类型
-    if (isa<RankedTensorType>(lhs.getType())) {
-      auto tensorType = cast<RankedTensorType>(lhs.getType());
-      auto vectorType = VectorType::get(tensorType.getShape(), 
-                                      tensorType.getElementType());
-      lhs = rewriter.create<UnrealizedConversionCastOp>(
-          loc, vectorType, lhs).getResult(0);
+    // // 对 lhs 做 vector -> memref 转换
+    // if (!isa<MemRefType>(lhs.getType())) {
+    //   auto tensorType = cast<RankedTensorType>(lhs.getType());
+    //   auto memrefType =
+    //       MemRefType::get(tensorType.getShape(),
+    //       tensorType.getElementType());
+    //   lhs = rewriter.create<UnrealizedConversionCastOp>(loc, memrefType, lhs)
+    //             .getResult(0);
+    // }
+
+    // // 对 rhs 做 vector -> memref 转换
+    // if (!isa<MemRefType>(rhs.getType())) {
+    //   auto tensorType = cast<RankedTensorType>(rhs.getType());
+    //   auto memrefType =
+    //       MemRefType::get(tensorType.getShape(),
+    //       tensorType.getElementType());
+    //   rhs = rewriter.create<UnrealizedConversionCastOp>(loc, memrefType, rhs)
+    //             .getResult(0);
+    // }
+
+    if (!isa<MemRefType>(output.getType())) {
+      while (output.getDefiningOp()->hasAttr("dot.result_tensor_type")) {
+        if (output.getDefiningOp<memref::AllocOp>())
+          break;
+        output = output.getDefiningOp()->getOperand(0);
+      }
     }
 
-    if (isa<RankedTensorType>(rhs.getType())) {
-      auto tensorType = cast<RankedTensorType>(rhs.getType());
-      auto vectorType = VectorType::get(tensorType.getShape(), 
-                                      tensorType.getElementType());
-      rhs = rewriter.create<UnrealizedConversionCastOp>(
-          loc, vectorType, rhs).getResult(0);
-    }
+    // 创建 linalg.matmul 操作，输入和输出均为 memref 类型
+    auto matmulOp = rewriter.create<linalg::MatmulOp>(
+        loc,
+        /*resultTensorTypes=*/TypeRange{},        // 无返回值
+        /*inputs=*/ValueRange{lhs, rhs},          // 输入参数
+        /*outputs=*/ValueRange{output},           // 输出参数
+        /*attributes=*/ArrayRef<NamedAttribute>{} // 可选属性
+    );
+    matmulOp->dump();
+    // 获取结果 memref 类型
+    auto resultMemrefType = cast<MemRefType>(output.getType());
 
-    // 获取输出tensor类型并创建对应的vector类型
-    auto outputTensorType = cast<RankedTensorType>(output.getType());
-    auto outputVectorType = VectorType::get(outputTensorType.getShape(),
-                                          outputTensorType.getElementType());
+    // 创建对应的 vector 类型
+    auto resultVectorType = VectorType::get(resultMemrefType.getShape(),
+                                            resultMemrefType.getElementType());
 
-    if (isa<RankedTensorType>(output.getType())) {
-      output = rewriter.create<UnrealizedConversionCastOp>(
-          loc, outputVectorType, output).getResult(0);
-    }
-
-    // 创建 AffineMap 表示矩阵乘法的索引映射
-    auto context = rewriter.getContext();
-    AffineExpr m = rewriter.getAffineDimExpr(0);  // 矩阵 A 的行
-    AffineExpr k = rewriter.getAffineDimExpr(1);  // 收缩维度
-    AffineExpr n = rewriter.getAffineDimExpr(2);  // 矩阵 B 的列
-
-    // 修改映射以正确表示矩阵乘法的维度关系
-    // A[m,k] * B[k,n] = C[m,n]
-    auto mapA = AffineMap::get(3, 0, {m, k}, context);      // (m, k, n) -> (m, k)
-    auto mapB = AffineMap::get(3, 0, {k, n}, context);      // (m, k, n) -> (k, n)
-    auto mapC = AffineMap::get(3, 0, {m, n}, context);      // (m, k, n) -> (m, n)
-
-    SmallVector<Attribute> indexingMapsAttrs = {
-      AffineMapAttr::get(mapA),
-      AffineMapAttr::get(mapB),
-      AffineMapAttr::get(mapC)
-    };
-    auto indexingMaps = rewriter.getArrayAttr(indexingMapsAttrs);
-
-    // 迭代器类型：m和n是并行的，k是归约维度
-    SmallVector<Attribute> iteratorTypes = {
-      vector::IteratorTypeAttr::get(context, vector::IteratorType::parallel),    // m
-      vector::IteratorTypeAttr::get(context, vector::IteratorType::reduction),   // k (reduction)
-      vector::IteratorTypeAttr::get(context, vector::IteratorType::parallel)     // n
-    };
-    auto iterTypesAttr = rewriter.getArrayAttr(iteratorTypes);
-
-    auto kindAttr = vector::CombiningKindAttr::get(
-        context, vector::CombiningKind::ADD);
-
-    // 创建 vector.contract 操作，注意输出类型应该是 vector 类型
-    auto contractOp = rewriter.create<vector::ContractionOp>(
-        loc, outputVectorType, lhs, rhs, output,
-        indexingMaps, iterTypesAttr, kindAttr);
-
-    // 将结果转换回tensor类型
+    // 将结果从 memref 转换为 vector 类型
     auto result = rewriter.create<UnrealizedConversionCastOp>(
-        loc, outputTensorType, contractOp.getResult());
+        loc, resultVectorType, output);
 
     rewriter.replaceOp(op, result.getResult(0));
     return success();
@@ -461,28 +418,40 @@ public:
   LogicalResult
   matchAndRewrite(tensor::EmptyOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    // // 检查是否有 "tl_tensor" 属性
-    // if (!op->hasAttr("tl_tensor")) {
-    //   return rewriter.notifyMatchFailure(
-    //       op, "tensor.empty operation must have 'tl_tensor' attribute");
-    // }
     Operation *replaceOp = op;
     auto loc = op.getLoc();
     auto tensorType = cast<RankedTensorType>(op.getType());
     auto elementType = tensorType.getElementType();
     auto shape = tensorType.getShape();
 
-    // 创建 memref 类型 (使用 workgroup 内存空间)
+    // 创建 strided layout
+    int64_t offset = 0;
+    SmallVector<int64_t> strides;
+    int64_t stride = 1;
+    for (int i = shape.size() - 1; i >= 0; --i) {
+      strides.insert(strides.begin(), stride);
+      if (shape[i] != ShapedType::kDynamic)
+        stride *= shape[i];
+    }
+    auto stridedLayout =
+        StridedLayoutAttr::get(rewriter.getContext(), offset, strides);
+
+    // 创建 memref 类型 (使用 workgroup 内存空间和 strided layout)
     auto addressSpace = gpu::AddressSpaceAttr::get(
         rewriter.getContext(), gpu::GPUDialect::getWorkgroupAddressSpace());
-    auto memrefType =
-        MemRefType::get(shape, elementType,
-                        AffineMap::getMultiDimIdentityMap(tensorType.getRank(),
-                                                          op->getContext()),
-                        addressSpace);
+    auto memrefType = MemRefType::get(shape, elementType, stridedLayout,
+                                      addressSpace);
 
-    // 创建 memref.alloc
-    auto alloc = rewriter.create<memref::AllocaOp>(loc, memrefType);
+    // 复制原始 EmptyOp 的所有属性
+    SmallVector<NamedAttribute> attrs;
+    for (auto attr : op->getAttrs()) {
+      attrs.push_back(attr);
+    }
+
+    // 创建 memref.alloc 并保留属性
+    auto alloc = rewriter.create<memref::AllocOp>(loc, memrefType,
+                                                  ValueRange{}, // 无动态尺寸
+                                                  attrs); // 保留原属性
 
     // 创建对应的 vector 类型
     auto vectorType = VectorType::get(shape, elementType);
@@ -491,15 +460,25 @@ public:
     if (auto fillOp = dyn_cast<linalg::FillOp>(*(op->getUsers().begin()))) {
       // 获取填充值并创建 broadcast
       auto value = fillOp.getInputs()[0];
-      auto broadcastVec =
-          rewriter.create<vector::BroadcastOp>(loc, vectorType, value);
+      // 保留 fillOp 的属性
+      SmallVector<NamedAttribute> fillAttrs;
+      for (auto attr : fillOp->getAttrs()) {
+        fillAttrs.push_back(attr);
+      }
+      auto broadcastVec = rewriter.create<vector::BroadcastOp>(
+          loc, vectorType, value, fillAttrs);
 
       // 创建索引数组用于 store
       SmallVector<Value> indices(
           shape.size(), rewriter.create<arith::ConstantIndexOp>(loc, 0));
 
       // 将广播后的向量存入 memref
-      rewriter.create<vector::StoreOp>(loc, broadcastVec, alloc, indices);
+      auto storeOp = rewriter.create<vector::StoreOp>(
+          loc, broadcastVec, alloc, indices, /*nontemporal=*/false);
+      // 如果需要，可以在创建后设置属性
+      for (auto attr : fillAttrs) {
+        storeOp->setAttr(attr.getName(), attr.getValue());
+      }
 
       // 删除empty op
       rewriter.eraseOp(op);
@@ -511,12 +490,16 @@ public:
         shape.size(), rewriter.create<arith::ConstantIndexOp>(loc, 0));
 
     // 从 memref 加载向量
-    auto loadedVec =
-        rewriter.create<vector::LoadOp>(loc, vectorType, alloc, loadIndices);
+    auto loadOp = rewriter.create<vector::LoadOp>(
+        loc, vectorType, alloc, loadIndices, /*nontemporal=*/false);
+    // 如果需要，可以在创建后设置属性
+    for (auto attr : attrs) {
+      loadOp->setAttr(attr.getName(), attr.getValue());
+    }
 
-    // 将向量转换回 tensor
+    // 将向量转换回 tensor，保留属性
     auto result = rewriter.create<UnrealizedConversionCastOp>(
-        loc, tensorType, loadedVec.getResult());
+        loc, tensorType, loadOp.getResult(), attrs);
 
     rewriter.replaceOp(replaceOp, result);
     return success();
@@ -536,19 +519,31 @@ public:
                              tensorType.getElementType());
     });
 
-    // 添加materialization
-    addSourceMaterialization([](OpBuilder &builder, Type resultType,
-                                ValueRange inputs, Location loc) -> Value {
+    // 定义一个内部函数来处理materialization
+    auto materializeCast = [](OpBuilder &builder, Type resultType,
+                              ValueRange inputs, Location loc) -> Value {
+      // 检查是否是从 memref 到 vector 的转换
+      if (auto memrefType = mlir::dyn_cast<MemRefType>(inputs[0].getType())) {
+        if (auto vectorType = mlir::dyn_cast<VectorType>(resultType)) {
+          // 创建全0索引数组
+          SmallVector<Value> indices(
+              memrefType.getRank(),
+              builder.create<arith::ConstantIndexOp>(loc, 0));
+
+          // 使用 vector.load
+          return builder.create<vector::LoadOp>(loc, vectorType, inputs[0],
+                                                indices);
+        }
+      }
+
+      // 其他情况使用默认的 UnrealizedConversionCastOp
       return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
           .getResult(0);
-    });
-    addTargetMaterialization([](OpBuilder &builder, TypeRange resultTypes,
-                                ValueRange inputs,
-                                Location loc) -> SmallVector<Value> {
-      return builder
-          .create<UnrealizedConversionCastOp>(loc, resultTypes, inputs.front())
-          ->getResults();
-    });
+    };
+    // 添加source materialization
+    addSourceMaterialization(materializeCast);
+    // 添加target materialization
+    addTargetMaterialization(materializeCast);
   }
 };
 
@@ -576,7 +571,8 @@ public:
     target.addLegalDialect<vector::VectorDialect, arith::ArithDialect,
                            memref::MemRefDialect, scf::SCFDialect,
                            math::MathDialect, linalg::LinalgDialect,
-                           gpu::GPUDialect, func::FuncDialect>();
+                           gpu::GPUDialect, func::FuncDialect,
+                           IREE::VectorExt::IREEVectorExtDialect>();
     target.addLegalOp<UnrealizedConversionCastOp>();
 
     // 设置需要转换的操作
@@ -600,6 +596,8 @@ public:
       auto linalgOp = dyn_cast<linalg::LinalgOp>(op);
       if (!linalgOp || linalgOp->getNumOperands() == 0)
         return true;
+      llvm::errs() << "linalgOp->getOperand(0).getType(): "
+                   << linalgOp->getOperand(0).getType() << "\n";
       return !mlir::isa<RankedTensorType>(linalgOp->getOperand(0).getType());
     });
 
@@ -638,10 +636,21 @@ public:
     pm.addPass(createCanonicalizerPass());
     pm.addPass(createCSEPass());
     pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+    pm.addPass(createCanonicalizerPass());
+    pm.addPass(createCSEPass());
 
     if (failed(runPipeline(pm, getOperation()))) {
       signalPassFailure();
     }
+    getOperation()->dump();
+
+    // 遍历所有操作并应用转换
+    getOperation()->walk([&](Operation *op) {
+      OpBuilder builder(op);
+      if (succeeded(convertUnrealizedCastToVectorLoad(op, builder))) {
+        return;
+      }
+    });
   }
 };
 

@@ -1486,7 +1486,7 @@ bool hasFusedLeadingOp(linalg::LinalgOp rootOp) {
       llvm::dbgs() << "linalgOp: ";
       linalgOp.dump();
       llvm::dbgs() << "\n";
-      return !linalgOp->hasAttr("triton_ptr");
+      return !isa<linalg::FillOp>(linalgOp);
     }
     return false;
   });

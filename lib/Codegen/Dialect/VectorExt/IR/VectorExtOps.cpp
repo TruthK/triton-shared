@@ -7,6 +7,24 @@
 #include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtOps.h"
 #include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtDialect.h"
 
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/OpImplementation.h"
+#include "mlir/IR/OperationSupport.h"
+#include "mlir/Support/LogicalResult.h"
+
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Casting.h"
+
+#include <cstdint>
+#include <optional>
+#include <utility>
 using namespace mlir;
 using namespace mlir::tts::IREE::VectorExt;
 
@@ -41,3 +59,26 @@ OpFoldResult ToSIMTOp::fold(FoldAdaptor) {
 #define GET_OP_CLASSES
 #include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtOps.cpp.inc" // IWYU pragma: keep
 // clang-format on
+
+//===----------------------------------------------------------------------===//
+// TransferReadOp
+//===----------------------------------------------------------------------===//
+
+void TransferReadOp::build(OpBuilder &b, OperationState &state, Type resultType, Value base,
+                           ArrayRef<OpFoldResult> indices,
+                           ArrayRef<OpFoldResult> mask_dims, Value other) {
+  // 将 OpFoldResult 数组转换为 ValueRange
+  SmallVector<Value> dynamicIndices;
+  SmallVector<int64_t> staticIndices;
+  dispatchIndexOpFoldResults(indices, dynamicIndices, staticIndices);
+
+  // 处理 mask_dims
+  SmallVector<Value> dynamicMaskDims;
+  SmallVector<int64_t> staticMaskDims;
+  dispatchIndexOpFoldResults(mask_dims, dynamicMaskDims, staticMaskDims);
+
+  // 调用底层 build 方法，使用 resultType 而不是 base.getType()
+  build(b, state, resultType, base, dynamicIndices,
+        b.getDenseI64ArrayAttr(staticIndices), dynamicMaskDims,
+        b.getDenseI64ArrayAttr(staticMaskDims), other);
+}

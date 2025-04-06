@@ -8,6 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/BuiltinAttributes.h"
 #include "triton-shared/Analysis/MaskAnalysis.h"
 #include "triton-shared/Analysis/OpFoldResultUtils.h"
 #include "triton-shared/Analysis/PtrAnalysis.h"
@@ -1151,41 +1152,48 @@ struct MatmulConverter : public OpConversionPattern<triton::DotOp> {
     // 获取opa的元素类型作为matmul的计算类型
     auto opaType = cast<RankedTensorType>(opa.getType());
     auto computeType = opaType.getElementType();
-    
+
     // 获取最终结果类型
     auto dstType = cast<RankedTensorType>(op.getType());
     auto resultType = dstType.getElementType();
 
     bool integers = computeType.isInteger();
     bool skipC = isZeroTensor(opc, integers);
-
-    // 使用computeType创建EmptyOp
-    auto init = rewriter.create<tensor::EmptyOp>(loc, dstType.getShape(), computeType);
-
-    auto matmulRes = rewriter.create<linalg::MatmulOp>(loc, ValueRange{opa, opb},
-                                                       ValueRange{init})
+    auto init =
+        rewriter.create<tensor::EmptyOp>(loc, dstType.getShape(), computeType);
+    init->setAttr("dot.result_tensor_type",
+                 UnitAttr::get(rewriter.getContext()));
+    auto matmulRes = rewriter
+                         .create<linalg::MatmulOp>(loc, ValueRange{opa, opb},
+                                                   ValueRange{init})
                          .getResult(0);
 
     // 如果计算类型与结果类型不同,需要进行类型转换
-    if(computeType != resultType) {
-      auto resultTensorType = RankedTensorType::get(dstType.getShape(), resultType);
-      if(computeType.getIntOrFloatBitWidth() > resultType.getIntOrFloatBitWidth()) {
+    if (computeType != resultType) {
+      auto resultTensorType =
+          RankedTensorType::get(dstType.getShape(), resultType);
+      if (computeType.getIntOrFloatBitWidth() >
+          resultType.getIntOrFloatBitWidth()) {
         // 需要截断到较小位宽
-        if(integers) {
-          matmulRes = rewriter.create<arith::TruncIOp>(loc, resultTensorType, matmulRes);
+        if (integers) {
+          matmulRes = rewriter.create<arith::TruncIOp>(loc, resultTensorType,
+                                                       matmulRes);
         } else {
-          matmulRes = rewriter.create<arith::TruncFOp>(loc, resultTensorType, matmulRes);
+          matmulRes = rewriter.create<arith::TruncFOp>(loc, resultTensorType,
+                                                       matmulRes);
         }
       } else {
         // 需要扩展到较大位宽
-        if(integers) {
-          matmulRes = rewriter.create<arith::ExtSIOp>(loc, resultTensorType, matmulRes);
+        if (integers) {
+          matmulRes =
+              rewriter.create<arith::ExtSIOp>(loc, resultTensorType, matmulRes);
         } else {
-          matmulRes = rewriter.create<arith::ExtFOp>(loc, resultTensorType, matmulRes);
+          matmulRes =
+              rewriter.create<arith::ExtFOp>(loc, resultTensorType, matmulRes);
         }
       }
     }
-    
+
     // 如果有opc且不为0,需要加上opc
     if (!skipC) {
       if (integers) {
@@ -1194,7 +1202,7 @@ struct MatmulConverter : public OpConversionPattern<triton::DotOp> {
         matmulRes = rewriter.create<arith::AddFOp>(loc, opc, matmulRes);
       }
     }
-    
+
     rewriter.replaceOp(op, matmulRes);
     return success();
   }
@@ -1900,7 +1908,6 @@ struct DenseConstantConverter : public OpConversionPattern<arith::ConstantOp> {
     // Create the fill operation
     auto fillOp = rewriter.create<linalg::FillOp>(loc, ValueRange{splatConst},
                                                   ValueRange{emptyOp});
-
 
     rewriter.replaceOp(op, fillOp.getResult(0));
     return success();
