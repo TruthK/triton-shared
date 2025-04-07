@@ -109,4 +109,4 @@ void ExtractAddressComputationPass::runOnOperation() {
     return signalPassFailure();
   }
 }
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

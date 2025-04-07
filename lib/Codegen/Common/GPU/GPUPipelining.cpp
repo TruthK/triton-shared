@@ -699,4 +699,4 @@ pipelineSharedMemoryCopy(RewriterBase &rewriter, scf::ForOp forOp,
   return applyPipelining(forOp, depth, peelEpilogue, strategy);
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

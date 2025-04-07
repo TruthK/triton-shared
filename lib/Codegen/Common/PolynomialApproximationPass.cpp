@@ -55,4 +55,4 @@ class PolynomialApproximationPass final
 };
 
 } // namespace
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

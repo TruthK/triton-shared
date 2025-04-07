@@ -125,4 +125,4 @@ struct LLVMGPUVectorLoweringPass final
   }
 };
 } // namespace
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

@@ -58,10 +58,10 @@ struct VerifyWorkgroupDistributionPass final
             continue;
           }
           op->dump();
-          op->emitOpError(
+          op->emitWarning(
               "write affecting operations on global resources are restricted "
               "to workgroup distributed contexts.");
-          return WalkResult::interrupt();
+          return WalkResult::advance();
         }
       }
       return WalkResult::advance();

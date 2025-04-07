@@ -38,7 +38,7 @@ struct FuseSubviewWithTransferRead
     Value source = subviewOp.getSource();
 
     // 检查源操作是否为 TransferReadOp
-    auto transferOp = source.getDefiningOp<TransferReadOp>();
+    auto transferOp = source.getDefiningOp<IREE::VectorExt::TransferReadOp>();
     if (!transferOp)
       return failure();
 
@@ -68,12 +68,11 @@ struct FuseSubviewWithTransferRead
       // 合并偏移量和原始索引
       Value combinedIndex;
       Value indexValue;
-      int64_t staticOffset = 0;
 
       // 获取原始索引
       if (auto attr = transferIndices[i].dyn_cast<Attribute>()) {
-        staticOffset = cast<IntegerAttr>(attr).getInt();
-        indexValue = rewriter.create<arith::ConstantIndexOp>(loc, staticOffset);
+        int64_t staticIndex = cast<IntegerAttr>(attr).getInt();
+        indexValue = rewriter.create<arith::ConstantIndexOp>(loc, staticIndex);
       } else {
         indexValue = cast<Value>(transferIndices[i]);
       }
@@ -94,19 +93,9 @@ struct FuseSubviewWithTransferRead
       newIndices.push_back(combinedIndex);
     }
 
-    // 根据 SubViewOp 的大小更新掩码维度
-    SmallVector<OpFoldResult> newMaskDims;
-    for (unsigned i = 0; i < sizes.size(); ++i) {
-      if (i < transferMaskDims.size()) {
-        newMaskDims.push_back(sizes[i]); // 使用 SubViewOp 的大小作为掩码
-      } else {
-        newMaskDims.push_back(sizes[i]);
-      }
-    }
-
-    // 创建新的 transferRead 操作
-    auto result = rewriter.create<TransferReadOp>(
-        loc, subviewOp.getType(), transferBase, newIndices, newMaskDims, other);
+    // 创建新的 transferRead 操作，保持原始 TransferReadOp 的 mask
+    auto result = rewriter.create<mlir::tts::IREE::VectorExt::TransferReadOp>(
+        loc, subviewOp.getType(), transferBase, newIndices, transferMaskDims, other);
 
     // 替换 SubViewOp 为新的 TransferReadOp
     rewriter.replaceOp(subviewOp, result);

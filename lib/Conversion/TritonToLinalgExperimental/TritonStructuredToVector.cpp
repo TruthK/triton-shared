@@ -13,6 +13,7 @@
 #include "mlir/Dialect/SCF/Transforms/Patterns.h"
 #include "mlir/Dialect/Tensor/Transforms/Transforms.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
+#include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -122,8 +123,11 @@ public:
         StridedLayoutAttr::get(rewriter.getContext(), offset, strides);
 
     // 创建新的 memref 类型，保持原有的地址空间
+    // auto resultType = MemRefType::get(shape, baseType.getElementType(),
+    //                                   stridedLayout,
+    //                                   baseType.getMemorySpace());
     auto resultType = MemRefType::get(shape, baseType.getElementType(),
-                                      stridedLayout, baseType.getMemorySpace());
+                                      AffineMap(), baseType.getMemorySpace());
 
     // 使用builder创建新的操作
     auto newOp = rewriter.create<mlir::tts::IREE::VectorExt::TransferReadOp>(
@@ -439,8 +443,10 @@ public:
     // 创建 memref 类型 (使用 workgroup 内存空间和 strided layout)
     auto addressSpace = gpu::AddressSpaceAttr::get(
         rewriter.getContext(), gpu::GPUDialect::getWorkgroupAddressSpace());
-    auto memrefType = MemRefType::get(shape, elementType, stridedLayout,
-                                      addressSpace);
+    // auto memrefType =
+    //     MemRefType::get(shape, elementType, stridedLayout, addressSpace);
+    auto memrefType =
+        MemRefType::get(shape, elementType, AffineMap(), addressSpace);
 
     // 复制原始 EmptyOp 的所有属性
     SmallVector<NamedAttribute> attrs;

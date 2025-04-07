@@ -97,4 +97,4 @@ void ExtractAddressComputationGPUPass::runOnOperation() {
   }
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

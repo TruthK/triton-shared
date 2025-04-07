@@ -308,4 +308,4 @@ struct ConvertBf16ArithToF32Pass final
 };
 
 } // namespace
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

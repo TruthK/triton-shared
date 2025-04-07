@@ -247,4 +247,4 @@ void populateDropSharedMemoryDeallocOpPatterns(RewritePatternSet &patterns) {
   patterns.add<DropSharedMemoryDeallocOp>(patterns.getContext());
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

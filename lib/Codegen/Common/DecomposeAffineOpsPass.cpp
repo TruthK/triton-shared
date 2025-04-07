@@ -30,4 +30,4 @@ void DecomposeAffineOpsPass::runOnOperation() {
     (void)decompose(rewriter, op);
   });
 }
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

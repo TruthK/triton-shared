@@ -34,4 +34,4 @@ void registerCodegenCommonPasses() {
   // Generated.
   registerPasses();
 }
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

@@ -278,4 +278,4 @@ void addConstantBufferizePasses(OpPassManager &funcPassManager) {
   funcPassManager.addPass(bufferization::createOneShotBufferizePass(options));
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

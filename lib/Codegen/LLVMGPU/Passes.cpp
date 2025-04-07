@@ -639,38 +639,38 @@ void addGPUMatmulTensorCoreMmaSyncPassPipeline(
   funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
   funcPassManager.addPass(createCSEPass());
   funcPassManager.addPass(createTransferReadSubviewFusionPass());
-  // funcPassManager.addPass(createOptimizeVectorTransferPass());
-  // funcPassManager.addPass(createOptimizeTensorInsertExtractSlicesPass());
+  funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
+  funcPassManager.addPass(createOptimizeVectorTransferPass());
+  funcPassManager.addPass(createOptimizeTensorInsertExtractSlicesPass());
 
-  // // Distribute shared memory copies.
-  // funcPassManager.addPass(createMemrefCopyToLinalgPass());
-  // funcPassManager.addPass(createGPUDistributeSharedMemoryCopyPass());
-  // funcPassManager.addPass(createCanonicalizerPass());
-  // funcPassManager.addPass(createCSEPass());
+  // Distribute shared memory copies.
+  funcPassManager.addPass(createMemrefCopyToLinalgPass());
+  funcPassManager.addPass(createGPUDistributeSharedMemoryCopyPass());
+  funcPassManager.addPass(createCanonicalizerPass());
+  funcPassManager.addPass(createCSEPass());
 
-  // // Vector -> MMA ops
-  // funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
-  // funcPassManager.addPass(createCanonicalizerPass());
-  // funcPassManager.addPass(createCSEPass());
+  // Vector -> MMA ops
+  funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
+  funcPassManager.addPass(createCanonicalizerPass());
+  funcPassManager.addPass(createCSEPass());
 
-  // TODO remove builtin.unrealized_conversion_cast
 
-  // funcPassManager.addPass(
-  //     createLLVMGPUVectorToGPUPass(GPUTensorCoreType::MMA_SYNC));
-  // funcPassManager.addPass(createCanonicalizerPass());
-  // funcPassManager.addPass(createCSEPass());
+  funcPassManager.addPass(
+      createLLVMGPUVectorToGPUPass(GPUTensorCoreType::MMA_SYNC));
+  funcPassManager.addPass(createCanonicalizerPass());
+  funcPassManager.addPass(createCSEPass());
 
-  // // Hoist loop invariant code to avoid pipelining it.
-  // funcPassManager.addPass(createIREELoopInvariantCodeMotionPass());
+  // Hoist loop invariant code to avoid pipelining it.
+  funcPassManager.addPass(createIREELoopInvariantCodeMotionPass());
   // Pipeline memory operations.
-  // GPUPipeliningPassOptions pipelieningOptions = {};
-  // pipelieningOptions.epiloguePeeling = false;
-  // pipelieningOptions.depth = pipelineDepth;
-  // pipelieningOptions.scheduleIndex =
-  //     llvm::to_underlying(PipeliningSchedulingStrategy::nvidiaTensorCore);
-  // funcPassManager.addPass(createGPUPipeliningPass(pipelieningOptions));
-  // // Optimize shared memory usage.
-  // funcPassManager.addPass(createLLVMGPUPackSharedMemoryAllocPass());
+  GPUPipeliningPassOptions pipelieningOptions = {};
+  pipelieningOptions.epiloguePeeling = false;
+  pipelieningOptions.depth = pipelineDepth;
+  pipelieningOptions.scheduleIndex =
+      llvm::to_underlying(PipeliningSchedulingStrategy::nvidiaTensorCore);
+  funcPassManager.addPass(createGPUPipeliningPass(pipelieningOptions));
+  // Optimize shared memory usage. 有毒
+  funcPassManager.addPass(createLLVMGPUPackSharedMemoryAllocPass());
 }
 
 // //===---------------------------------------------------------------------===//

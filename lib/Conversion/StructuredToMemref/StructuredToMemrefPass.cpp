@@ -73,7 +73,7 @@ public:
                 SmallVector<int64_t>(tensorType.getRank(),
                                      ShapedType::kDynamic));
             Type elemType = ptrType.getPointeeType();
-            return MemRefType::get(tensorType.getShape(), elemType, layout);
+              return MemRefType::get(tensorType.getShape(), elemType, layout);
           }
 
           return std::nullopt;

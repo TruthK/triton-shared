@@ -27,11 +27,11 @@ def MaterializeTargetPass : Pass<"iree-materialize-target", "ModuleOp"> {
 
 
 // // TODO: Bring the argument in line with the names used elsewhere.
-// def ConvertToNVVMPass :
-//     Pass<"iree-convert-to-nvvm", "ModuleOp"> {
-//   let summary = "Perform final conversion from builtin/GPU/HAL/standard dialect to LLVM "
-//     "and NVVM dialects";
-// }
+def ConvertToNVVMPass :
+    Pass<"iree-convert-to-nvvm", "ModuleOp"> {
+  let summary = "Perform final conversion from builtin/GPU/HAL/standard dialect to LLVM "
+    "and NVVM dialects";
+}
 
 
 def ExtractAddressComputationGPUPass: Pass<"extract-address-computation-gpu"> {
@@ -46,10 +46,10 @@ def ExtractAddressComputationGPUPass: Pass<"extract-address-computation-gpu"> {
 }
 
 
-// def LLVMGPUCastAddressSpaceFunctionPass :
-//     Pass<"iree-llvmgpu-cast-address-space-function", "ModuleOp"> {
-//   let summary = "Cast address space to generic in CallOp and FuncOp";
-// }
+def LLVMGPUCastAddressSpaceFunctionPass :
+    Pass<"iree-llvmgpu-cast-address-space-function", "ModuleOp"> {
+  let summary = "Cast address space to generic in CallOp and FuncOp";
+}
 
 // def LLVMGPUCastTypeToFitMMAPass : InterfacePass<"iree-llvmgpu-cast-type-to-fit-mma",
 //                                                 "mlir::FunctionOpInterface"> {
@@ -118,6 +118,18 @@ def LLVMGPUVectorToGPUPass :
   let summary = "Pass to convert vector to gpu.";
 }
 
+//------------------------------------------------------------------------------
+// Test Passes
+//------------------------------------------------------------------------------
 
+// def TestLLVMGPUScalarizeMathOpPass :
+//     Pass<"iree-test-llvmgpu-legalize-ops", "ModuleOp"> {
+//   let summary = "Test pass for several legalization patterns.";
+// }
+
+// def TestLLVMGPUQueryMMAPass :
+//     Pass<"iree-test-llvmgpu-query-mma", "ModuleOp"> {
+//   let summary = "Test pass for querying the supported mma intrinsic instructions.";
+// }
 
 #endif // IREE_CODEGEN_LLVMGPU_PASSES

@@ -100,8 +100,8 @@ static void addLowerToLLVMGPUPasses(OpPassManager &modulePassManager) {
   funcPassManager.addPass(createFoldTensorExtractOpPass)
       .addPass(createLLVMGPUVectorLoweringPass)
       .addPass(createExpandGPUOpsPass);
-      // Expose workitem and workgroup counts to range inference later.
-      // .addPass(createGPUPropagateDispatchSizeBoundsPass);
+  // Expose workitem and workgroup counts to range inference later.
+  // .addPass(createGPUPropagateDispatchSizeBoundsPass);
 
   // This pass needs to run before SCF -> CF.
   addLowerAndOptimizeAddressComputationPasses(funcPassManager);
@@ -109,8 +109,8 @@ static void addLowerToLLVMGPUPasses(OpPassManager &modulePassManager) {
   // Run checks on shared memory usage.
   funcPassManager
       .addPass([&]() {
-        auto getIndexBitwidth = [](mlir::FunctionOpInterface) { return 64;
-        }; return createGPUCheckResourceUsagePass(getIndexBitwidth);
+        auto getIndexBitwidth = [](mlir::FunctionOpInterface) { return 64; };
+        return createGPUCheckResourceUsagePass(getIndexBitwidth);
       })
       // SCF -> CF
       .addPass(createConvertSCFToCFPass)
@@ -130,12 +130,12 @@ static void addLowerToLLVMGPUPasses(OpPassManager &modulePassManager) {
       .addPass(affine::createAffineExpandIndexOpsPass)
       .addPass(createLowerAffinePass);
 
-  // // Strip out the debug info for the kernel.
-  // modulePassManager.addPass(createStripDebugInfoPass());
-  // // Cast address spaces of all function arguments to generic.
-  // modulePassManager.addPass(createLLVMGPUCastAddressSpaceFunctionPass());
-  //   // convert to NVVM.
-  //   modulePassManager.addPass(createConvertToNVVMPass());
+  // Strip out the debug info for the kernel.
+  modulePassManager.addPass(createStripDebugInfoPass());
+  // Cast address spaces of all function arguments to generic.
+  modulePassManager.addPass(createLLVMGPUCastAddressSpaceFunctionPass());
+  // convert to NVVM.
+  modulePassManager.addPass(createConvertToNVVMPass());
 }
 
 class LLVMGPUCodegenPass final
@@ -168,10 +168,11 @@ public:
 
     PassManager pm(&getContext(), moduleOp.getOperationName());
     // 创建一个新的 OpPassManager 针对 ModuleOp
-    FunctionLikeNest(pm).addPass(createLLVMGPULowerExecutableTargetPass);
-    // .addPass(createVerifyWorkgroupDistributionPass);
+    FunctionLikeNest(pm)
+        .addPass(createLLVMGPULowerExecutableTargetPass)
+        .addPass(createVerifyWorkgroupDistributionPass);
 
-    // pm.addPass(createReconcileTranslationInfoPass());
+    pm.addPass(createReconcileTranslationInfoPass());
 
     //===--------------------------------------------------------------------===//
     // Convert Linalg ops to LLVM+NVVM/ROCDL ops.
@@ -180,9 +181,10 @@ public:
     //   - All Linalg/Loops/GPU/Affine/Standard ops are converted away.
     //   - The module contains the final llvm.module ready to be serialized.
     //===--------------------------------------------------------------------===//
-    // addLowerToLLVMGPUPasses(pm);
+    addLowerToLLVMGPUPasses(pm);
 
     if (failed(runPipeline(pm, getOperation()))) {
+      getOperation().dump();
       signalPassFailure();
       llvm::dbgs() << " Using LLVMGPU pass pipeline: G! \n";
     }

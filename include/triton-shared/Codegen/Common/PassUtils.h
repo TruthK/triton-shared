@@ -21,6 +21,6 @@ using FunctionLikeNest = MultiOpNest<func::FuncOp>;
 std::optional<OpPassManager>
 getFunctionOpInterfacePassManager(FunctionOpInterface funcOp);
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts
 
 #endif // IREE_COMPILER_CODEGEN_COMMON_PASSUTILS_H_

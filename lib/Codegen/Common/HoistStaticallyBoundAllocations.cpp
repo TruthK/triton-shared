@@ -46,4 +46,4 @@ void HoistStaticallyBoundAllocationsPass::runOnOperation() {
                                                          vscaleRange);
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

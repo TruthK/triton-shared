@@ -293,4 +293,4 @@ void IREEExpandStridedMetadataPass::runOnOperation() {
     }
   }
 }
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

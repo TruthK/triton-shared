@@ -125,4 +125,4 @@ Attribute convertAttribute(Location loc, Attribute oldAttr,
   return oldAttr;
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

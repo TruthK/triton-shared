@@ -45,4 +45,4 @@ struct ExpandGPUOpsPass final : impl::ExpandGPUOpsPassBase<ExpandGPUOpsPass> {
 
 } // namespace
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

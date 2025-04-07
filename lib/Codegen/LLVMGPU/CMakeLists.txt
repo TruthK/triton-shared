@@ -14,6 +14,9 @@ add_triton_library(IREECodegenLLVMGPU
  LLVMGPUVectorToGPU.cpp
  LLVMGPUVectorLowering.cpp
  ExtractAddressComputationGPUPass.cpp
+ LLVMGPUCastAddressSpaceFunction.cpp
+ ConvertToNVVM.cpp
+ ConvertToLLVM.cpp
  
   DEPENDS
     LLVMGPUCodegenPassIncGen

@@ -88,6 +88,6 @@ void populateIREEResolveExtractStridedMetadataPatterns(
 /// for maximumf/minimumf ops, e.g. LLVM NVIDIA-PTX.
 void populateReplaceSlowMinMaxOpsPatterns(RewritePatternSet &patterns);
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts
 
 #endif // IREE_COMPILER_CODEGEN_COMMON_TRANSFORMS_H_

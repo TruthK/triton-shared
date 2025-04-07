@@ -82,5 +82,5 @@ struct StoreLoadLikeOpRewriter : public OpRewritePattern<StoreLoadLikeOp> {
 /// before hand. In other words, the address computation is not part of
 /// the memory access anymore.
 void populateExtractAddressComputationPatterns(RewritePatternSet &patterns);
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts
 #endif // IREE_COMPILER_CODEGEN_COMMON_EXTRACTADDRESSCOMPUTATION_H_

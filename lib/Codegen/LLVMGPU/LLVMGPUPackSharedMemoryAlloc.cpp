@@ -4,9 +4,9 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+#include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
 #include "triton-shared/Codegen/LLVMGPU/Passes.h"
 #include "triton-shared/Codegen/LLVMGPU/Utils/LLVMGPUUtils.h"
-#include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
 
 namespace mlir::tts {
 
@@ -23,7 +23,9 @@ public:
     registry.insert<nvgpu::NVGPUDialect>();
   }
 
-  void runOnOperation() override { packSharedMemoryAlloc(getOperation()); }
+  void runOnOperation() override {
+    packSharedMemoryAlloc(getOperation());
+  }
 };
 } // namespace
 
@@ -32,4 +34,4 @@ createLLVMGPUPackSharedMemoryAlloc() {
   return std::make_unique<LLVMGPUPackSharedMemoryAllocPass>();
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

@@ -308,4 +308,4 @@ createLLVMGPUTileAndDistributePass(bool distributeToWarp) {
   return std::make_unique<LLVMGPUTileAndDistributePass>(distributeToWarp);
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

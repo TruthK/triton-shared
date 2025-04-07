@@ -177,4 +177,4 @@ createLLVMGPUTensorCoreVectorizationPass(GPUTensorCoreType tensorCoreType) {
   return std::make_unique<LLVMGPUTensorCoreVectorizationPass>(tensorCoreType);
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

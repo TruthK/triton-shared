@@ -40,6 +40,6 @@ void populateGPUDistributeNestedLayoutAttrPatterns(
 void populateGPUDistributeNestedLayoutContractAMDGPUPatterns(
     RewritePatternSet &patterns);
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts
 
 #endif // IREE_COMPILER_CODEGEN_COMMON_GPUPATTERNS_H_

@@ -122,4 +122,4 @@ createGPUCheckResourceUsagePass(
   return std::make_unique<GPUCheckResourceUsagePass>(getIndexBitwidth);
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

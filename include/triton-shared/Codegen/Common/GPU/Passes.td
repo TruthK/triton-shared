@@ -22,7 +22,7 @@ def GPUCheckResourceUsagePass :
 // def GPUCombineValueBarriersPass :
 //     Pass<"iree-codegen-gpu-combine-value-barriers", ""> {
 //   let summary = "Combines `iree_gpu.value_barrier` ops";
-//   let dependentDialects = ["::mlir::iree_compiler::IREE::GPU::IREEGPUDialect"];
+//   let dependentDialects = ["::mlir::tts::IREE::GPU::IREEGPUDialect"];
 // }
 
 // def GPUCreateFastSlowPathPass :
@@ -38,7 +38,7 @@ def GPUCheckResourceUsagePass :
 //     "::mlir::affine::AffineDialect",
 //     "::mlir::gpu::GPUDialect",
 //     "::mlir::scf::SCFDialect",
-//     "::mlir::iree_compiler::IREE::GPU::IREEGPUDialect",
+//     "::mlir::tts::IREE::GPU::IREEGPUDialect",
 //   ];
 // }
 
@@ -48,7 +48,7 @@ def GPUCheckResourceUsagePass :
 //   let dependentDialects = [
 //     "::mlir::affine::AffineDialect",
 //     "::mlir::gpu::GPUDialect",
-//     "::mlir::iree_compiler::IREE::GPU::IREEGPUDialect",
+//     "::mlir::tts::IREE::GPU::IREEGPUDialect",
 //   ];
 // }
 
@@ -76,7 +76,7 @@ def GPUDistributeSharedMemoryCopyPass :
 //   let summary = "Greedily fuses and hoists parallel loops.";
 //   let dependentDialects = [
 //     "::mlir::affine::AffineDialect",
-//     "::mlir::iree_compiler::IREE::GPU::IREEGPUDialect",
+//     "::mlir::tts::IREE::GPU::IREEGPUDialect",
 //     "::mlir::bufferization::BufferizationDialect"
 //   ];
 // }
@@ -93,7 +93,7 @@ def GPUDistributeSharedMemoryCopyPass :
 //     "::mlir::affine::AffineDialect",
 //     "::mlir::gpu::GPUDialect",
 //     "::mlir::scf::SCFDialect",
-//     "::mlir::iree_compiler::IREE::GPU::IREEGPUDialect",
+//     "::mlir::tts::IREE::GPU::IREEGPUDialect",
 //   ];
 // }
 
@@ -109,8 +109,8 @@ def GPUDistributeSharedMemoryCopyPass :
 //     Pass<"iree-codegen-gpu-lower-to-ukernels", ""> {
 //   let summary = "Lower suitable ops to previously-selected microkernels";
 //   let dependentDialects = [
-//     "::mlir::iree_compiler::IREE::Codegen::IREECodegenDialect",
-//     "::mlir::iree_compiler::IREE::GPU::IREEGPUDialect",
+//     "::mlir::tts::IREE::Codegen::IREECodegenDialect",
+//     "::mlir::tts::IREE::GPU::IREEGPUDialect",
 //     "::mlir::arith::ArithDialect",
 //     "::mlir::tensor::TensorDialect",
 //   ];
@@ -132,7 +132,7 @@ def GPUMultiBufferingPass :
 //   let summary = "Packs matmul like operations and converts to iree_gpu.multi_mma";
 //   let dependentDialects = [
 //     "::mlir::tensor::TensorDialect",
-//     "::mlir::iree_compiler::IREE::GPU::IREEGPUDialect"
+//     "::mlir::tts::IREE::GPU::IREEGPUDialect"
 //   ];
 // }
 
@@ -142,7 +142,7 @@ def GPUMultiBufferingPass :
 //   let summary = "Pass to pad operands of ops with padding configuration provided. ";
 //   let dependentDialects = [
 //     "::mlir::linalg::LinalgDialect",
-//     "::mlir::iree_compiler::IREE::GPU::IREEGPUDialect"
+//     "::mlir::tts::IREE::GPU::IREEGPUDialect"
 //   ];
 // }
 
@@ -176,7 +176,7 @@ def GPUPipeliningPass :
 //     "::mlir::bufferization::BufferizationDialect",
 //     "::mlir::gpu::GPUDialect",
 //     "::mlir::linalg::LinalgDialect",
-//     "::mlir::iree_compiler::IREE::GPU::IREEGPUDialect"
+//     "::mlir::tts::IREE::GPU::IREEGPUDialect"
 //   ];
 // }
 
@@ -285,7 +285,7 @@ def GPUPropagateDispatchSizeBoundsPass :
 //     "::mlir::gpu::GPUDialect",
 //     "::mlir::vector::VectorDialect",
 //     "::mlir::bufferization::BufferizationDialect",
-//     "::mlir::iree_compiler::IREE::GPU::IREEGPUDialect",
+//     "::mlir::tts::IREE::GPU::IREEGPUDialect",
 //   ];
 // }
 

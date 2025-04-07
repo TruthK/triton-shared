@@ -63,4 +63,4 @@ void FoldTensorExtractOpPass::runOnOperation() {
   if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
     signalPassFailure();
 }
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts
