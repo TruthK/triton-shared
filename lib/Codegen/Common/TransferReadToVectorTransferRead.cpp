@@ -86,26 +86,33 @@ struct ConvertVectorExtTransferReadToVectorTransferRead
       }
 
       // 计算 indices[dim] + resultShape[dim]
-      Value resultDimSizeValue = rewriter.create<arith::ConstantIndexOp>(loc, resultDimSize);
-      Value indicesPlusSize = rewriter.create<arith::AddIOp>(loc, indexValue, resultDimSizeValue);
+      Value resultDimSizeValue =
+          rewriter.create<arith::ConstantIndexOp>(loc, resultDimSize);
+      Value indicesPlusSize =
+          rewriter.create<arith::AddIOp>(loc, indexValue, resultDimSizeValue);
 
       // 计算 min(mask[dim], indices[dim] + resultShape[dim])
-      Value minVal = rewriter.create<arith::MinSIOp>(loc, maskDimValue, indicesPlusSize);
-      maskValues.push_back(minVal);
+      Value minVal =
+          rewriter.create<arith::MinSIOp>(loc, maskDimValue, indicesPlusSize);
+
+      Value remVal =
+          rewriter.create<arith::RemSIOp>(loc, minVal, resultDimSizeValue);
+      maskValues.push_back(remVal);
     }
 
     // 创建vector.transfer_read操作
     Value vectorResult;
-    
+
     // 创建恒等AffineMap
     auto identityMap = AffineMap::getMultiDimIdentityMap(mixedIndices.size(),
                                                          rewriter.getContext());
     auto permMapAttr = AffineMapAttr::get(identityMap);
-    
+
     // 创建mask使用vector.create_mask
     Value mask = rewriter.create<vector::CreateMaskOp>(
-        loc, VectorType::get(vectorType.getShape(), rewriter.getI1Type()), maskValues);
-    
+        loc, VectorType::get(vectorType.getShape(), rewriter.getI1Type()),
+        maskValues);
+
     // 获取paddingValue（可能为空）
     Value paddingValue = op.getOther();
     // 如果没有提供paddingValue，创建一个默认的0值
@@ -114,24 +121,18 @@ struct ConvertVectorExtTransferReadToVectorTransferRead
       paddingValue = rewriter.create<arith::ConstantOp>(
           loc, elementType, rewriter.getZeroAttr(elementType));
     }
-    
+
     // 提前创建inBounds属性
     SmallVector<bool> inBoundsValues(mixedIndices.size(), true);
     auto inBoundsAttr = rewriter.getBoolArrayAttr(inBoundsValues);
-    
+
     // 使用正确的参数列表创建vector.transfer_read
     auto vecReadOp = rewriter.create<vector::TransferReadOp>(
-        loc,
-        vectorType,
-        op.getBase(),
-        ValueRange(op.getIndices()),
-        permMapAttr,
-        paddingValue,
-        mask,
-        inBoundsAttr);
-    
+        loc, vectorType, op.getBase(), ValueRange(op.getIndices()), permMapAttr,
+        paddingValue, mask, inBoundsAttr);
+
     vectorResult = vecReadOp.getResult();
-    
+
     // 收集需要处理的memref.copy操作
     SmallVector<memref::CopyOp> copyOps;
     for (Operation *user : op->getUsers()) {
@@ -139,29 +140,109 @@ struct ConvertVectorExtTransferReadToVectorTransferRead
         copyOps.push_back(copyOp);
       }
     }
-    
+
     // 替换所有memref.copy的使用
     for (auto copyOp : copyOps) {
       Value dest = copyOp.getTarget();
-      
+
       // 创建所有索引为0的ValueRange
       SmallVector<Value> zeroIndices;
       for (int i = 0; i < vectorType.getRank(); ++i) {
         zeroIndices.push_back(rewriter.create<arith::ConstantIndexOp>(loc, 0));
       }
-      
+
       // 创建vector.store替代memref.copy和vector.transfer_write
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPoint(copyOp);
       auto vectorStoreOp = rewriter.create<vector::StoreOp>(
           copyOp.getLoc(), vectorResult, dest, ValueRange(zeroIndices));
-      
+
       // 删除原始的memref.copy操作，但保持原有的操作顺序
-      rewriter.replaceOp(copyOp, vectorStoreOp->getResults());
+      rewriter.replaceOp(copyOp, vectorStoreOp);
     }
-    
+
     // 删除原始的iree_vector_ext.transfer_read操作
-    rewriter.replaceOp(op, vectorResult);
+    rewriter.replaceOp(op, vecReadOp);
+
+    return success();
+  }
+};
+
+/// 将 iree_vector_ext.transfer_write 转换为 vector.transfer_write
+struct ConvertVectorExtTransferWriteToVectorTransferWrite
+    : public OpRewritePattern<IREE::VectorExt::TransferWriteOp> {
+  using OpRewritePattern<IREE::VectorExt::TransferWriteOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(IREE::VectorExt::TransferWriteOp op,
+                                PatternRewriter &rewriter) const override {
+    // 获取源和结果类型
+    MemRefType baseType = mlir::cast<MemRefType>(op.getBase().getType());
+    MemRefType valueType = mlir::cast<MemRefType>(op.getValue().getType());
+
+    // 创建向量类型
+    VectorType vectorType =
+        VectorType::get(valueType.getShape(), valueType.getElementType());
+
+    // 获取原始的indices和mask_dims
+    SmallVector<OpFoldResult> mixedIndices = op.getMixedIndices();
+
+    // 计算mask：min(mask[dim], indices[dim] + resultShape[dim])
+    Location loc = op.getLoc();
+
+    // 创建恒等AffineMap
+    auto identityMap = AffineMap::getMultiDimIdentityMap(mixedIndices.size(),
+                                                         rewriter.getContext());
+    auto permMapAttr = AffineMapAttr::get(identityMap);
+
+    // 创建mask使用vector.create_mask
+    Value mask = rewriter.create<vector::CreateMaskOp>(
+        loc, VectorType::get(vectorType.getShape(), rewriter.getI1Type()),
+        op.getMixedMaskDims());
+
+    // 提前创建inBounds属性
+    SmallVector<bool> inBoundsValues(mixedIndices.size(), true);
+    auto inBoundsAttr = rewriter.getBoolArrayAttr(inBoundsValues);
+
+    // 创建所有索引为0的ValueRange用于vector.load
+    SmallVector<Value> zeroIndices;
+    for (int i = 0; i < vectorType.getRank(); ++i) {
+      zeroIndices.push_back(rewriter.create<arith::ConstantIndexOp>(loc, 0));
+    }
+
+    // 使用vector.load将value从memref转换为vector
+    auto vectorValue =
+        rewriter
+            .create<vector::LoadOp>(loc, vectorType, op.getValue(),
+                                    ValueRange(zeroIndices))
+            .getResult();
+
+    SmallVector<Value> indices;
+    int dimIdx = 0;
+    // 遍历所有维度
+    for (int i = 0; i < valueType.getRank(); ++i) {
+      if (dimIdx < op.getMixedIndices().size()) {
+        auto indie = op.getMixedIndices()[dimIdx];
+        if (auto attr = indie.dyn_cast<Attribute>()) {
+          if (auto intAttr = mlir::dyn_cast<IntegerAttr>(attr)) {
+            indices.push_back(rewriter.create<arith::ConstantIndexOp>(
+                op.getLoc(), intAttr.getInt()));
+          }
+        } else {
+          indices.push_back(cast<Value>(indie));
+        }
+        dimIdx++;
+      } else {
+        indices.push_back(
+            rewriter.create<arith::ConstantIndexOp>(op.getLoc(), 0));
+      }
+    }
+    // 创建vector.transfer_write操作
+    auto vecWriteOp = rewriter.create<vector::TransferWriteOp>(
+        loc, vectorValue, op.getBase(), indices, permMapAttr, mask,
+        inBoundsAttr);
+
+    // 删除原始的iree_vector_ext.transfer_write操作
+    rewriter.replaceOp(op, vecWriteOp);
 
     return success();
   }
@@ -176,6 +257,7 @@ struct VectorExtTransferToVectorTransferPass
 
     // 添加转换模式
     patterns.add<ConvertVectorExtTransferReadToVectorTransferRead>(context);
+    patterns.add<ConvertVectorExtTransferWriteToVectorTransferWrite>(context);
 
     // 应用模式
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {

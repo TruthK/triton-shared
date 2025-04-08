@@ -77,7 +77,6 @@ static void addLowerToLLVMGPUPasses(OpPassManager &modulePassManager) {
   modulePassManager.addPass(createCSEPass());
 
   // modulePassManager.addPass(createLowerUKernelOpsToCallsPass());
-
   FunctionLikeNest(modulePassManager)
       // Linalg -> SCF
       .addPass(createMemrefCopyToLinalgPass)

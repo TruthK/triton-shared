@@ -64,8 +64,8 @@ OpFoldResult ToSIMTOp::fold(FoldAdaptor) {
 // TransferReadOp
 //===----------------------------------------------------------------------===//
 
-void TransferReadOp::build(OpBuilder &b, OperationState &state, Type resultType, Value base,
-                           ArrayRef<OpFoldResult> indices,
+void TransferReadOp::build(OpBuilder &b, OperationState &state, Type resultType,
+                           Value base, ArrayRef<OpFoldResult> indices,
                            ArrayRef<OpFoldResult> mask_dims, Value other) {
   // 将 OpFoldResult 数组转换为 ValueRange
   SmallVector<Value> dynamicIndices;
@@ -77,8 +77,29 @@ void TransferReadOp::build(OpBuilder &b, OperationState &state, Type resultType,
   SmallVector<int64_t> staticMaskDims;
   dispatchIndexOpFoldResults(mask_dims, dynamicMaskDims, staticMaskDims);
 
-  // 调用底层 build 方法，使用 resultType 而不是 base.getType()
   build(b, state, resultType, base, dynamicIndices,
         b.getDenseI64ArrayAttr(staticIndices), dynamicMaskDims,
         b.getDenseI64ArrayAttr(staticMaskDims), other);
+}
+
+//===----------------------------------------------------------------------===//
+// TransferWriteOp
+//===----------------------------------------------------------------------===//
+
+void TransferWriteOp::build(OpBuilder &b, OperationState &state, Value base,
+                            Value value, ArrayRef<OpFoldResult> indices,
+                            ArrayRef<OpFoldResult> mask_dims) {
+  // 将 OpFoldResult 数组转换为 ValueRange
+  SmallVector<Value> dynamicIndices;
+  SmallVector<int64_t> staticIndices;
+  dispatchIndexOpFoldResults(indices, dynamicIndices, staticIndices);
+
+  // 处理 mask_dims
+  SmallVector<Value> dynamicMaskDims;
+  SmallVector<int64_t> staticMaskDims;
+  dispatchIndexOpFoldResults(mask_dims, dynamicMaskDims, staticMaskDims);
+
+  build(b, state, base, value, dynamicIndices,
+        b.getDenseI64ArrayAttr(staticIndices), dynamicMaskDims,
+        b.getDenseI64ArrayAttr(staticMaskDims));
 }

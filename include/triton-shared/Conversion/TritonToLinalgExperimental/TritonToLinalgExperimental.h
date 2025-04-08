@@ -21,7 +21,7 @@ namespace triton {
 
 std::unique_ptr<OperationPass<ModuleOp>> createTritonToLinalgExperimentalPass();
 std::unique_ptr<OperationPass<ModuleOp>>
-createConvertTritonStructuredToVectorPass();
+createConvertTritonStructuredToMemrefPass();
 std::unique_ptr<OperationPass<ModuleOp>> createLinalgGenericFusionPass();
 
 } // namespace triton

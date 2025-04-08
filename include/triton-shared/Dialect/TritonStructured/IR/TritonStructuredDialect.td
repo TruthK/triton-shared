@@ -359,7 +359,7 @@ def TTS_TransferWriteOp
                        DenseI64ArrayAttr:$static_mask_dims);
 
   let assemblyFormat = [{
-    $base `to` $value 
+    $value `to` $base 
     `` `,` `mask_dims` `` `:` custom<DynamicIndexList>($mask_dims, $static_mask_dims)
     attr-dict `:` qualified(type($base)) `to` qualified(type($value))
   }];

@@ -6,6 +6,7 @@
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/MemRef/Transforms/Transforms.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -57,13 +58,12 @@ getTiledAndDistributionInfo(RewriterBase &rewriter,
   // level.
   Operation *tilableOp = nullptr;
   for (Operation *op : llvm::reverse(computeOps)) {
-    op->dump();
     if (getLoweringConfig(op)) {
       if (!getLoweringConfig(op).hasWorkgroupTilingLevel()) {
         continue;
       }
-      tilableOp = op;
-      break;
+      if (tilableOp == nullptr || isa<linalg::MatmulOp>(op))
+        tilableOp = op;
     }
   }
   if (!tilableOp) {
@@ -417,7 +417,7 @@ void TileAndDistributeToWorkgroupsUsingForallOpPass::runOnOperation() {
     return;
   }
   bool isMatmul = isa<linalg::MatmulOp>(tilableOp);
-
+  tilableOp.dump();
   mlir::DominanceInfo dominanceInfo(tilableOp);
   llvm::SmallDenseSet<Operation *> tiledAndFusedOps;
   collectTiledAndFusedOps(tilableOp, tiledAndFusedOps);

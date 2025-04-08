@@ -90,5 +90,5 @@ void mlir::triton::populateTritonToLinalgConversionPatterns(
   // will be tried last. Incorrect ordering or having MetaOpConverter has lower
   // PatternBenefit will result in element-wise meta ops being converted to
   // linalg.generic ops.
-//   linalg::populateElementwiseToLinalgConversionPatterns(patterns);
+  linalg::populateElementwiseToLinalgConversionPatterns(patterns);
 }

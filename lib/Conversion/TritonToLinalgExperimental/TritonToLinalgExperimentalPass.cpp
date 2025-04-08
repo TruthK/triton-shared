@@ -73,14 +73,15 @@ public:
     pm.addPass(createUnstructuredToMemrefPass());
     pm.addPass(createTritonPtrToMemrefPass());
     pm.addPass(createReconcileUnrealizedCastsPass());
-    // pm.addPass(createTritonToLinalgPass());
+    pm.addPass(createTritonToLinalgPass());
     
     // 添加LinalgGenericFusion Pass
-    // pm.addPass(createLinalgGenericFusionPass());
+    pm.addPass(createLinalgGenericFusionPass());
 
     pm.addPass(createCanonicalizerPass());
     pm.addPass(createCSEPass());
-    pm.addPass(createConvertTritonStructuredToVectorPass());
+    pm.addPass(createConvertTritonStructuredToMemrefPass());
+    pm.addPass(createReconcileUnrealizedCastsPass());
     pm.addPass(createCanonicalizerPass());
     pm.addPass(createCSEPass());
     

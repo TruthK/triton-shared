@@ -640,6 +640,9 @@ void addGPUMatmulTensorCoreMmaSyncPassPipeline(
   funcPassManager.addPass(createCSEPass());
   funcPassManager.addPass(createTransferReadSubviewFusionPass());
   funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
+  funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
+  funcPassManager.addPass(createCanonicalizerPass());
+  funcPassManager.addPass(createCSEPass());
   funcPassManager.addPass(createOptimizeVectorTransferPass());
   funcPassManager.addPass(createOptimizeTensorInsertExtractSlicesPass());
 
@@ -653,7 +656,6 @@ void addGPUMatmulTensorCoreMmaSyncPassPipeline(
   funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
   funcPassManager.addPass(createCanonicalizerPass());
   funcPassManager.addPass(createCSEPass());
-
 
   funcPassManager.addPass(
       createLLVMGPUVectorToGPUPass(GPUTensorCoreType::MMA_SYNC));

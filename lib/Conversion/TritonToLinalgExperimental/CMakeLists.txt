@@ -1,6 +1,6 @@
 add_triton_library(TritonToLinalgExperimental
   TritonToLinalgExperimentalPass.cpp
-  TritonStructuredToVector.cpp
+  TritonStructuredToMemref.cpp
   LinalgGenericFusion.cpp
 
   DEPENDS

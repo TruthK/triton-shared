@@ -117,7 +117,7 @@ def IREEVectorExt_ToSIMTOp : IREEVectorExt_PureOp<"to_simt",
 
 
 //===----------------------------------------------------------------------===//
-// TransferWriteOp
+// TransferReadOp
 //===----------------------------------------------------------------------===//  
 
 
@@ -160,6 +160,64 @@ def IREEVectorExt_TransferReadOp
       "ArrayRef<OpFoldResult>":$indices,
       "ArrayRef<OpFoldResult>":$mask_dims,
       "Value":$other)>,
+  ];
+
+  let extraClassDeclaration = [{
+    /// Return a vector of all the static or dynamic fields
+    SmallVector<OpFoldResult> getMixedMaskDims() {
+      Builder b(getContext());
+      return ::mlir::getMixedValues(getStaticMaskDims(), getMaskDims(), b);
+    }
+    SmallVector<OpFoldResult> getMixedIndices() {
+      Builder b(getContext());
+      return ::mlir::getMixedValues(getStaticIndices(), getIndices(), b);
+    } 
+
+    bool hasMask() {
+      return !getMixedMaskDims().empty();
+    }
+  }];
+
+  // TODO
+  //let hasVerifier = 1;
+  //let hasCanonicalizer = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// TransferWriteOp
+//===----------------------------------------------------------------------===//  
+
+
+def IREEVectorExt_TransferWriteOp
+  : IREEVectorExt_PureOp<"transfer_write", [ 
+      AttrSizedOperandSegments,
+      MemoryEffects<[MemWrite]>
+    ]> {
+  let summary = "points to a tensor in memory";
+
+
+  let arguments = (ins AnyMemRef:$base,
+                       AnyMemRef:$value,
+                       Variadic<Index>:$indices,
+                       DenseI64ArrayAttr:$static_indices,
+                       Variadic<Index>:$mask_dims,
+                       DenseI64ArrayAttr:$static_mask_dims);
+
+  let assemblyFormat = [{
+    $value `to` $base 
+    `` `,` `indices` `` `:` custom<DynamicIndexList>($indices, $static_indices)
+    `` `,` `mask_dims` `` `:` custom<DynamicIndexList>($mask_dims, $static_mask_dims)
+    attr-dict `:` qualified(type($base)) `to` qualified(type($value))
+  }];
+
+
+  let builders = [
+    // Build with mixed static and dynamic entries.
+    OpBuilder<(ins
+      "Value":$base,
+       "Value":$value, 
+      "ArrayRef<OpFoldResult>":$indices,
+      "ArrayRef<OpFoldResult>":$mask_dims)>,
   ];
 
   let extraClassDeclaration = [{
