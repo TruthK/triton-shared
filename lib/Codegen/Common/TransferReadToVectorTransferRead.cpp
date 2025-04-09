@@ -8,6 +8,7 @@
 #include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtOps.h"
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/AffineMap.h"
@@ -32,24 +33,11 @@ struct ConvertVectorExtTransferReadToVectorTransferRead
 
   LogicalResult matchAndRewrite(IREE::VectorExt::TransferReadOp op,
                                 PatternRewriter &rewriter) const override {
-    // 检查TransferReadOp的使用者是否为memref.copy
-    bool hasMemrefCopyUser = false;
-    for (Operation *user : op->getUsers()) {
-      if (isa<memref::CopyOp>(user)) {
-        hasMemrefCopyUser = true;
-        break;
-      }
-    }
-
-    // 如果不是memref.copy使用者，则报错
-    if (!hasMemrefCopyUser) {
-      return op->emitError(
-          "iree_vector_ext.transfer_read must be used by memref.copy");
-    }
-
+    rewriter.setInsertionPoint(op);
     // 获取源和结果类型
     MemRefType resultType = mlir::cast<MemRefType>(op.getResult().getType());
-
+    op.dump();
+    resultType.dump();
     // 创建向量类型作为vector.transfer_read的结果类型
     VectorType vectorType =
         VectorType::get(resultType.getShape(), resultType.getElementType());
@@ -100,9 +88,6 @@ struct ConvertVectorExtTransferReadToVectorTransferRead
       maskValues.push_back(remVal);
     }
 
-    // 创建vector.transfer_read操作
-    Value vectorResult;
-
     // 创建恒等AffineMap
     auto identityMap = AffineMap::getMultiDimIdentityMap(mixedIndices.size(),
                                                          rewriter.getContext());
@@ -126,43 +111,70 @@ struct ConvertVectorExtTransferReadToVectorTransferRead
     SmallVector<bool> inBoundsValues(mixedIndices.size(), true);
     auto inBoundsAttr = rewriter.getBoolArrayAttr(inBoundsValues);
 
+    SmallVector<Value> indices;
+    int dimIdx = 0;
+    // 遍历所有维度
+    for (int i = 0; i < resultType.getRank(); ++i) {
+      if (dimIdx < op.getMixedIndices().size()) {
+        auto indie = op.getMixedIndices()[dimIdx];
+        if (auto attr = indie.dyn_cast<Attribute>()) {
+          if (auto intAttr = mlir::dyn_cast<IntegerAttr>(attr)) {
+            indices.push_back(rewriter.create<arith::ConstantIndexOp>(
+                op.getLoc(), intAttr.getInt()));
+          }
+        } else {
+          indices.push_back(cast<Value>(indie));
+        }
+        dimIdx++;
+      } else {
+        indices.push_back(
+            rewriter.create<arith::ConstantIndexOp>(op.getLoc(), 0));
+      }
+    }
     // 使用正确的参数列表创建vector.transfer_read
     auto vecReadOp = rewriter.create<vector::TransferReadOp>(
-        loc, vectorType, op.getBase(), ValueRange(op.getIndices()), permMapAttr,
-        paddingValue, mask, inBoundsAttr);
+        loc, vectorType, op.getBase(), indices, permMapAttr, paddingValue, mask,
+        inBoundsAttr);
 
-    vectorResult = vecReadOp.getResult();
+    auto addressSpace = gpu::AddressSpaceAttr::get(
+        rewriter.getContext(), gpu::GPUDialect::getPrivateAddressSpace());
 
-    // 收集需要处理的memref.copy操作
-    SmallVector<memref::CopyOp> copyOps;
+    auto allocType =
+        MemRefType::get(resultType.getShape(), resultType.getElementType(),
+                        AffineMap(), addressSpace);
+    // 创建alloc操作
+    auto allocOp = rewriter.create<memref::AllocOp>(loc, allocType);
+
+    // 创建全零索引用于vector.store
+    SmallVector<Value> zeroIndices;
+    for (int i = 0; i < resultType.getRank(); ++i) {
+      zeroIndices.push_back(rewriter.create<arith::ConstantIndexOp>(loc, 0));
+    }
+
+    // 创建vector.store操作
+    auto storeOp = rewriter.create<vector::StoreOp>(loc, vecReadOp.getResult(),
+                                                    allocOp.getResult(),
+                                                    ValueRange(zeroIndices));
+
+    // 重写所有使用原始op的memref.subview操作
     for (Operation *user : op->getUsers()) {
-      if (auto copyOp = dyn_cast<memref::CopyOp>(user)) {
-        copyOps.push_back(copyOp);
+      if (auto subviewOp = dyn_cast<memref::SubViewOp>(user)) {
+        rewriter.setInsertionPoint(subviewOp);
+        // 创建新的subview，使用storeOp的base作为源
+        auto newSubview = rewriter.create<memref::SubViewOp>(
+            subviewOp.getLoc(),
+            storeOp.getBase(),  // 新的base
+            subviewOp.getMixedOffsets(),  // 保持原有offset
+            subviewOp.getMixedSizes(),    // 保持原有size
+            subviewOp.getMixedStrides()); // 保持原有stride
+        
+        // 替换原subview的所有使用
+        subviewOp.getResult().replaceAllUsesWith(newSubview.getResult());
+        rewriter.eraseOp(subviewOp);
       }
     }
 
-    // 替换所有memref.copy的使用
-    for (auto copyOp : copyOps) {
-      Value dest = copyOp.getTarget();
-
-      // 创建所有索引为0的ValueRange
-      SmallVector<Value> zeroIndices;
-      for (int i = 0; i < vectorType.getRank(); ++i) {
-        zeroIndices.push_back(rewriter.create<arith::ConstantIndexOp>(loc, 0));
-      }
-
-      // 创建vector.store替代memref.copy和vector.transfer_write
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPoint(copyOp);
-      auto vectorStoreOp = rewriter.create<vector::StoreOp>(
-          copyOp.getLoc(), vectorResult, dest, ValueRange(zeroIndices));
-
-      // 删除原始的memref.copy操作，但保持原有的操作顺序
-      rewriter.replaceOp(copyOp, vectorStoreOp);
-    }
-
-    // 删除原始的iree_vector_ext.transfer_read操作
-    rewriter.replaceOp(op, vecReadOp);
+    rewriter.eraseOp(op);
 
     return success();
   }

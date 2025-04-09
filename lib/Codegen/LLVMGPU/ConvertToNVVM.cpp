@@ -126,7 +126,6 @@ struct ConvertToNVVMPass final
       // TODO: Remove this once the lowering in LLVM is fixed
       // (https://github.com/llvm/llvm-project/issues/64606).
       auto attr =  getGPUTargetAttr(*(m.getOps<FunctionOpInterface>().begin()));
-      attr.dump();
       std::optional<int> cc =attr.getCUDAComputeCapability();
       if (!cc || cc.value() < 80) {
         RewritePatternSet patterns(&getContext());

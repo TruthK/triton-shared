@@ -638,11 +638,8 @@ void addGPUMatmulTensorCoreMmaSyncPassPipeline(
       createLLVMGPUTensorCoreVectorizationPass(GPUTensorCoreType::MMA_SYNC));
   funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
   funcPassManager.addPass(createCSEPass());
-  funcPassManager.addPass(createTransferReadSubviewFusionPass());
+  // funcPassManager.addPass(createTransferReadSubviewFusionPass());
   funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
-  funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
-  funcPassManager.addPass(createCanonicalizerPass());
-  funcPassManager.addPass(createCSEPass());
   funcPassManager.addPass(createOptimizeVectorTransferPass());
   funcPassManager.addPass(createOptimizeTensorInsertExtractSlicesPass());
 
@@ -1079,36 +1076,36 @@ static void addLowerToLLVMGPUPasses(OpPassManager &modulePassManager,
   // This pass needs to run before SCF -> CF.
   addLowerAndOptimizeAddressComputationPasses(funcPassManager);
 
-  // // Run checks on shared memory usage.
-  // funcPassManager
-  //     .addPass([&]() {
-  //       auto getIndexBitwidth = [](mlir::FunctionOpInterface) { return 64;
-  //       }; return createGPUCheckResourceUsagePass(getIndexBitwidth);
-  //     })
-  //     // SCF -> CF
-  //     .addPass(createConvertSCFToCFPass)
-  //     .addPass(createCanonicalizerPass)
-  //     .addPass(createCSEPass)
-  //     // Handle complex operation conversion.
-  //     .addPass(createConvertComplexToStandardPass)
-  //     // Convert BF16 operations to occur as F32.
-  //     .addPass(createConvertBf16ArithToF32Pass)
-  //     .addPass(createConvertBf16ToUInt16BuffersPass)
-  //     // Convert math dialect elementry functions to polynomial form.
-  //     .addPass(createPolynomialApproximationPass)
-  //     .addPass(memref::createExpandOpsPass)
-  //     .addPass(memref::createFoldMemRefAliasOpsPass)
-  //     .addPass(memref::createExpandStridedMetadataPass)
-  //     .addPass(createEmulateNarrowTypePass)
-  //     .addPass(affine::createAffineExpandIndexOpsPass)
-  //     .addPass(createLowerAffinePass);
+  // Run checks on shared memory usage.
+  funcPassManager
+      .addPass([&]() {
+        auto getIndexBitwidth = [](mlir::FunctionOpInterface) { return 64;
+        }; return createGPUCheckResourceUsagePass(getIndexBitwidth);
+      })
+      // SCF -> CF
+      .addPass(createConvertSCFToCFPass)
+      .addPass(createCanonicalizerPass)
+      .addPass(createCSEPass)
+      // Handle complex operation conversion.
+      .addPass(createConvertComplexToStandardPass)
+      // Convert BF16 operations to occur as F32.
+      .addPass(createConvertBf16ArithToF32Pass)
+      .addPass(createConvertBf16ToUInt16BuffersPass)
+      // Convert math dialect elementry functions to polynomial form.
+      .addPass(createPolynomialApproximationPass)
+      .addPass(memref::createExpandOpsPass)
+      .addPass(memref::createFoldMemRefAliasOpsPass)
+      .addPass(memref::createExpandStridedMetadataPass)
+      .addPass(createEmulateNarrowTypePass)
+      .addPass(affine::createAffineExpandIndexOpsPass)
+      .addPass(createLowerAffinePass);
 
-  // // Strip out the debug info for the kernel.
-  // modulePassManager.addPass(createStripDebugInfoPass());
-  // // Cast address spaces of all function arguments to generic.
-  // modulePassManager.addPass(createLLVMGPUCastAddressSpaceFunctionPass());
-  //   // convert to NVVM.
-  //   modulePassManager.addPass(createConvertToNVVMPass());
+  // Strip out the debug info for the kernel.
+  modulePassManager.addPass(createStripDebugInfoPass());
+  // Cast address spaces of all function arguments to generic.
+  modulePassManager.addPass(createLLVMGPUCastAddressSpaceFunctionPass());
+    // convert to NVVM.
+    modulePassManager.addPass(createConvertToNVVMPass());
 }
 
 // void addGPUTransformDialectPasses(OpPassManager &funcPassManager,
