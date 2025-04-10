@@ -15,7 +15,7 @@ namespace triton {
 void populateTritonArithToLinalgCanonicalizationPatterns(
     RewritePatternSet &patterns);
 
-void populateTritonArithToLinalgConversionPatterns(bool pidsToFuncArgs,
+void populateTritonArithToLinalgConversionPatterns(
                                                    bool addptrToLinalg,
                                                    bool assertToCf,
                                                    RewritePatternSet &patterns);

@@ -41,13 +41,10 @@ void mlir::triton::populateTritonArithToLinalgCanonicalizationPatterns(
 }
 
 void mlir::triton::populateTritonArithToLinalgConversionPatterns(
-    bool pidsToFuncArgs, bool addptrToLinalg, bool assertToCf,
+    bool addptrToLinalg, bool assertToCf,
     RewritePatternSet &patterns) {
 
-  if (pidsToFuncArgs) {
-    patterns.add<GetProgramIDConverter, GetNumProgramsConverter>(
-        patterns.getContext());
-  }
+
   if (addptrToLinalg) {
     patterns.add<AddPtrConverter>(patterns.getContext());
   }

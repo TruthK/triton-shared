@@ -285,37 +285,24 @@ public:
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op.getLoc();
 
-    // 获取输入值和输出memref
+    // 获取输入值
     Value value = adaptor.getInputs()[0];
     Value output = adaptor.getOutputs()[0];
-    auto memrefType = cast<MemRefType>(output.getType());
-    
-    // 获取memref的形状
-    auto shape = memrefType.getShape();
-    int64_t totalElements = 1;
-    for (int64_t dim : shape) {
-      totalElements *= dim;
-    }
-    
-    // 创建vector类型
-    auto vectorType = VectorType::get({totalElements}, memrefType.getElementType());
-    
-    // 创建splat vector
-    auto splatVector = rewriter.create<vector::SplatOp>(loc, vectorType, value);
-    
-    // 创建全0的索引
-    SmallVector<Value> indices;
-    for (int64_t dim : shape) {
-      indices.push_back(rewriter.create<arith::ConstantIndexOp>(loc, 0));
-    }
-    
-    // 使用vector.store将splat vector存储到memref中
-    rewriter.create<vector::StoreOp>(loc, splatVector, output, indices);
-    
+
+    // 创建新的 linalg.fill 操作，使用 memref 类型
+    auto fillOp = rewriter.create<linalg::FillOp>(
+        loc,
+        /*resultTensorTypes=*/TypeRange{},        // 无返回值
+        /*inputs=*/ValueRange{value},             // 输入值
+        /*outputs=*/ValueRange{output},           // 输出参数
+        /*attributes=*/ArrayRef<NamedAttribute>{} // 可选属性
+    );
+
     rewriter.replaceOp(op, output);
     return success();
   }
 };
+
 
 // 空tensor的转换
 class EmptyOpConverter : public OpConversionPattern<tensor::EmptyOp> {

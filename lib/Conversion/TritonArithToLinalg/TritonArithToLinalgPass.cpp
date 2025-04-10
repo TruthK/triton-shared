@@ -123,6 +123,7 @@ public:
     target.addLegalOp<ModuleOp>();
 
     target.addLegalOp<triton::FuncOp, triton::ReturnOp>();
+    target.addLegalOp<triton::GetProgramIdOp, triton::GetNumProgramsOp>();
 
     target.addDynamicallyLegalOp<triton::BitcastOp>([](triton::BitcastOp op) {
       return isa<triton::PointerType>(op.getSrc().getType());
@@ -158,10 +159,6 @@ public:
           return !operateOnTensors;
         });
 
-    if (pidsToFuncArgs) {
-      target.addIllegalOp<triton::GetProgramIdOp, triton::GetNumProgramsOp>();
-    }
-
     if (addptrToLinalg) {
       target.addDynamicallyLegalOp<triton::AddPtrOp>([](triton::AddPtrOp op) {
         return !isa<ShapedType>(op.getResult().getType());
@@ -172,14 +169,8 @@ public:
       target.addLegalOp<triton::AssertOp>();
     }
 
-    triton::populateTritonArithToLinalgConversionPatterns(
-        pidsToFuncArgs, addptrToLinalg, assertToCf, patterns);
-
-    if (pidsToFuncArgs) {
-      for (auto func : getOperation().getOps<triton::FuncOp>()) {
-        addProgramInfo(func);
-      }
-    }
+    triton::populateTritonArithToLinalgConversionPatterns(addptrToLinalg,
+                                                          assertToCf, patterns);
 
     if (failed(applyPartialConversion(moduleOp, target, std::move(patterns)))) {
       signalPassFailure();
