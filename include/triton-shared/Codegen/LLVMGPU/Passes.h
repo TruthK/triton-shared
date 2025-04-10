@@ -15,6 +15,8 @@
 #include <optional>
 
 // #include "triton-shared/Codegen/Common/GPU/Passes.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Pass/Pass.h"
 #include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
 #include "triton-shared/Codegen/Dialect/GPU/TargetUtils/ConfigUtils.h"
@@ -93,6 +95,13 @@ verifyGPUMatmulPipeline(Operation *op,
                         IREE::Codegen::LoweringConfigAttr loweringConfig,
                         IREE::Codegen::TranslationInfoAttr translationInfo,
                         ArrayRef<int64_t> workgroupSize);
+
+void populateTTSFuncToLLVMFuncOpConversionPattern(
+    const LLVMTypeConverter &converter, RewritePatternSet &patterns);
+
+void populateTTSFuncToLLVMConversionPatterns(const LLVMTypeConverter &converter,
+                                             RewritePatternSet &patterns,
+                                             const SymbolTable *symbolTable);
 
 // //----------------------------------------------------------------------------//
 // // LLVMGPU Linking Passes and Pipelines

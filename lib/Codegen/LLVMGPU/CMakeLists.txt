@@ -1,4 +1,5 @@
 add_subdirectory(Utils)
+add_subdirectory(TritonNVIDIAGPUToLLVM)
 
 add_triton_library(IREECodegenLLVMGPU
  KernelConfig.cpp

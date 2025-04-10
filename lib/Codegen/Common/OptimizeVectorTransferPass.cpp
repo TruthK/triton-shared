@@ -86,7 +86,6 @@ struct OptimizeVectorTransferPass final
     }
 
     LDBG("after dropping leading unit dims\n" << funcOp);
-    funcOp->dump();
     if (redundantHoisting) {
       // Workaround, run loop invariant code motion before hoist redundant
       // vector transfer to workaround a bug upstream.

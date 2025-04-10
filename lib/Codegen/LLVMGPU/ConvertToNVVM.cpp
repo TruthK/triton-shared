@@ -29,6 +29,8 @@
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#define DEBUG_TYPE "iree-convert-to-nvvm"
+
 namespace mlir::tts {
 
 #define GEN_PASS_DEF_CONVERTTONVVMPASS
@@ -52,7 +54,8 @@ struct ConvertToNVVMPass final
   }
   void runOnOperation() override {
     ModuleOp m = getOperation();
-
+    m->dump();
+    llvm::dbgs() << "after module dump\n";
     /// Customize the bitwidth used for the device side index computations.
     LowerToLLVMOptions options(m.getContext(), DataLayout(m));
     options.overrideIndexBitwidth(64);

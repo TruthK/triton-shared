@@ -181,9 +181,7 @@ public:
     //   - The module contains the final llvm.module ready to be serialized.
     //===--------------------------------------------------------------------===//
     addLowerToLLVMGPUPasses(pm);
-
     if (failed(runPipeline(pm, getOperation()))) {
-      getOperation().dump();
       signalPassFailure();
       llvm::dbgs() << " Using LLVMGPU pass pipeline: G! \n";
     }

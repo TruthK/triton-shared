@@ -1483,9 +1483,6 @@ bool hasFusedLeadingOp(linalg::LinalgOp rootOp) {
   }
   return llvm::any_of(backwardSlice, [](Operation *op) {
     if (auto linalgOp = dyn_cast<linalg::LinalgOp>(op)) {
-      llvm::dbgs() << "linalgOp: ";
-      linalgOp.dump();
-      llvm::dbgs() << "\n";
       return !isa<linalg::FillOp>(linalgOp);
     }
     return false;

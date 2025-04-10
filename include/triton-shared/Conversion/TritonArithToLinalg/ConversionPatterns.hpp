@@ -1,5 +1,5 @@
-#ifndef TRITON_CONVERSION_PATTERNS
-#define TRITON_CONVERSION_PATTERNS
+#ifndef TRITON_TTS_CONVERSION_PATTERNS
+#define TRITON_TTS_CONVERSION_PATTERNS
 
 //===----------------------------------------------------------------------===//
 //

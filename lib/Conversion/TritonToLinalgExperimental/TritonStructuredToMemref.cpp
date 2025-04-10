@@ -132,7 +132,6 @@ public:
     auto loc = op.getLoc();
     auto baseType = cast<MemRefType>(dest.getType());
     int64_t rank = baseType.getRank();
-    baseType.dump();
     // 创建OpFoldResult数组,全部使用静态0
     SmallVector<OpFoldResult> indices;
     indices.resize(rank, rewriter.getI64IntegerAttr(0));
@@ -443,7 +442,6 @@ public:
       auto linalgOp = dyn_cast<linalg::LinalgOp>(op);
       if (!linalgOp || linalgOp->getNumOperands() == 0)
         return true;
-      linalgOp.dump();
       return !mlir::isa<RankedTensorType>(linalgOp->getOperand(0).getType());
     });
 

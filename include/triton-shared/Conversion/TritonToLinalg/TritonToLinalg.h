@@ -5,8 +5,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TRITON_CONVERSION_TRITONTOLINALG_TRITONTOLINALG_H
-#define TRITON_CONVERSION_TRITONTOLINALG_TRITONTOLINALG_H
+#ifndef TRITON_TTS_CONVERSION_TRITONTOLINALG_TRITONTOLINALG_H
+#define TRITON_TTS_CONVERSION_TRITONTOLINALG_TRITONTOLINALG_H
 
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
@@ -30,4 +30,4 @@ void populateTritonToLinalgConversionPatterns(TypeConverter &typeConverter,
 } // namespace triton
 } // namespace mlir
 
-#endif // TRITON_CONVERSION_TRITONTOLINALG_TRITONTOLINALG_H
+#endif // TRITON_TTS_CONVERSION_TRITONTOLINALG_TRITONTOLINALG_H

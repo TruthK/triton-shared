@@ -116,4 +116,4 @@ LogicalResult runUseAnalysis(triton::FuncOp &funcOp);
 } // namespace triton
 } // namespace mlir
 
-#endif // TRITON_CONVERSION_TRITONTOAFFINE_TRITONUSEANALYSIS_H
+#endif // TRITON_TTS_CONVERSION_TRITONTOAFFINE_TRITONUSEANALYSIS_H

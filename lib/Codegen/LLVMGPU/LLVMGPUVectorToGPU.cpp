@@ -60,14 +60,12 @@ struct LLVMGPUVectorToGPUPass final
     if (failed(applyPatternsGreedily(funcOp, std::move(flatternpatterns)))) {
       return signalPassFailure();
     }
-funcOp->dump();
     RewritePatternSet patterns(funcOp.getContext());
     mlir::vector::populateCastAwayVectorLeadingOneDimPatterns(patterns);
     populatePrepareVectorToMMAPatterns(patterns, targetMmaSync);
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
       return signalPassFailure();
     }
-funcOp->dump();
 
     IRRewriter rewriter(&getContext());
     if (targetMmaSync) {
