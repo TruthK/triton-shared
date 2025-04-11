@@ -23,6 +23,15 @@ def LLVMGPUCodegenPass : Pass<"llvmgpu-codegen", "ModuleOp"> {
 
 def MaterializeTargetPass : Pass<"iree-materialize-target", "ModuleOp"> {
   let summary = "Materialize the target attribute from the metadata";
+   let options = [
+        Option<"computeCapability", "compute-capability",
+               "int32_t", /*default*/"89",
+               "device compute capability">,
+        Option<"ptxVersion", "ptx-version",
+               "int32_t", /*default*/"84",
+               "PTX version">,
+    ];
+  
 }
 
 
@@ -31,6 +40,14 @@ def ConvertToNVVMPass :
     Pass<"iree-convert-to-nvvm", "ModuleOp"> {
   let summary = "Perform final conversion from builtin/GPU/HAL/standard dialect to LLVM "
     "and NVVM dialects";
+     let options = [
+        Option<"computeCapability", "compute-capability",
+               "int32_t", /*default*/"86",
+               "device compute capability">,
+        Option<"ptxVersion", "ptx-version",
+               "int32_t", /*default*/"84",
+               "PTX version">,
+    ];
 }
 
 

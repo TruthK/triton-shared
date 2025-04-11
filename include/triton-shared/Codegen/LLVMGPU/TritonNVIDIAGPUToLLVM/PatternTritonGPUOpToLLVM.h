@@ -15,15 +15,12 @@ namespace NVIDIA {
 //     const TargetInfo &targetInfo, PatternBenefit benefit);
 
 void populateTTSSPMDOpToLLVMPattern(LLVMTypeConverter &typeConverter,
-                                 const TargetInfoBase &targetInfo,
-                                 RewritePatternSet &patterns,
-                                 PatternBenefit benefit);
+                                    const TargetInfoBase &targetInfo,
+                                    RewritePatternSet &patterns);
 
-void populateTTSFuncOpConversionPattern(LLVMTypeConverter &typeConverter,
-                                        RewritePatternSet &patterns,
+void populateTTSFuncOpConversionPattern(RewritePatternSet &patterns,
                                         int numWarps,
-                                        const TargetInfoBase &targetInfo,
-                                        PatternBenefit benefit);
+                                        const TargetInfoBase &targetInfo);
 
 // void populateClampFOpToLLVMPattern(LLVMTypeConverter &typeConverter,
 //                                    RewritePatternSet &patterns,

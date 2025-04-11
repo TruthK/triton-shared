@@ -7,11 +7,11 @@
 
 using namespace mlir;
 namespace mlir::tts {
-class TritonGPUToLLVMTypeConverter : public LLVMTypeConverter {
+class MemrefToLLVMTypeConverter : public LLVMTypeConverter {
 public:
   using TypeConverter::convertType;
 
-  TritonGPUToLLVMTypeConverter(MLIRContext *ctx, LowerToLLVMOptions &option,
+  MemrefToLLVMTypeConverter(MLIRContext *ctx, LowerToLLVMOptions &option,
                           
                                const DataLayoutAnalysis *analysis = nullptr);
 

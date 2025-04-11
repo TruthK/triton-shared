@@ -85,7 +85,7 @@ static void addLowerToLLVMGPUPasses(OpPassManager &modulePassManager) {
       .addPass(createCSEPass)
       // Pad allocations with dynamic dimension after linalg lowering but before
       // lowering SCF and affine ops.
-      .addPass(createPadDynamicAllocPass)
+      // .addPass(createPadDynamicAllocPass)
       // Hoist any newly static allocations from PadDynamicAlloc.
       .addPass(createHoistStaticallyBoundAllocationsPass)
       .addPass(createLowerAffinePass)

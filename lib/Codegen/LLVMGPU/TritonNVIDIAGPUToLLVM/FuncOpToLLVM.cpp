@@ -16,7 +16,9 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "triton-shared/Codegen/LLVMGPU/TritonNVIDIAGPUToLLVM/PatternTritonGPUOpToLLVM.h"
+#include "triton-shared/Codegen/LLVMGPU/TritonNVIDIAGPUToLLVM/TypeConverter.h"
 #include "triton-shared/Codegen/LLVMGPU/TritonNVIDIAGPUToLLVM/Utility.h"
+
 using namespace mlir;
 using namespace mlir::tts;
 
@@ -43,8 +45,8 @@ inline Type u1Ty(MLIRContext *ctx) {
 /// information.
 struct FuncOpConversion : public ConvertOpToLLVMPattern<func::FuncOp> {
   FuncOpConversion(LLVMTypeConverter &converter, int numWarps,
-                   const TargetInfoBase &targetInfo, PatternBenefit benefit)
-      : ConvertOpToLLVMPattern(converter, benefit), numWarps(numWarps),
+                   const TargetInfoBase &targetInfo)
+      : ConvertOpToLLVMPattern(converter), numWarps(numWarps),
         targetInfo(targetInfo) {}
 
   /// Only retain those attributes that are not constructed by
@@ -128,11 +130,12 @@ struct FuncOpConversion : public ConvertOpToLLVMPattern<func::FuncOp> {
                   ConversionPatternRewriter &rewriter) const override {
     // Prevent LLVM's inliner to inline this function
     auto amendedFuncOp = amendFuncOp(funcOp, rewriter, targetInfo);
-
+    amendedFuncOp->dump();
     FailureOr<LLVM::LLVMFuncOp> maybeNewFuncOp =
         mlir::convertFuncOpToLLVMFuncOp(amendedFuncOp, rewriter,
                                         *getTypeConverter());
     if (failed(maybeNewFuncOp)) {
+      funcOp->dump();
       return failure();
     }
 
@@ -142,8 +145,7 @@ struct FuncOpConversion : public ConvertOpToLLVMPattern<func::FuncOp> {
 
     if (LLVM::tts::NVIDIA::isKernel(funcOp)) {
       // Set an attribute to indicate this function is a kernel entry.
-      newFuncOp->setAttr("nvvm.kernel",
-                         rewriter.getIntegerAttr(u1Ty(ctx), 1));
+      newFuncOp->setAttr("nvvm.kernel", rewriter.getIntegerAttr(u1Ty(ctx), 1));
       newFuncOp.setLinkage(LLVM::Linkage::External);
     } else {
       // The noinline attribute will be used by the LLVM codegen to prevent
@@ -175,7 +177,11 @@ private:
 } // namespace
 
 void mlir::tts::NVIDIA::populateTTSFuncOpConversionPattern(
-    LLVMTypeConverter &typeConverter, RewritePatternSet &patterns, int numWarps,
-    const TargetInfoBase &targetInfo, PatternBenefit benefit) {
-  patterns.add<FuncOpConversion>(typeConverter, numWarps, targetInfo, benefit);
+    RewritePatternSet &patterns, int numWarps,
+    const TargetInfoBase &targetInfo) {
+  mlir::LowerToLLVMOptions option(patterns.getContext());
+  mlir::tts::MemrefToLLVMTypeConverter typeConverter(patterns.getContext(),
+                                                     option);
+
+  patterns.add<FuncOpConversion>(typeConverter, numWarps, targetInfo);
 }

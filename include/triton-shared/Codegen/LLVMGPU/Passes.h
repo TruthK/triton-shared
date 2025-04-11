@@ -96,13 +96,6 @@ verifyGPUMatmulPipeline(Operation *op,
                         IREE::Codegen::TranslationInfoAttr translationInfo,
                         ArrayRef<int64_t> workgroupSize);
 
-void populateTTSFuncToLLVMFuncOpConversionPattern(
-    const LLVMTypeConverter &converter, RewritePatternSet &patterns);
-
-void populateTTSFuncToLLVMConversionPatterns(const LLVMTypeConverter &converter,
-                                             RewritePatternSet &patterns,
-                                             const SymbolTable *symbolTable);
-
 // //----------------------------------------------------------------------------//
 // // LLVMGPU Linking Passes and Pipelines
 // //----------------------------------------------------------------------------//

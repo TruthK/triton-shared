@@ -43,7 +43,6 @@ struct GetNumProgramsOpConversion
   }
 };
 
-
 struct GetProgramIdOpConversion
     : public ConvertOpToLLVMPattern<triton::GetProgramIdOp> {
   explicit GetProgramIdOpConversion(LLVMTypeConverter &typeConverter,
@@ -69,10 +68,8 @@ private:
 } // namespace
 
 void mlir::tts::NVIDIA::populateTTSSPMDOpToLLVMPattern(
-    LLVMTypeConverter &typeConverter,
-    const TargetInfoBase &targetInfo,
-    RewritePatternSet &patterns,
-    PatternBenefit benefit) {
-  patterns.add<GetNumProgramsOpConversion>(typeConverter, benefit);
-  patterns.add<GetProgramIdOpConversion>(typeConverter, targetInfo, benefit);
+    LLVMTypeConverter &typeConverter, const TargetInfoBase &targetInfo,
+    RewritePatternSet &patterns) {
+  patterns.add<GetNumProgramsOpConversion>(typeConverter);
+  patterns.add<GetProgramIdOpConversion>(typeConverter, targetInfo);
 }

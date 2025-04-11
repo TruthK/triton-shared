@@ -1,8 +1,8 @@
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassRegistry.h"
 #include "mlir/Transforms/Passes.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
 
 #include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
 #include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenDialect.h"
@@ -17,11 +17,11 @@ namespace mlir::tts {
 
 namespace {
 struct CUDAOptions {
-  std::string clTarget = "sm_86";
-  std::string clTargetFeatures = "+ptx78";
-  bool clUsePtxas = false;
-  std::string clUsePtxasFrom;
-  std::string clUsePtxasParams;
+  std::string clTarget = "sm_89";
+  std::string clTargetFeatures = "+ptx84";
+  // bool clUsePtxas = false;
+  // std::string clUsePtxasFrom;
+  // std::string clUsePtxasParams;
 
   LogicalResult verify(mlir::Builder &builder) const {
     if (IREE::GPU::normalizeCUDATarget(clTarget).empty()) {
@@ -50,7 +50,7 @@ public:
 } // namespace
 
 IREE::GPU::ExecutableTargetAttr
-getExecutableTarget(MLIRContext *context, const CUDAOptions &options)  {
+getExecutableTarget(MLIRContext *context, const CUDAOptions &options) {
   Builder b(context);
   SmallVector<NamedAttribute> configItems;
   auto addConfig = [&](StringRef name, Attribute value) {
@@ -72,6 +72,8 @@ getExecutableTarget(MLIRContext *context, const CUDAOptions &options)  {
 void MaterializeTargetPass::runOnOperation() {
   auto moduleOp = getOperation();
   CUDAOptions options;
+  options.clTarget = "sm_" + std::to_string(computeCapability.getValue());
+  options.clTargetFeatures = "+ptx" + std::to_string(ptxVersion.getValue());
 
   auto targetsAttr = getExecutableTarget(&getContext(), options);
   if (!targetsAttr) {

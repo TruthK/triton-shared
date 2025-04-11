@@ -3,7 +3,10 @@
 #include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUDialect.h"
 #include "triton-shared/Codegen/LLVMGPU/ConvertToLLVM.h"
 #include "triton-shared/Codegen/LLVMGPU/Passes.h"
+#include "triton-shared/Codegen/LLVMGPU/TritonNVIDIAGPUToLLVM/PatternTritonGPUOpToLLVM.h"
+#include "triton-shared/Codegen/LLVMGPU/TritonNVIDIAGPUToLLVM/TargetInfo.h"
 #include "triton-shared/Codegen/Utils/GPUUtils.h"
+
 #include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
 #include "mlir/Conversion/ComplexToLLVM/ComplexToLLVM.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
@@ -83,6 +86,7 @@ struct ConvertToNVVMPass final
     converter.addConversion([&](nvgpu::DeviceAsyncTokenType type) -> Type {
       return converter.convertType(IntegerType::get(type.getContext(), 32));
     });
+
     // Apply in-dialect lowering first. In-dialect lowering will replace ops
     // which need to be lowered further, which is not supported by a single
     // conversion pass.
@@ -128,8 +132,8 @@ struct ConvertToNVVMPass final
       // is faulty for them.
       // TODO: Remove this once the lowering in LLVM is fixed
       // (https://github.com/llvm/llvm-project/issues/64606).
-      auto attr =  getGPUTargetAttr(*(m.getOps<FunctionOpInterface>().begin()));
-      std::optional<int> cc =attr.getCUDAComputeCapability();
+      auto attr = getGPUTargetAttr(*(m.getOps<FunctionOpInterface>().begin()));
+      std::optional<int> cc = attr.getCUDAComputeCapability();
       if (!cc || cc.value() < 80) {
         RewritePatternSet patterns(&getContext());
         populateReplaceSlowMinMaxOpsPatterns(patterns);
@@ -139,6 +143,7 @@ struct ConvertToNVVMPass final
       }
     }
     {
+      mlir::tts::NVIDIA::TargetInfo targetInfo(computeCapability, ptxVersion);
       RewritePatternSet llvmPatterns(&getContext());
       // populateLowerHALInterfaceOp(llvmPatterns);
       // populateLLVMConversionPatterns(&getContext(), llvmPatterns, converter);
@@ -146,8 +151,11 @@ struct ConvertToNVVMPass final
       populateMathToLLVMConversionPatterns(converter, llvmPatterns);
       memref::populateExpandStridedMetadataPatterns(llvmPatterns);
       populateFinalizeMemRefToLLVMConversionPatterns(converter, llvmPatterns);
-      populateFuncToLLVMConversionPatterns(converter, llvmPatterns);
+      mlir::tts::NVIDIA::populateTTSFuncOpConversionPattern(llvmPatterns, 1,
+                                                            targetInfo);
       cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
+      mlir::tts::NVIDIA::populateTTSSPMDOpToLLVMPattern(converter, targetInfo,
+                                                        llvmPatterns);
       arith::populateCeilFloorDivExpandOpsPatterns(llvmPatterns);
       arith::populateArithToLLVMConversionPatterns(converter, llvmPatterns);
       vector::populateVectorRankReducingFMAPattern(llvmPatterns);

@@ -6,13 +6,14 @@
 using namespace mlir;
 using namespace mlir::tts;
 
-TritonGPUToLLVMTypeConverter::TritonGPUToLLVMTypeConverter(
+MemrefToLLVMTypeConverter::MemrefToLLVMTypeConverter(
     MLIRContext *ctx, LowerToLLVMOptions &options,
     const DataLayoutAnalysis *analysis)
     : LLVMTypeConverter(ctx, options, analysis) {
   // TODO
-  // addConversion([ctx](triton::PointerType type) -> std::optional<Type> {
-  //   assert(false);
-  //   return LLVM::LLVMPointerType::get(ctx, type.getAddressSpace());
-  // });
+  addConversion([ctx](mlir::UnrankedMemRefType type) -> std::optional<Type> {
+    type.dump();
+     type.dump();
+    return LLVM::LLVMPointerType::get(ctx, 1);
+  });
 }
