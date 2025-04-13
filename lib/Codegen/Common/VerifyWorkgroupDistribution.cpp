@@ -57,7 +57,6 @@ struct VerifyWorkgroupDistributionPass final
               !memoryEffectOp.getEffectOnValue<MemoryEffects::Write>(operand)) {
             continue;
           }
-          op->dump();
           op->emitWarning(
               "write affecting operations on global resources are restricted "
               "to workgroup distributed contexts.");

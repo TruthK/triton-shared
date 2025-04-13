@@ -18,6 +18,14 @@ def LLVMGPUCodegenPass : Pass<"llvmgpu-codegen", "ModuleOp"> {
   let description = [{
     Integrates IREE's LLVM GPU code generation pipeline with configurable ROCm/CUDA backend selection.
   }];
+  let options = [
+    Option<"computeCapability", "compute-capability",
+            "int32_t", /*default*/"75",
+            "device compute capability">,
+    Option<"ptxVersion", "ptx-version",
+            "int32_t", /*default*/"84",
+            "PTX version">,
+  ];
 }
 
 
@@ -25,7 +33,7 @@ def MaterializeTargetPass : Pass<"iree-materialize-target", "ModuleOp"> {
   let summary = "Materialize the target attribute from the metadata";
    let options = [
         Option<"computeCapability", "compute-capability",
-               "int32_t", /*default*/"89",
+               "int32_t", /*default*/"75",
                "device compute capability">,
         Option<"ptxVersion", "ptx-version",
                "int32_t", /*default*/"84",
@@ -42,7 +50,7 @@ def ConvertToNVVMPass :
     "and NVVM dialects";
      let options = [
         Option<"computeCapability", "compute-capability",
-               "int32_t", /*default*/"86",
+               "int32_t", /*default*/"75",
                "device compute capability">,
         Option<"ptxVersion", "ptx-version",
                "int32_t", /*default*/"84",
@@ -148,5 +156,35 @@ def LLVMGPUVectorToGPUPass :
 //     Pass<"iree-test-llvmgpu-query-mma", "ModuleOp"> {
 //   let summary = "Test pass for querying the supported mma intrinsic instructions.";
 // }
+
+//  def PtrTransformPass :
+//      Pass<"llvmgpu-ptr-transform", "ModuleOp"> {
+//    let summary = "Transform !llvm.ptr to !llvm.ptr<1> for matmul_kernel arguments";
+//    let description = [{
+//      This pass transforms function signature for matmul_kernel by:
+//      1. Finding i64 + !llvm.ptr parameter pairs
+//      2. Removing the i64 parameter
+//      3. Transforming !llvm.ptr to !llvm.ptr<1>
+//      4. Creating a new function with the transformed signature
+//    }];
+//  }
+
+def SerializeTargetExecutablesPass :
+    Pass<"iree-hal-serialize-target-executables", "ModuleOp"> {
+  let summary = "Serializes executables for the specified target backend.";
+  let description = [{
+    Serializes variants for the target backend from their low-level MLIR
+    dialects (such as `llvm`, `spirv`, etc) to their target-specific object
+    format (static/shared libraries, SPIR-V, etc).
+  }];
+   let options = [
+    Option<"computeCapability", "compute-capability",
+            "int32_t", /*default*/"75",
+            "device compute capability">,
+    Option<"ptxVersion", "ptx-version",
+            "int32_t", /*default*/"84",
+            "PTX version">,
+  ];
+}
 
 #endif // IREE_CODEGEN_LLVMGPU_PASSES

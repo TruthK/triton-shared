@@ -1,5 +1,5 @@
 from triton.backends.compiler import BaseBackend, GPUTarget
-from triton._C.libtriton import ir, passes,llvm,tts_nv
+from triton._C.libtriton import ir, passes,llvm,ttsnv
 from triton.runtime.errors import PTXASError
 from dataclasses import dataclass
 from typing import Any, Dict, Tuple, Optional
@@ -216,7 +216,7 @@ class KzxCUDABackend(BaseBackend):
     # Our compilation pipeline isn't in python like nvidia or amd, no need to load
     # dialects. See `triton_shared.cc`
     def load_dialects(self, ctx):
-        tts_nv.load_dialects(ctx)
+        ttsnv.load_dialects(ctx)
 
     @staticmethod
     def make_ttir(mod, metadata, opt):
@@ -236,21 +236,22 @@ class KzxCUDABackend(BaseBackend):
     
     @staticmethod
     def make_ttsharedir(mod, metadata, opt, capability):
-        Path(".vscode/01_other.mlir").write_text(str(mod))
         pm = ir.pass_manager(mod.context)
         pm.enable_debug()
-        tts_nv.passes.tts.triton_to_linalg(pm)
+        ttsnv.passes.tts.triton_to_linalg(pm)
         pm.run(mod)
         return mod
 
 
     def make_llir(self, mod,metadata, options, capability):
+        ptx_version = get_ptx_version_from_options(options, self.target.arch)
         # Get tts-MLIR as string
         pm = ir.pass_manager(mod.context)
         pm.enable_debug()
-      
         Path(".vscode/core_dump_llir.mlir").write_text(str(mod))
-        tts_nv.passes.convert.linalg_to_llvm(pm)
+        ttsnv.passes.tts_codegen.iree_materialize_target(pm,capability,ptx_version)
+        ttsnv.passes.tts_codegen.iree_llvmgpu_select_lowering_strategy(pm)
+        ttsnv.passes.tts_codegen.iree_llvmgpu_codegen(pm,capability,ptx_version)
         
         pm.run(mod)
         
@@ -260,6 +261,7 @@ class KzxCUDABackend(BaseBackend):
         if os.environ.get("TRITON_ENABLE_ASAN", "0") == "1":
             raise RuntimeError(
                 "Address Sanitizer Error: Address sanitizer is currently only supporteedd on the AMD backend")
+        print("make_llir");
         llvm_mod = llvm.to_module(mod, context)
         proc = 'sm_90a' if capability == 90 else f'sm_{capability}'
         # use sm_90a until sm_100 is open sourced in llvm.
@@ -268,7 +270,7 @@ class KzxCUDABackend(BaseBackend):
         features = get_features(options, self.target.arch)
         triple = 'nvptx64-nvidia-cuda'
         llvm.attach_datalayout(llvm_mod, triple, proc, features)
-        tts_nv.set_nvvm_reflect_ftz(llvm_mod)
+        ttsnv.set_nvvm_reflect_ftz(llvm_mod)
 
         # Set maxnreg on all kernels, if it was provided.
         if options.maxnreg is not None:
@@ -297,6 +299,7 @@ class KzxCUDABackend(BaseBackend):
         if capability == 100:
             proc = 'sm_90a'
         features = get_features(opt, self.target.arch)
+        print("make_ptx");
         ret = llvm.translate_to_asm(src, triple, proc, features, ['nvptx-short-ptr'], opt.enable_fp_fusion, False)
         Path(".vscode/core_dump.ir").write_text(str(ret))
         

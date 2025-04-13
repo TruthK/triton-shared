@@ -4,7 +4,7 @@ import triton
 
 import triton.language as tl
 
-from triton.backends.tts_nv.driver import CPUDriver
+from triton.backends.ttsnv.driver import CPUDriver
 
 @triton.jit
 def sign_extend(off, in0, out0, in0_size):

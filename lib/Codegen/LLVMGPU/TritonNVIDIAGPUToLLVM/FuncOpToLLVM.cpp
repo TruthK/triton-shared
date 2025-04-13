@@ -1,16 +1,25 @@
+#include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
+#include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
+#include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/LLVMIR/FunctionCallUtils.h"
 #include "mlir/Dialect/LLVMIR/LLVMAttrs.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMInterfaces.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinAttributeInterfaces.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/SymbolTable.h"
+#include "mlir/IR/TypeUtilities.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -23,6 +32,14 @@ using namespace mlir;
 using namespace mlir::tts;
 
 namespace {
+static constexpr StringRef barePtrAttrName = "llvm.bareptr";
+
+/// Return `true` if the `op` should use bare pointer calling convention.
+static bool shouldUseBarePtrCallConv(Operation *op,
+                                     const LLVMTypeConverter *typeConverter) {
+  return (op && op->hasAttr(barePtrAttrName)) ||
+         typeConverter->getOptions().useBarePtrCallConv;
+}
 
 inline Type u1Ty(MLIRContext *ctx) {
   return IntegerType::get(ctx, 1, IntegerType::Unsigned);
@@ -130,12 +147,10 @@ struct FuncOpConversion : public ConvertOpToLLVMPattern<func::FuncOp> {
                   ConversionPatternRewriter &rewriter) const override {
     // Prevent LLVM's inliner to inline this function
     auto amendedFuncOp = amendFuncOp(funcOp, rewriter, targetInfo);
-    amendedFuncOp->dump();
     FailureOr<LLVM::LLVMFuncOp> maybeNewFuncOp =
         mlir::convertFuncOpToLLVMFuncOp(amendedFuncOp, rewriter,
                                         *getTypeConverter());
     if (failed(maybeNewFuncOp)) {
-      funcOp->dump();
       return failure();
     }
 
@@ -174,14 +189,153 @@ private:
   const TargetInfoBase &targetInfo;
 };
 
+struct ReturnOpLowering : public ConvertOpToLLVMPattern<func::ReturnOp> {
+  using ConvertOpToLLVMPattern<func::ReturnOp>::ConvertOpToLLVMPattern;
+
+  LogicalResult
+  matchAndRewrite(func::ReturnOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+    unsigned numArguments = op.getNumOperands();
+    SmallVector<Value, 4> updatedOperands;
+
+    auto funcOp = op->getParentOfType<LLVM::LLVMFuncOp>();
+    bool useBarePtrCallConv =
+        shouldUseBarePtrCallConv(funcOp, this->getTypeConverter());
+    if (useBarePtrCallConv) {
+      // For the bare-ptr calling convention, extract the aligned pointer to
+      // be returned from the memref descriptor.
+      for (auto it : llvm::zip(op->getOperands(), adaptor.getOperands())) {
+        Type oldTy = std::get<0>(it).getType();
+        Value newOperand = std::get<1>(it);
+        if (isa<MemRefType>(oldTy) && getTypeConverter()->canConvertToBarePtr(
+                                          cast<BaseMemRefType>(oldTy))) {
+          MemRefDescriptor memrefDesc(newOperand);
+          newOperand = memrefDesc.allocatedPtr(rewriter, loc);
+        } else if (isa<UnrankedMemRefType>(oldTy)) {
+          // Unranked memref is not supported in the bare pointer calling
+          // convention.
+          return failure();
+        }
+        updatedOperands.push_back(newOperand);
+      }
+    } else {
+      updatedOperands = llvm::to_vector<4>(adaptor.getOperands());
+      (void)copyUnrankedDescriptors(rewriter, loc, op.getOperands().getTypes(),
+                                    updatedOperands,
+                                    /*toDynamic=*/true);
+    }
+
+    // If ReturnOp has 0 or 1 operand, create it and return immediately.
+    if (numArguments <= 1) {
+      rewriter.replaceOpWithNewOp<LLVM::ReturnOp>(
+          op, TypeRange(), updatedOperands, op->getAttrs());
+      return success();
+    }
+
+    // Otherwise, we need to pack the arguments into an LLVM struct type before
+    // returning.
+    auto packedType = getTypeConverter()->packFunctionResults(
+        op.getOperandTypes(), useBarePtrCallConv);
+    if (!packedType) {
+      return rewriter.notifyMatchFailure(op, "could not convert result types");
+    }
+
+    Value packed = rewriter.create<LLVM::UndefOp>(loc, packedType);
+    for (auto [idx, operand] : llvm::enumerate(updatedOperands)) {
+      packed = rewriter.create<LLVM::InsertValueOp>(loc, packed, operand, idx);
+    }
+    rewriter.replaceOpWithNewOp<LLVM::ReturnOp>(op, TypeRange(), packed,
+                                                op->getAttrs());
+    return success();
+  }
+};
+
+// Pattern to clean up kernel function signatures by removing i64 arguments before !llvm.ptr
+// and changing !llvm.ptr to !llvm.ptr<1>
+struct KernelArgCleanupPattern : public OpRewritePattern<LLVM::LLVMFuncOp> {
+  using OpRewritePattern<LLVM::LLVMFuncOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(LLVM::LLVMFuncOp funcOp,
+                               PatternRewriter &rewriter) const override {
+    // 仅对matmul_kernel函数应用此模式
+    if (funcOp.getName() != "matmul_kernel")
+      return failure();
+
+    auto funcType = funcOp.getFunctionType();
+    SmallVector<Type> newInputTypes;
+    bool needsRewrite = false;
+
+    // 扫描参数列表寻找i64后接!llvm.ptr的参数
+    unsigned i = 0;
+    while (i < funcType.getNumParams()) {
+      Type currentType = funcType.getParamType(i);
+      
+      // 检查是否为i64参数且下一个参数为!llvm.ptr
+      if (i + 1 < funcType.getNumParams() && 
+          isa<IntegerType>(currentType) && 
+          cast<IntegerType>(currentType).getWidth() == 64) {
+        
+        Type nextType = funcType.getParamType(i + 1);
+        if (isa<LLVM::LLVMPointerType>(nextType)) {
+          auto ptrType = cast<LLVM::LLVMPointerType>(nextType);
+          
+          // 检查指针是否没有地址空间或地址空间为0
+          if (!ptrType.getAddressSpace() || ptrType.getAddressSpace() == 0) {
+            // 创建新的地址空间为1的指针类型
+            auto newPtrType = LLVM::LLVMPointerType::get(
+                rewriter.getContext(), /*addressSpace=*/1);
+            newInputTypes.push_back(newPtrType);
+            
+            needsRewrite = true;
+            i += 2; // 同时跳过i64和原始ptr参数
+            continue;
+          }
+        }
+      }
+      
+      // 对于不需要更改的参数，直接复制
+      newInputTypes.push_back(currentType);
+      i++;
+    }
+    
+    if (!needsRewrite)
+      return failure();
+    
+    // 创建新的函数类型
+    auto newFuncType = LLVM::LLVMFunctionType::get(
+        funcType.getReturnType(), newInputTypes, funcType.isVarArg());
+    
+    // 创建新函数，使用尽可能简单的构造方式
+    auto newFuncOp = rewriter.create<LLVM::LLVMFuncOp>(
+        funcOp.getLoc(), funcOp.getName(), newFuncType);
+    
+    // 复制原函数的关键属性
+    if (auto linkageAttr = funcOp->getAttrOfType<LLVM::LinkageAttr>("llvm.linkage"))
+      newFuncOp->setAttr("llvm.linkage", linkageAttr);
+    
+    // 处理非空函数体
+    if (!funcOp.isExternal()) {
+      rewriter.inlineRegionBefore(funcOp.getBody(), newFuncOp.getBody(), 
+                                 newFuncOp.end());
+    }
+    
+    rewriter.eraseOp(funcOp);
+    return success();
+  }
+};
+
 } // namespace
 
 void mlir::tts::NVIDIA::populateTTSFuncOpConversionPattern(
-    RewritePatternSet &patterns, int numWarps,
+    LLVMTypeConverter &typeConverter, RewritePatternSet &patterns, int numWarps,
     const TargetInfoBase &targetInfo) {
-  mlir::LowerToLLVMOptions option(patterns.getContext());
-  mlir::tts::MemrefToLLVMTypeConverter typeConverter(patterns.getContext(),
-                                                     option);
 
   patterns.add<FuncOpConversion>(typeConverter, numWarps, targetInfo);
+  patterns.add<ReturnOpLowering>(typeConverter);
+}
+
+void mlir::tts::NVIDIA::populateTTSKernelArgCleanupPattern(
+    LLVMTypeConverter &typeConverter, RewritePatternSet &patterns) {
+  patterns.add<KernelArgCleanupPattern>(patterns.getContext());
 }

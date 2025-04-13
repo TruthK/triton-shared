@@ -72,7 +72,8 @@ addLowerAndOptimizeAddressComputationPasses(FunctionLikeNest &funcPassManager) {
       .addPass(createIREELoopInvariantCodeMotionPass);
 }
 
-static void addLowerToLLVMGPUPasses(OpPassManager &modulePassManager) {
+static void addLowerToLLVMGPUPasses(OpPassManager &modulePassManager,
+                                    int32_t computeCapability, int32_t ptxVersion) {
   modulePassManager.addPass(createCanonicalizerPass());
   modulePassManager.addPass(createCSEPass());
 
@@ -134,7 +135,10 @@ static void addLowerToLLVMGPUPasses(OpPassManager &modulePassManager) {
   // Cast address spaces of all function arguments to generic.
   modulePassManager.addPass(createLLVMGPUCastAddressSpaceFunctionPass());
   // convert to NVVM.
-  modulePassManager.addPass(createConvertToNVVMPass());
+  ConvertToNVVMPassOptions options;
+  options.computeCapability = computeCapability;
+  options.ptxVersion = ptxVersion;
+  modulePassManager.addPass(createConvertToNVVMPass(options));
 }
 
 class LLVMGPUCodegenPass final
@@ -180,7 +184,8 @@ public:
     //   - All Linalg/Loops/GPU/Affine/Standard ops are converted away.
     //   - The module contains the final llvm.module ready to be serialized.
     //===--------------------------------------------------------------------===//
-    addLowerToLLVMGPUPasses(pm);
+    addLowerToLLVMGPUPasses(pm, computeCapability, ptxVersion);
+
     if (failed(runPipeline(pm, getOperation()))) {
       signalPassFailure();
       llvm::dbgs() << " Using LLVMGPU pass pipeline: G! \n";

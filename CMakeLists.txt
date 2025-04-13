@@ -1,49 +1,23 @@
-option(TRITON_SHARED_BUILD_TTS_NV_BACKEND "Build triton-shared KZX NV backend" ON)
 
-set(TRITON_SHARED_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-set(TRITON_SHARED_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/include) # Tablegen'd files
-include_directories(${Python3_INCLUDE_DIR})
-include_directories(${pybind11_INCLUDE_DIR})
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/include) 
+
 
 add_subdirectory(include)
 add_subdirectory(lib)
 add_subdirectory(tools)
-
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 
-if (TRITON_SHARED_BUILD_TTS_NV_BACKEND)
-    add_triton_plugin(TritonTTSNV ${CMAKE_CURRENT_SOURCE_DIR}/triton_tts_nv.cc 
+if (TRITON_BUILD_PYTHON_MODULE)
+    add_triton_plugin(TritonTTSNV ${CMAKE_CURRENT_SOURCE_DIR}/triton_ttsnv.cc 
     LINK_LIBS 
-    IREECodegenDialectUtils
-    IREEGPUDialect
-    IREECodegenUtils
-    IREECodegenDialect
-    IREECodegenExternalModels
-    IREEVectorExtDialect
-    IREEVectorExtTransforms
-    IREECodegen
     
-    TritonSharedAnalysis 
-    TritonToLinalg 
-    TritonTilingExtIR
-    TTSUtils
     ${dialect_libs}
-    MLIRAnalysis
-    MLIRBuiltinToLLVMIRTranslation
-    MLIRCallInterfaces
-    MLIRCastInterfaces
-    MLIRExecutionEngine
-    MLIRFunctionInterfaces
-    MLIRIR
-    MLIRLLVMCommonConversion
-    MLIRLLVMToLLVMIRTranslation
-    MLIRMemRefDialect
-    MLIRParser
-    MLIRPass
-    MLIRSideEffectInterfaces
-    MLIRTargetLLVMIRExport
-    MLIRTransforms)
+    TritonToLinalgExperimental
+    IREECodegenLLVMGPU
+    IREECodegenCommon
+    IREECodegenInterfaces
+    )
+    target_link_libraries(TritonTTSNV PRIVATE Python3::Module pybind11::headers)
 endif()

@@ -207,9 +207,6 @@ public:
       iteratorTypes.push_back(mlir::utils::IteratorType::parallel);
     }
 
-    // 如果需要精确匹配原始迭代器类型，可以再添加调试代码
-    llvm::errs() << "IteratorTypes attribute: " << op.getIteratorTypes()
-                 << "\n";
 
     // 创建GenericOp
     auto newOp = rewriter.create<linalg::GenericOp>(

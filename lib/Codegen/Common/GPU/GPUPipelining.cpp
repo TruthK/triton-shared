@@ -663,7 +663,6 @@ applyPipelining(scf::ForOp forOp, int64_t depth, bool epiloguePeeling,
   scf::ForLoopPipeliningPattern pattern(options, forOp->getContext());
   IRRewriter rewriter(forOp->getContext());
   rewriter.setInsertionPoint(forOp);
-  forOp.dump();
   return pipelineForLoop(rewriter, forOp, options);
 }
 
@@ -673,7 +672,6 @@ struct GPUPipeliningPass final
 
   void runOnOperation() override {
     FunctionOpInterface funcOp = getOperation();
-    funcOp.dump();
     SmallVector<scf::ForOp> forOps;
     // Mark the loop with shared memory copy for pipelining.
     funcOp.walk([&forOps](scf::ForOp forOp) { forOps.push_back(forOp); });

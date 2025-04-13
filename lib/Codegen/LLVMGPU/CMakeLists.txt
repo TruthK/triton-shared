@@ -18,12 +18,27 @@ add_triton_library(IREECodegenLLVMGPU
  LLVMGPUCastAddressSpaceFunction.cpp
  ConvertToNVVM.cpp
  ConvertToLLVM.cpp
- 
+ SerializeExecutables.cpp
   DEPENDS
     LLVMGPUCodegenPassIncGen
 
   LINK_LIBS PUBLIC
   LLVMSupport
+  LLVMAnalysis
+  LLVMBitReader
+  LLVMBitWriter
+  LLVMCore
+  LLVMLinker
+  LLVMMC
+  LLVMNVPTXCodeGen
+  LLVMNVPTXDesc
+  LLVMNVPTXInfo
+  LLVMPasses
+  LLVMSupport
+  LLVMTarget
+  LLVMipo
+  LLVMNVPTXInfo
+
   MLIRAMDGPUDialect
   MLIRAMDGPUToROCDL
   MLIRAMDGPUTransforms
@@ -84,6 +99,10 @@ add_triton_library(IREECodegenLLVMGPU
   MLIRVectorToLLVM
   MLIRVectorToSCF
   MLIRVectorTransforms
+  MLIRBuiltinToLLVMIRTranslation
+  MLIRLLVMToLLVMIRTranslation
+  MLIRNVVMToLLVMIRTranslation
+  MLIRTargetLLVMIRExport
 
   TTSUtils
 
@@ -102,6 +121,7 @@ add_triton_library(IREECodegenLLVMGPU
   IREECodegenLLVMGPUUtils
   IREECodegenCommon
   IREECodegenCommonGPUPasses
+  TTSNVIDIAGPUToLLVM
 )
 # iree::compiler::Codegen::Common::TransformDialectInterpreterPass
 # iree::compiler::Codegen::Common::VectorLayoutAnalysis

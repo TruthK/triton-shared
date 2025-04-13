@@ -5,6 +5,7 @@
 #include "triton-shared/Codegen/LLVMGPU/Passes.h"
 #include "triton-shared/Codegen/LLVMGPU/TritonNVIDIAGPUToLLVM/PatternTritonGPUOpToLLVM.h"
 #include "triton-shared/Codegen/LLVMGPU/TritonNVIDIAGPUToLLVM/TargetInfo.h"
+#include "triton-shared/Codegen/LLVMGPU/TritonNVIDIAGPUToLLVM/TypeConverter.h"
 #include "triton-shared/Codegen/Utils/GPUUtils.h"
 
 #include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
@@ -57,8 +58,6 @@ struct ConvertToNVVMPass final
   }
   void runOnOperation() override {
     ModuleOp m = getOperation();
-    m->dump();
-    llvm::dbgs() << "after module dump\n";
     /// Customize the bitwidth used for the device side index computations.
     LowerToLLVMOptions options(m.getContext(), DataLayout(m));
     options.overrideIndexBitwidth(64);
@@ -151,8 +150,10 @@ struct ConvertToNVVMPass final
       populateMathToLLVMConversionPatterns(converter, llvmPatterns);
       memref::populateExpandStridedMetadataPatterns(llvmPatterns);
       populateFinalizeMemRefToLLVMConversionPatterns(converter, llvmPatterns);
-      mlir::tts::NVIDIA::populateTTSFuncOpConversionPattern(llvmPatterns, 1,
-                                                            targetInfo);
+      mlir::tts::MemrefToLLVMTypeConverter typeConverter(m.getContext(),
+                                                         options);
+      mlir::tts::NVIDIA::populateTTSFuncOpConversionPattern(
+          typeConverter, llvmPatterns, 1, targetInfo);
       cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
       mlir::tts::NVIDIA::populateTTSSPMDOpToLLVMPattern(converter, targetInfo,
                                                         llvmPatterns);

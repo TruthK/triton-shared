@@ -10,10 +10,8 @@ MemrefToLLVMTypeConverter::MemrefToLLVMTypeConverter(
     MLIRContext *ctx, LowerToLLVMOptions &options,
     const DataLayoutAnalysis *analysis)
     : LLVMTypeConverter(ctx, options, analysis) {
-  // TODO
+  // TODO  no work
   addConversion([ctx](mlir::UnrankedMemRefType type) -> std::optional<Type> {
-    type.dump();
-     type.dump();
     return LLVM::LLVMPointerType::get(ctx, 1);
   });
 }

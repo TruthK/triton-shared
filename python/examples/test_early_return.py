@@ -3,7 +3,7 @@ import torch
 import triton
 import triton.language as tl
 
-from triton.backends.tts_nv.driver import CPUDriver
+from triton.backends.ttsnv.driver import CPUDriver
 
 @triton.jit
 def early_return(in0, out0):

@@ -40,7 +40,7 @@
 #include "triton-shared/Codegen/Utils/Utils.h"
 
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/CommandLine.h"
+
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "iree-llvmgpu-kernel-config"
@@ -48,70 +48,31 @@
 #define LDBG(X) LLVM_DEBUG(DBGS() << X << "\n")
 namespace mlir::tts {
 
-llvm::cl::opt<bool> clGPUTestTileAndFuseMatmul(
-    "iree-codegen-llvmgpu-test-tile-and-fuse-matmul",
-    llvm::cl::desc("test the the tile and fuse pipeline for matmul"),
-    llvm::cl::init(false));
+bool clGPUTestTileAndFuseMatmul = false;
 
-llvm::cl::opt<bool> clGPUTestTileAndFuseVectorize(
-    "iree-codegen-llvmgpu-test-tile-and-fuse-vectorize",
-    llvm::cl::desc(
-        "test the tile and fuse pipeline for all supported operations"),
-    llvm::cl::init(false));
+bool clGPUTestTileAndFuseVectorize = false;
 
-llvm::cl::opt<bool> clLLVMGPUVectorizePipeline(
-    "iree-codegen-llvmgpu-vectorize-pipeline",
-    llvm::cl::desc("forces use of the legacy LLVMGPU vectorize pipeline"),
-    llvm::cl::init(false));
+bool clLLVMGPUVectorizePipeline = false;
 
-llvm::cl::opt<bool> clGPUEnableVectorDistribution(
-    "iree-codegen-llvmgpu-use-vector-distribution",
-    llvm::cl::desc("enable the usage of the vector distribution pipeline"),
-    llvm::cl::init(false));
+bool clGPUEnableVectorDistribution = false;
 
 // TODO (nirvedhmeshram): Drop this whole path after we have support with
 // TileAndFuse pipeline from completion of
 // https://github.com/iree-org/iree/issues/18858
-llvm::cl::opt<bool> clGPUUnalignedGEMMVectorDistribution(
-    "iree-codegen-llvmgpu-use-unaligned-gemm-vector-distribution",
-    llvm::cl::desc("enable the usage of the vector distribution pipeline for "
-                   "unaligned GEMMs when supported"),
-    llvm::cl::init(true));
+bool clGPUUnalignedGEMMVectorDistribution = true;
 
-llvm::cl::opt<bool> clGPUUseTileAndFuseConvolution(
-    "iree-codegen-llvmgpu-use-tile-and-fuse-convolution",
-    llvm::cl::desc(
-        "enable the tile and fuse pipeline for supported convolutions"),
-    llvm::cl::init(true));
+bool clGPUUseTileAndFuseConvolution = true;
 
 /// Flag to force using WMMA tensorcore operations.
-llvm::cl::opt<bool>
-    clGPUUseWMMA("iree-codegen-llvmgpu-use-wmma",
-                 llvm::cl::desc("force use of wmma operations for tensorcore"),
-                 llvm::cl::init(false));
+bool clGPUUseWMMA = false;
 
 /// Flag used to toggle using mma.sync vs wmma when targetting tensorcore.
-llvm::cl::opt<bool>
-    clGPUUseMMASync("iree-codegen-llvmgpu-use-mma-sync",
-                    llvm::cl::desc("force use mma sync instead of wmma ops"),
-                    llvm::cl::init(true));
+bool clGPUUseMMASync = true;
 
-llvm::cl::opt<int> clGPUMatmulCThreshold(
-    "iree-codegen-llvmgpu-matmul-c-matrix-threshold",
-    llvm::cl::desc("matmul c matrix element count threshold to be considered "
-                   "as small vs. large when deciding MMA schedule"),
-    // TODO: We should get this value from the target's parallelism.
-    llvm::cl::init(512 * 512));
+int clGPUMatmulCThreshold = 512 * 512;
 
-static llvm::cl::opt<bool> clLLVMGPUEnablePrefetch(
-    "iree-llvmgpu-enable-prefetch",
-    llvm::cl::desc("Enable prefetch in the vector distribute pipeline"),
-    llvm::cl::init(true));
+static bool clLLVMGPUEnablePrefetch = true;
 
-// static llvm::cl::opt<bool>
-//     clLLVMGPUUseIgemm("iree-codegen-llvmgpu-use-igemm",
-//                       llvm::cl::desc("Enable implicit gemm for
-//                       convolutions."), llvm::cl::init(true));
 namespace {
 
 using CodeGenPipeline = IREE::Codegen::DispatchLoweringPassPipeline;
@@ -847,7 +808,6 @@ static LogicalResult setContractConfig(IREE::GPU::TargetAttr target,
         numParallelLoops + numReductionLoops, 1);
     workgroupTileSizes[numParallelLoops - 2] = tileX;
     workgroupTileSizes[numParallelLoops - 1] = tileY;
-
     SmallVector<unsigned> partitionedLoops =
         cast<PartitionableLoopsInterface>(op.getOperation())
             .getPartitionableLoops(/*maxNumPartitionedLoops=*/std::nullopt);
@@ -1939,7 +1899,6 @@ LogicalResult initGPULaunchConfig(FunctionOpInterface funcOp) {
   }
 
   Operation *rootOperation = nullptr;
-  llvm::errs() << "computeOps: " << computeOps.size() << "\n";
   // Find the root operation. linalg.generic, linalg.fill, and scatter are not
   // root operations if there are other compute operations present.
   for (Operation *op : llvm::reverse(computeOps)) {

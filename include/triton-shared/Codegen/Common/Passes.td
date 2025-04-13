@@ -482,24 +482,24 @@ def MemrefCopyToLinalgPass :
   let summary = "Convert memref.copy to linalg op";
 }
 
-// def NormalizeLoopBoundsPass :
-//     Pass<"iree-codegen-normalize-loop-bounds", ""> {
-//   let summary = "Normalize the loop bounds of `scf.for` and `scf.forall`";
-//   let description = [{
-//     Normalizes the iteration range of `scf.for` and `scf.forall` loops to
-//     [0, ub) += 1.
-//   }];
-//   let options = [
-//     Option<"normalizeFor", "normalize-for", "bool", "true",
-//            "Enable normalization for `scf.for` loops">,
-//     Option<"normalizeForall", "normalize-forall", "bool", "true",
-//            "Enable normalization for `scf.forall` loops">,
-//   ];
-//   let dependentDialects = [
-//       "affine::AffineDialect",
-//       "arith::ArithDialect"
-//   ];
-// }
+def NormalizeLoopBoundsPass :
+    Pass<"iree-codegen-normalize-loop-bounds", ""> {
+  let summary = "Normalize the loop bounds of `scf.for` and `scf.forall`";
+  let description = [{
+    Normalizes the iteration range of `scf.for` and `scf.forall` loops to
+    [0, ub) += 1.
+  }];
+  let options = [
+    Option<"normalizeFor", "normalize-for", "bool", "true",
+           "Enable normalization for `scf.for` loops">,
+    Option<"normalizeForall", "normalize-forall", "bool", "true",
+           "Enable normalization for `scf.forall` loops">,
+  ];
+  let dependentDialects = [
+      "affine::AffineDialect",
+      "arith::ArithDialect"
+  ];
+}
 
 def OptimizeVectorTransferPass :
     InterfacePass<"iree-codegen-optimize-vector-transfer", "mlir::FunctionOpInterface"> {

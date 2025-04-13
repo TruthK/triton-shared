@@ -38,7 +38,7 @@ namespace mlir::tts {
 // /// Post-bufferization passes run to cleanup the IR
 // /// (ResolveShapedTypeResultDims, Canonicalization/CSE and
 // /// CleanupBufferAllocView).
-// void addIREEPostBufferizationPasses(OpPassManager &funcPassManager);
+void addIREEPostBufferizationPasses(OpPassManager &funcPassManager);
 
 using bufferization::BufferizationOptions;
 void addIREEComprehensiveBufferizePasses(

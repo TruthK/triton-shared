@@ -7,7 +7,7 @@
 #include "triton-shared/Codegen/Common/GPU/Passes.h"
 #include "triton-shared/Codegen/Utils/GPUUtils.h"
 #include "triton-shared/Codegen/Utils/Utils.h"
-#include "llvm/Support/CommandLine.h"
+
 #include "mlir/Conversion/LLVMCommon/LoweringOptions.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"

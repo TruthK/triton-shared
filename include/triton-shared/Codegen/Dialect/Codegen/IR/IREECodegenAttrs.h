@@ -28,10 +28,7 @@ using TileSizesListTypeRef = ArrayRef<SmallVector<int64_t>>;
 using ScalableTileFlagsListType = SmallVector<SmallVector<bool>>;
 using ScalableTileFlagsListTypeRef = ArrayRef<SmallVector<bool>>;
 /// Flag to add attributes for tuner.
-inline llvm::cl::opt<bool>
-    clSetTunerAttr("iree-config-add-tuner-attributes",
-                   llvm::cl::desc("Adds attribute for tuner."),
-                   llvm::cl::init(false));
+inline bool clSetTunerAttr = false;
 } // namespace mlir::tts
 
 // clang-format off

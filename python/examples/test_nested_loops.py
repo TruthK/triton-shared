@@ -2,7 +2,7 @@ import torch
 
 import triton
 from triton.backends.compiler import GPUTarget
-from triton.backends.tts_nv.driver import CPUDriver
+from triton.backends.ttsnv.driver import CPUDriver
 import triton.language as tl
 
 

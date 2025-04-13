@@ -338,7 +338,6 @@ static void fuseProducersOfSlices(RewriterBase &rewriter,
   SmallVector<LoopLikeOpInterface> loops = {
       cast<LoopLikeOpInterface>(&*forallOp)};
   while (!worklist.empty()) {
-    worklist.front()->dump();
     auto candidateSlice = cast<tensor::ExtractSliceOp>(worklist.front());
     worklist.pop();
 
@@ -417,7 +416,6 @@ void TileAndDistributeToWorkgroupsUsingForallOpPass::runOnOperation() {
     return;
   }
   bool isMatmul = isa<linalg::MatmulOp>(tilableOp);
-  tilableOp.dump();
   mlir::DominanceInfo dominanceInfo(tilableOp);
   llvm::SmallDenseSet<Operation *> tiledAndFusedOps;
   collectTiledAndFusedOps(tilableOp, tiledAndFusedOps);

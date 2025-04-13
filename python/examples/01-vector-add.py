@@ -23,7 +23,7 @@ import torch
 import triton
 import triton.language as tl
 
-from triton.backends.tts_nv.driver import KzxCudaDriver
+from triton.backends.ttsnv.driver import KzxCudaDriver
 
 
 def select_kzx_cuda_backend():

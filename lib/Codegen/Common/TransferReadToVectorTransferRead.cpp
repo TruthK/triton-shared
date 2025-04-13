@@ -36,8 +36,6 @@ struct ConvertVectorExtTransferReadToVectorTransferRead
     rewriter.setInsertionPoint(op);
     // 获取源和结果类型
     MemRefType resultType = mlir::cast<MemRefType>(op.getResult().getType());
-    op.dump();
-    resultType.dump();
     // 创建向量类型作为vector.transfer_read的结果类型
     VectorType vectorType =
         VectorType::get(resultType.getShape(), resultType.getElementType());

@@ -104,7 +104,7 @@ Value llGetPid(Location loc, RewriterBase &rewriter, ModuleOp moduleOp,
   // decide the semantic of GetProgramIdOp. If numCTAs = 1, then
   // GetProgramIdOp is converted to "%ctaid", otherwise it is converted to
   // "%clusterid".
-  assert(false);
+  // assert(false);
   // TODO triton::gpu::TritonGPUDialect::getNumCTAs(moduleOp) 用metadata
   int numCTAs = 1;
 

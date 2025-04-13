@@ -17,7 +17,7 @@ namespace mlir::tts {
 
 namespace {
 struct CUDAOptions {
-  std::string clTarget = "sm_89";
+  std::string clTarget = "sm_75";
   std::string clTargetFeatures = "+ptx84";
   // bool clUsePtxas = false;
   // std::string clUsePtxasFrom;

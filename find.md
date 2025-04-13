@@ -39,7 +39,7 @@ VectorToGPU
 -------
 
 
-third_party/llvm-project/build/bin/mlir-opt   .vscode/core_dump_llir.mlir --convert-linalg-to-affine-loops --empty-tensor-to-alloc-tensor --one-shot-bufferize   --convert-linalg-to-loops --lower-affine --expand-strided-metadata   --convert-vector-to-gpu  --gpu-map-parallel-loops  --convert-parallel-loops-to-gpu  --gpu-lower-to-nvvm-pipeline=cubin-chip=sm_89    --convert-scf-to-cf     --convert-vector-to-llvm --convert-index-to-llvm --convert-arith-to-llvm --convert-math-to-llvm --convert-complex-to-llvm   --convert-func-to-llvm  --convert-cf-to-llvm  --convert-arith-to-llvm --convert-nvvm-to-llvm --reconcile-unrealized-casts  --verify-diagnostics
+third_party/llvm-project/build/bin/mlir-opt   .vscode/core_dump_llir.mlir --convert-linalg-to-affine-loops --empty-tensor-to-alloc-tensor --one-shot-bufferize   --convert-linalg-to-loops --lower-affine --expand-strided-metadata   --convert-vector-to-gpu  --gpu-map-parallel-loops  --convert-parallel-loops-to-gpu  --gpu-lower-to-nvvm-pipeline=cubin-chip=sm_75    --convert-scf-to-cf     --convert-vector-to-llvm --convert-index-to-llvm --convert-arith-to-llvm --convert-math-to-llvm --convert-complex-to-llvm   --convert-func-to-llvm  --convert-cf-to-llvm  --convert-arith-to-llvm --convert-nvvm-to-llvm --reconcile-unrealized-casts  --verify-diagnostics
 
 ===-------------------------------------------------------------------------===
                          ... Execution time report ...

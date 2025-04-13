@@ -12,7 +12,7 @@
 #include "triton-shared/Codegen/Utils/MarkerUtils.h"
 #include "triton-shared/Codegen/Utils/Utils.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/CommandLine.h"
+
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -26,6 +26,7 @@
 #include <cassert>
 #include <cstdint>
 #include <optional>
+#include <string>
 
 #define DEBUG_TYPE "iree-codegen-gpu-utils"
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]: ")
@@ -34,14 +35,7 @@
 
 static constexpr unsigned kShuffleBitWidth = 32;
 
-static llvm::cl::opt<std::string> clTestTarget(
-    "iree-gpu-test-target",
-    llvm::cl::desc(
-        "The target for IR LIT tests. Format is '<arch>:<feature>@<api>', "
-        "where <feature> and <api> are optional; e.g., "
-        "'gfx942:+sramecc,-xnack@hip'. If <api> is missing, it will be deduced "
-        "from <arch>; e.g., 'gfx*' defaults to HIP, 'sm_*' defaults to CUDA"),
-    llvm::cl::init(""));
+static std::string clTestTarget = "";
 
 namespace mlir::tts {
 

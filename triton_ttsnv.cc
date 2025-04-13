@@ -1,36 +1,16 @@
-#include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
-#include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
-#include "mlir/Conversion/ConvertToLLVM/ToLLVMPass.h"
-#include "mlir/Conversion/GPUToNVVM/GPUToNVVMPass.h"
-#include "mlir/Conversion/LinalgToStandard/LinalgToStandard.h"
-#include "mlir/Conversion/Passes.h"
-#include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
-#include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
-#include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
-#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
-#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
-#include "mlir/Dialect/GPU/IR/GPUDialect.h"
-#include "mlir/Dialect/GPU/Transforms/Passes.h"
-#include "mlir/Dialect/Linalg/IR/Linalg.h"
-#include "mlir/Dialect/Linalg/Passes.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/InitAllDialects.h"
-#include "mlir/InitAllExtensions.h"
-#include "mlir/InitAllPasses.h"
-#include "mlir/InitAllTranslations.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassOptions.h"
-#include "mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"
-#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
-#include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/Passes.h"
+
+#include "triton-shared/Codegen/LLVMGPU/Passes.h"
+#include "triton-shared/Codegen/Passes.h"
+#include "triton-shared/Conversion/TritonToLinalgExperimental/TritonToLinalgExperimental.h"
 #include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 #include "triton-shared/Dialect/TritonTilingExt/IR/TritonTilingExtDialect.h"
-#include "triton-shared/Codegen/Passes.h"
+#include "triton-shared/Codegen/Interfaces/Interfaces.h"
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenDialect.h"
 
-#include "triton-shared/Conversion/TritonToLinalgExperimental/TritonToLinalgExperimental.h"
 #include "llvm/IR/Constants.h"
 
 #include "passes.h"
@@ -44,11 +24,33 @@ void init_triton_triton_shared(py::module &&m) {
                      mlir::triton::createTritonToLinalgExperimentalPass);
 }
 
+void init_tts_codegen(py::module &&m) {
 
-void init_triton_tts_nv(py::module &&m) {
+  m.def("iree_materialize_target",
+        [](mlir::PassManager &pm, int32_t capability, int32_t ptxVersion) {
+          mlir::tts::MaterializeTargetPassOptions options;
+          options.computeCapability = capability;
+          options.ptxVersion = ptxVersion;
+          pm.addPass(mlir::tts::createMaterializeTargetPass(options));
+        });
+
+  ADD_PASS_WRAPPER_0("iree_llvmgpu_select_lowering_strategy",
+                     mlir::tts::createLLVMGPUSelectLoweringStrategyPass);
+
+  m.def("iree_llvmgpu_codegen",
+        [](mlir::PassManager &pm, int32_t capability, int32_t ptxVersion) {
+          mlir::tts::LLVMGPUCodegenPassOptions options;
+          options.computeCapability = capability;
+          options.ptxVersion = ptxVersion;
+          pm.addPass(mlir::tts::createLLVMGPUCodegenPass(options));
+        });
+}
+
+void init_triton_ttsnv(py::module &&m) {
   m.doc() = "Python bindings to the TTS_NVIDIA Triton backend";
   auto passes = m.def_submodule("passes");
   init_triton_triton_shared(passes.def_submodule("tts"));
+  init_tts_codegen(passes.def_submodule("tts_codegen"));
   // load dialects
   m.def("load_dialects", [](mlir::MLIRContext &context) {
     mlir::DialectRegistry registry;
@@ -58,6 +60,8 @@ void init_triton_tts_nv(py::module &&m) {
     mlir::registerAllDialects(registry);
     mlir::tts::registerCodegenPasses();
     mlir::tts::registerCodegenDependentDialects(registry);
+    mlir::tts::registerCodegenInterfaces(registry);
+    mlir::tts::registerUKernelBufferizationInterface(registry);
     context.appendDialectRegistry(registry);
   });
 

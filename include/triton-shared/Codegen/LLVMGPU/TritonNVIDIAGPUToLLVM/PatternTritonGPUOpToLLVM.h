@@ -18,9 +18,13 @@ void populateTTSSPMDOpToLLVMPattern(LLVMTypeConverter &typeConverter,
                                     const TargetInfoBase &targetInfo,
                                     RewritePatternSet &patterns);
 
-void populateTTSFuncOpConversionPattern(RewritePatternSet &patterns,
+void populateTTSFuncOpConversionPattern(LLVMTypeConverter &typeConverter,
+                                        RewritePatternSet &patterns,
                                         int numWarps,
                                         const TargetInfoBase &targetInfo);
+
+void populateTTSKernelArgCleanupPattern(LLVMTypeConverter &typeConverter,
+                                        RewritePatternSet &patterns);
 
 // void populateClampFOpToLLVMPattern(LLVMTypeConverter &typeConverter,
 //                                    RewritePatternSet &patterns,

@@ -2,7 +2,7 @@ import time
 import numpy as np
 from functools import wraps
 import triton
-from triton.backends.tts_nv.driver import KzxCudaDriver
+from triton.backends.ttsnv.driver import KzxCudaDriver
 
 
 def select_cpu_backend():

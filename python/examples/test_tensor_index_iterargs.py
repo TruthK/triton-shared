@@ -3,7 +3,7 @@ import torch
 import triton
 import triton.language as tl
 
-from triton.backends.tts_nv.driver import CPUDriver
+from triton.backends.ttsnv.driver import CPUDriver
 
 def test_tensor_indices_nested_with_mask(device):
     @triton.jit
