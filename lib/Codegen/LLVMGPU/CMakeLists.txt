@@ -20,6 +20,7 @@ add_triton_library(IREECodegenLLVMGPU
  ConvertToLLVM.cpp
  SerializeExecutables.cpp
  LLVMGPUPrefetching.cpp
+ 
 
 
   DEPENDS
@@ -108,6 +109,9 @@ add_triton_library(IREECodegenLLVMGPU
   MLIRTargetLLVMIRExport
 
   TTSUtils
+  TritonStructuredIR
+  TritonToLinalgExperimental
+  
 
   IREEGPUHeuristics
   IREECodegenDialect

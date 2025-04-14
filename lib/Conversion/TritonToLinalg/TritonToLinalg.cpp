@@ -82,12 +82,13 @@ void mlir::triton::populateTritonToLinalgConversionPatterns(
   patterns.add<ArgMinConverter>(patterns.getContext());
   patterns.add<ArgMaxConverter>(patterns.getContext());
   patterns.add<ReduceConverter>(patterns.getContext());
-
   // Note: the ordering here matters!
   // MetaOpConverter has PatternBenefit == 10 which should take precedence over
   // these linalg patterns, but to be safe, add these patterns last so that they
   // will be tried last. Incorrect ordering or having MetaOpConverter has lower
   // PatternBenefit will result in element-wise meta ops being converted to
   // linalg.generic ops.
-  linalg::populateElementwiseToLinalgConversionPatterns(patterns);
+
+  patterns.add<ConvertAnyElementwiseMappableOpOnRankedTensorsInTTS>(
+      patterns.getContext());
 }

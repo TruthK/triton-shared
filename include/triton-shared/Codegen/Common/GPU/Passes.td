@@ -97,13 +97,13 @@ def GPUGreedilyDistributeToThreadsPass :
   ];
 }
 
-// def GPUInferMemorySpacePass :
-//     InterfacePass<"iree-codegen-gpu-infer-memory-space", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass to infer and set the memory space for all alloc_tensor ops.";
-//   let dependentDialects = [
-//     "::mlir::gpu::GPUDialect"
-//   ];
-// }
+def GPUInferMemorySpacePass :
+    InterfacePass<"iree-codegen-gpu-infer-memory-space", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to infer and set the memory space for all alloc_tensor ops.";
+  let dependentDialects = [
+    "::mlir::gpu::GPUDialect"
+  ];
+}
 
 // def GPULowerToUKernelsPass :
 //     Pass<"iree-codegen-gpu-lower-to-ukernels", ""> {

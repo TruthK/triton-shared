@@ -38,6 +38,7 @@
 #include "triton-shared/Codegen/Utils/GPUUtils.h"
 #include "triton-shared/Codegen/Utils/LinalgOpInfo.h"
 #include "triton-shared/Codegen/Utils/Utils.h"
+#include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 
 #include "llvm/ADT/STLExtras.h"
 
@@ -1096,6 +1097,7 @@ static LogicalResult setRootDefaultConfig(IREE::GPU::TargetAttr target,
                                           Operation *op) {
   CodeGenPipeline passPipeline = CodeGenPipeline::LLVMGPUDistribute;
   TileSizesListType tileSizes;
+  op->dump();
   auto interfaceOp = cast<PartitionableLoopsInterface>(*op);
   auto partitionedLoops = interfaceOp.getPartitionableLoops(std::nullopt);
   if (partitionedLoops.empty()) {
@@ -1902,8 +1904,8 @@ LogicalResult initGPULaunchConfig(FunctionOpInterface funcOp) {
   // Find the root operation. linalg.generic, linalg.fill, and scatter are not
   // root operations if there are other compute operations present.
   for (Operation *op : llvm::reverse(computeOps)) {
-    if (!isa<linalg::GenericOp, mlir::tts::IREE::VectorExt::TransferReadOp>(
-            op)) {
+    if (!isa<linalg::GenericOp, mlir::tts::IREE::VectorExt::TransferReadOp,
+             mlir::tts::TransferReadOp>(op)) {
       rootOperation = op;
       break;
     }

@@ -8,6 +8,7 @@
 
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ComplexToStandard/ComplexToStandard.h"
+#include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -36,6 +37,7 @@
 #include "triton-shared/Codegen/Utils/GPUUtils.h"
 #include "triton-shared/Codegen/Utils/MarkerUtils.h"
 #include "triton-shared/Codegen/Utils/Utils.h"
+#include "triton-shared/Conversion/TritonToLinalgExperimental/TritonToLinalgExperimental.h"
 #include "triton-shared/Utils/PassUtils.h"
 
 #include "llvm/ADT/STLForwardCompat.h"
@@ -248,58 +250,59 @@ static void addGPUVectorizationPasses(OpPassManager &funcPassManager,
 //   funcPassManager.addPass(createOptimizeTensorInsertExtractSlicesPass());
 // }
 
-// //===---------------------------------------------------------------------===//
-// // Tile and Fuse
-// //===---------------------------------------------------------------------===//
+//===---------------------------------------------------------------------===//
+// Tile and Fuse
+//===---------------------------------------------------------------------===//
 
-// static FailureOr<Value> gpuRequireMemSpaceAllocationFn(OpBuilder &builder,
-//                                                        Location loc,
-//                                                        MemRefType
-//                                                        memRefType,
-//                                                        ValueRange
-//                                                        dynamicSizes,
-//                                                        unsigned alignment)
-//                                                        {
-//   Attribute memorySpace = memRefType.getMemorySpace();
-//   // Bail out if the memref type specifies a nonnull memory space that is
-//   not
-//   // #gpu.address_space.
-//   if (memorySpace && !llvm::isa<gpu::AddressSpaceAttr>(memorySpace)) {
-//     return failure();
-//   }
+static FailureOr<Value> gpuRequireMemSpaceAllocationFn(OpBuilder &builder,
+                                                       Location loc,
+                                                       MemRefType
+                                                       memRefType,
+                                                       ValueRange
+                                                       dynamicSizes,
+                                                       unsigned alignment)
+                                                       {
+  Attribute memorySpace = memRefType.getMemorySpace();
+  // Bail out if the memref type specifies a nonnull memory space that is not
+  // #gpu.address_space.
+  if (memorySpace && !llvm::isa<gpu::AddressSpaceAttr>(memorySpace)) {
+    return failure();
+  }
 
-//   MemRefType allocType = memRefType;
-//   auto privateSpace = gpu::AddressSpaceAttr::get(
-//       builder.getContext(), gpu::GPUDialect::getPrivateAddressSpace());
-//   if (!memorySpace) {
-//     allocType =
-//         MemRefType::get(memRefType.getShape(), memRefType.getElementType(),
-//                         AffineMap(), privateSpace);
-//     memorySpace = privateSpace;
-//   }
+  MemRefType allocType = memRefType;
+  auto privateSpace = gpu::AddressSpaceAttr::get(
+      builder.getContext(), gpu::GPUDialect::getPrivateAddressSpace());
+  if (!memorySpace) {
+    allocType =
+        MemRefType::get(memRefType.getShape(), memRefType.getElementType(),
+                        AffineMap(), privateSpace);
+    memorySpace = privateSpace;
+  }
 
-//   if (memorySpace == privateSpace) {
-//     return builder.create<memref::AllocaOp>(loc, allocType, dynamicSizes)
-//         .getResult();
-//   }
-//   return builder.create<memref::AllocOp>(loc, allocType, dynamicSizes)
-//       .getResult();
-// }
+  if (memorySpace == privateSpace) {
+    return builder.create<memref::AllocaOp>(loc, allocType, dynamicSizes)
+        .getResult();
+  }
+  return builder.create<memref::AllocOp>(loc, allocType, dynamicSizes)
+      .getResult();
+}
 
 static void addGPUBufferizePasses(OpPassManager &funcPassManager) {
-  // funcPassManager.addPass(createEliminateEmptyTensorsPass());
-  // funcPassManager.addPass(bufferization::createEmptyTensorToAllocTensorPass());
-  // funcPassManager.addPass(createGPUInferMemorySpacePass());
-  // BufferizationOptions::AllocationFn allocationFn =
-  //     gpuRequireMemSpaceAllocationFn;
-  // BufferizationOptions::MemCpyFn memcpyFn = [](OpBuilder &builder, Location
-  // loc,
-  //                                              Value from, Value to) {
-  //   builder.create<memref::CopyOp>(loc, from, to);
-  //   return success();
-  // };
-  // funcPassManager.addPass(
-  //     createIREEComprehensiveBufferizePass(allocationFn, memcpyFn));
+  funcPassManager.addPass(createEliminateEmptyTensorsPass());
+  funcPassManager.addPass(bufferization::createEmptyTensorToAllocTensorPass());
+  funcPassManager.addPass(createGPUInferMemorySpacePass());
+  BufferizationOptions::AllocationFn allocationFn =
+      gpuRequireMemSpaceAllocationFn;
+  BufferizationOptions::MemCpyFn memcpyFn = [](OpBuilder &builder, Location
+  loc,
+                                               Value from, Value to) {
+    builder.create<memref::CopyOp>(loc, from, to);
+    return success();
+  };
+
+  funcPassManager.addPass(triton::createConvertTTSTransferOpPass());
+  funcPassManager.addPass(
+      createIREEComprehensiveBufferizePass(allocationFn, memcpyFn));
   addIREEPostBufferizationPasses(funcPassManager);
 
   funcPassManager.addPass(createCanonicalizerPass());
@@ -384,6 +387,12 @@ void addGPUTileAndFusePassPipeline(OpPassManager &funcPassManager,
   funcPassManager.addPass(createCanonicalizerPass());
   funcPassManager.addPass(createCSEPass());
   // funcPassManager.addPass(createIREELoopInvariantCodeMotionPass());
+  // funcPassManager.addPass(
+  //     mlir::triton::createConvertTritonStructuredToMemrefPass());
+  // funcPassManager.addPass(mlir::createReconcileUnrealizedCastsPass());
+  // funcPassManager.addPass(createCanonicalizerPass());
+  // funcPassManager.addPass(createCSEPass());
+
   funcPassManager.addPass(IREE::GPU::createCombineBarrierRegionsPass());
   funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
 

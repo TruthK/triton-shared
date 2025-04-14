@@ -80,10 +80,10 @@ public:
 
     pm.addPass(createCanonicalizerPass());
     pm.addPass(createCSEPass());
-    pm.addPass(createConvertTritonStructuredToMemrefPass());
-    pm.addPass(createReconcileUnrealizedCastsPass());
-    pm.addPass(createCanonicalizerPass());
-    pm.addPass(createCSEPass());
+    // pm.addPass(createConvertTritonStructuredToMemrefPass());
+    // pm.addPass(createReconcileUnrealizedCastsPass());
+    // pm.addPass(createCanonicalizerPass());
+    // pm.addPass(createCSEPass());
     
     if (failed(runPipeline(pm, getOperation()))) {
       signalPassFailure();

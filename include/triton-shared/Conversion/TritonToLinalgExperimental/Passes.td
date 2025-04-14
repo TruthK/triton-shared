@@ -16,7 +16,7 @@ def TritonToLinalgExperimental : Pass<"triton-to-linalg-experimental", "mlir::Mo
   let constructor = "triton::createTritonToLinalgExperimentalPass()";
 }
 
-def ConvertTritonStructuredToMemref : Pass<"convert-triton-structured-to-memref", "mlir::ModuleOp"> {
+def ConvertTritonStructuredToMemref : Pass<"convert-triton-structured-to-memref", "mlir::func::FuncOp"> {
   let summary = "Convert Triton Structured ops to memref ops";
   let description = [{
     This pass converts Triton Structured transfer ops to memref transfer ops.
@@ -31,6 +31,11 @@ def LinalgGenericFusionPass : Pass<"linalg-generic-fusion", "mlir::ModuleOp"> {
     when possible to reduce intermediate memory usage and improve performance.
   }];
   let constructor = "triton::createLinalgGenericFusionPass()";
+}
+
+def ConvertTTSTransferOp : Pass<"convert-triton-transfer-op", "mlir::func::FuncOp"> {
+  let summary = "Convert Triton Structured transfer ops to memref transfer ops";
+  let constructor = "triton::createConvertTTSTransferOpPass()";
 }
 
 #endif

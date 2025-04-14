@@ -2,6 +2,7 @@ add_triton_library(TritonToLinalgExperimental
   TritonToLinalgExperimentalPass.cpp
   TritonStructuredToMemref.cpp
   LinalgGenericFusion.cpp
+  ConvertTTSTransferOp.cpp
 
   DEPENDS
   TritonToLinalgExperimentalConversionPassIncGen

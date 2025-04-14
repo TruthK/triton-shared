@@ -77,10 +77,10 @@ void addConstantBufferizePasses(OpPassManager &funcPassManager);
 // /// is specified, the default allocator generates an `std.alloc` instruction
 // /// with the allocated MemRefType having no stride map (i.e. default row-major
 // /// striding) and default memory space.
-// std::unique_ptr<InterfacePass<FunctionOpInterface>>
-// createIREEComprehensiveBufferizePass(
-//     std::optional<BufferizationOptions::AllocationFn> allocationFn,
-//     std::optional<BufferizationOptions::MemCpyFn> memCpyFn);
+std::unique_ptr<InterfacePass<FunctionOpInterface>>
+createIREEComprehensiveBufferizePass(
+    std::optional<BufferizationOptions::AllocationFn> allocationFn,
+    std::optional<BufferizationOptions::MemCpyFn> memCpyFn);
 
 // /// Create an IREE-specific Transform dialect interpreter pass with all
 // /// registrations necessary for IREE.

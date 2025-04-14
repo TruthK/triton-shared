@@ -444,17 +444,33 @@ public:
   LogicalResult
   matchAndRewrite(tts::LoadOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    LLVM_DEBUG({
-      llvm::dbgs() << "LoadToTransferReadConverter\n";
-      adaptor.getPtr().getType().dump();
-    });
-    auto transferRead = rewriter.create<tts::TransferReadOp>(
-        op.getLoc(), adaptor.getPtr(),
-        op.getMixedMaskDims(), // mask dimensions
-        op.getOther()          // other value for masked loads
-    );
+    auto ptr = adaptor.getPtr();
+    auto ptrDefiningOp = ptr.getDefiningOp();
+    // TODO
+    if (ptrDefiningOp->hasAttr(WRAP_SIDE_BY_SIDE) ||
+        ptrDefiningOp->hasAttr(WRAP_STACKED)) {
+      assert(false);
+    }
 
-    rewriter.replaceOp(op, transferRead);
+    if (op.hasMask()) {
+      auto transferRead = rewriter.create<tts::TransferReadOp>(
+          op.getLoc(), ptr,
+          op.getMixedMaskDims(), // mask dimensions
+          op.getOther()          // other value for masked loads
+      );
+
+      rewriter.replaceOp(op, transferRead);
+    } else {
+
+      auto loc = op->getLoc();
+      auto tensorType = cast<RankedTensorType>(op.getType());
+      auto elemType = tensorType.getElementType();
+
+      Value tensor = rewriter.create<bufferization::ToTensorOp>(
+          loc, tensorType, ptr, true /* restrict */, false /* writable */);
+      rewriter.replaceOp(op, tensor);
+    }
+
     return success();
   }
 };
@@ -510,7 +526,8 @@ public:
 //         rewriter.create<memref::SubViewOp>(loc, dst, /* offsets */
 //                                            ValueRange{zero, zero},
 //                                            /* sizes */
-//                                            ValueRange{block1Row, block1Col},
+//                                            ValueRange{block1Row,
+//                                            block1Col},
 //                                            /* strides */
 //                                            ValueRange{one, one});
 
@@ -519,7 +536,8 @@ public:
 //                                            /* offsets */
 //                                            ValueRange{zero, block1Col},
 //                                            /* sizes */
-//                                            ValueRange{block2Row, block2Col},
+//                                            ValueRange{block2Row,
+//                                            block2Col},
 //                                            /* strides */
 //                                            ValueRange{one, one});
 
@@ -546,7 +564,8 @@ public:
 //         rewriter.create<memref::SubViewOp>(loc, dst, /* offsets */
 //                                            ValueRange{zero, zero},
 //                                            /* sizes */
-//                                            ValueRange{block1Row, block1Col},
+//                                            ValueRange{block1Row,
+//                                            block1Col},
 //                                            /* strides */
 //                                            ValueRange{one, one});
 
@@ -555,7 +574,8 @@ public:
 //                                            /* offsets */
 //                                            ValueRange{block1Row, zero},
 //                                            /* sizes */
-//                                            ValueRange{block2Row, block2Col},
+//                                            ValueRange{block2Row,
+//                                            block2Col},
 //                                            /* strides */
 //                                            ValueRange{one, one});
 
@@ -563,16 +583,20 @@ public:
 //     rewriter.create<memref::CopyOp>(loc, block2, block2Dst);
 //   }
 
-//   memref::SubViewOp createSubview(Value src, ArrayRef<OpFoldResult> offsets,
+//   memref::SubViewOp createSubview(Value src, ArrayRef<OpFoldResult>
+//   offsets,
 //                                   ArrayRef<OpFoldResult> sizes,
 //                                   ArrayRef<OpFoldResult> strides, Location
 //                                   loc, ConversionPatternRewriter &rewriter)
 //                                   const {
 //     auto srcType = cast<MemRefType>(src.getType());
 //     auto dstType =
-//         memref::SubViewOp::inferResultType(srcType, offsets, sizes, strides);
-//     return rewriter.create<memref::SubViewOp>(loc, cast<MemRefType>(dstType),
-//                                               src, offsets, sizes, strides);
+//         memref::SubViewOp::inferResultType(srcType, offsets, sizes,
+//         strides);
+//     return rewriter.create<memref::SubViewOp>(loc,
+//     cast<MemRefType>(dstType),
+//                                               src, offsets, sizes,
+//                                               strides);
 //   }
 
 //   std::pair<memref::SubViewOp, memref::SubViewOp>
@@ -584,37 +608,42 @@ public:
 //     OpFoldResult subviewColFull = dims[1];
 //     OpFoldResult col1 =
 //         rewriter.create<memref::DimOp>(loc, block1, 1).getResult();
-//     OpFoldResult subviewCol1 = minOFRs(col1, subviewColFull, loc, rewriter);
-//     OpFoldResult subviewCol2 =
+//     OpFoldResult subviewCol1 = minOFRs(col1, subviewColFull, loc,
+//     rewriter); OpFoldResult subviewCol2 =
 //         subOFRs(subviewColFull, subviewCol1, loc, rewriter);
 
-//     SmallVector<OpFoldResult> offsets(dims.size(), rewriter.getIndexAttr(0));
-//     SmallVector<OpFoldResult> strides(dims.size(), rewriter.getIndexAttr(1));
-//     auto sv1 = createSubview(block1, offsets, {subviewRowFull, subviewCol1},
+//     SmallVector<OpFoldResult> offsets(dims.size(),
+//     rewriter.getIndexAttr(0)); SmallVector<OpFoldResult>
+//     strides(dims.size(), rewriter.getIndexAttr(1)); auto sv1 =
+//     createSubview(block1, offsets, {subviewRowFull, subviewCol1},
 //                              strides, loc, rewriter);
-//     auto sv2 = createSubview(block2, offsets, {subviewRowFull, subviewCol2},
+//     auto sv2 = createSubview(block2, offsets, {subviewRowFull,
+//     subviewCol2},
 //                              strides, loc, rewriter);
 
 //     return {sv1, sv2};
 //   }
 
 //   std::pair<memref::SubViewOp, memref::SubViewOp>
-//   getStackedSubviews(ArrayRef<OpFoldResult> dims, Value block1, Value block2,
+//   getStackedSubviews(ArrayRef<OpFoldResult> dims, Value block1, Value
+//   block2,
 //                      const Location loc,
 //                      ConversionPatternRewriter &rewriter) const {
 //     OpFoldResult subviewRowFull = dims[0];
 //     OpFoldResult subviewColFull = dims[1];
 //     OpFoldResult row1 =
 //         rewriter.create<memref::DimOp>(loc, block1, 0).getResult();
-//     OpFoldResult subviewRow1 = minOFRs(row1, subviewRowFull, loc, rewriter);
-//     OpFoldResult subviewRow2 =
+//     OpFoldResult subviewRow1 = minOFRs(row1, subviewRowFull, loc,
+//     rewriter); OpFoldResult subviewRow2 =
 //         subOFRs(subviewRowFull, subviewRow1, loc, rewriter);
 
-//     SmallVector<OpFoldResult> offsets(dims.size(), rewriter.getIndexAttr(0));
-//     SmallVector<OpFoldResult> strides(dims.size(), rewriter.getIndexAttr(1));
-//     auto sv1 = createSubview(block1, offsets, {subviewRow1, subviewColFull},
+//     SmallVector<OpFoldResult> offsets(dims.size(),
+//     rewriter.getIndexAttr(0)); SmallVector<OpFoldResult>
+//     strides(dims.size(), rewriter.getIndexAttr(1)); auto sv1 =
+//     createSubview(block1, offsets, {subviewRow1, subviewColFull},
 //                              strides, loc, rewriter);
-//     auto sv2 = createSubview(block2, offsets, {subviewRow2, subviewColFull},
+//     auto sv2 = createSubview(block2, offsets, {subviewRow2,
+//     subviewColFull},
 //                              strides, loc, rewriter);
 //     return {sv1, sv2};
 //   }
@@ -641,11 +670,10 @@ public:
 //     if (ptrDefiningOp->hasAttr(WRAP_SIDE_BY_SIDE) ||
 //         ptrDefiningOp->hasAttr(WRAP_STACKED)) {
 
-//       auto unrealizedCast = cast<UnrealizedConversionCastOp>(ptrDefiningOp);
-//       auto memrefs = unrealizedCast.getOperands();
-//       assert(memrefs.size() == 2);
-//       auto block1 = memrefs[0];
-//       auto block2 = memrefs[1];
+//       auto unrealizedCast =
+//       cast<UnrealizedConversionCastOp>(ptrDefiningOp); auto memrefs =
+//       unrealizedCast.getOperands(); assert(memrefs.size() == 2); auto
+//       block1 = memrefs[0]; auto block2 = memrefs[1];
 
 //       if (unrealizedCast->hasAttr(WRAP_SIDE_BY_SIDE)) {
 //         createSideBySideCopies(block1, block2, alloc, loc, rewriter);
@@ -666,7 +694,8 @@ public:
 //   }
 
 //   LogicalResult rewriteMaskedLoad(tts::LoadOp op, OpAdaptor adaptor,
-//                                   ConversionPatternRewriter &rewriter) const
+//                                   ConversionPatternRewriter &rewriter)
+//                                   const
 //                                   {
 //     assert(op.hasMask());
 
@@ -719,7 +748,8 @@ public:
 //     if (ptrDefiningOp->hasAttr(WRAP_SIDE_BY_SIDE) ||
 //         ptrDefiningOp->hasAttr(WRAP_STACKED)) {
 
-//       auto unrealizedCast = cast<UnrealizedConversionCastOp>(ptrDefiningOp);
+//       auto unrealizedCast =
+//       cast<UnrealizedConversionCastOp>(ptrDefiningOp);
 
 //       auto memrefs = unrealizedCast.getOperands();
 //       assert(memrefs.size() == 2);
@@ -728,7 +758,8 @@ public:
 
 //       if (unrealizedCast->hasAttr(WRAP_SIDE_BY_SIDE)) {
 //         auto [subview1, subview2] =
-//             getSideBySideSubviews(mixedDims, block1, block2, loc, rewriter);
+//             getSideBySideSubviews(mixedDims, block1, block2, loc,
+//             rewriter);
 //         createSideBySideCopies(subview1, subview2, alloc, loc, rewriter);
 //       } else if (unrealizedCast->hasAttr(WRAP_STACKED)) {
 //         auto [subview1, subview2] =
@@ -744,7 +775,8 @@ public:
 //       memref::SubViewOp srcSubview =
 //           getSubview(tensorType.getRank(), mixedDims, ptr, loc, rewriter);
 //       memref::SubViewOp dstSubview =
-//           getSubview(tensorType.getRank(), mixedDims, alloc, loc, rewriter);
+//           getSubview(tensorType.getRank(), mixedDims, alloc, loc,
+//           rewriter);
 //       rewriter.create<memref::CopyOp>(loc, srcSubview, dstSubview);
 //     }
 

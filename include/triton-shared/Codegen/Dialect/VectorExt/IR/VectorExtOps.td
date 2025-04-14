@@ -124,12 +124,7 @@ def IREEVectorExt_ToSIMTOp : IREEVectorExt_PureOp<"to_simt",
 def IREEVectorExt_TransferReadOp
   : IREEVectorExt_PureOp<"transfer_read", [ 
       AttrSizedOperandSegments,
-      MemoryEffects<[MemRead]>,
-      DeclareOpInterfaceMethods<TilingInterface,
-        ["getLoopIteratorTypes",
-         "getIterationDomain",
-         "getTiledImplementation",
-         "getResultTilePosition"]>
+      MemoryEffects<[MemRead]>
     ]> {
   let summary = "points to a tensor in memory";
 

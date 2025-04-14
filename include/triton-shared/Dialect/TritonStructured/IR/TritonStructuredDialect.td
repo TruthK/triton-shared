@@ -280,12 +280,7 @@ def TTS_StoreOp : TTS_Op<"store", [
 def TTS_TransferReadOp
   : TTS_Op<"transfer_read", [ 
       AttrSizedOperandSegments,
-      MemoryEffects<[MemRead]>,
-      DeclareOpInterfaceMethods<TilingInterface,
-        ["getLoopIteratorTypes",
-         "getIterationDomain",
-         "getTiledImplementation",
-         "getResultTilePosition"]>
+      MemoryEffects<[MemRead]>
     ]>{
   let summary = "points to a tensor in memory";
 

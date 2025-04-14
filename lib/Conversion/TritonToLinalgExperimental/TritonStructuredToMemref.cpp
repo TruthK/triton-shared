@@ -12,6 +12,7 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Transforms/Patterns.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Tensor/Transforms/Transforms.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/AffineMap.h"
@@ -207,7 +208,6 @@ public:
       iteratorTypes.push_back(mlir::utils::IteratorType::parallel);
     }
 
-
     // 创建GenericOp
     auto newOp = rewriter.create<linalg::GenericOp>(
         loc,
@@ -252,7 +252,6 @@ public:
     Value lhs = adaptor.getInputs()[0];
     Value rhs = adaptor.getInputs()[1];
     Value output = adaptor.getOutputs()[0];
-
 
     // 创建 linalg.matmul 操作，输入和输出均为 memref 类型
     auto matmulOp = rewriter.create<linalg::MatmulOp>(
@@ -299,6 +298,87 @@ public:
   }
 };
 
+// 新增 tensor.extract_slice 转换为 memref.subview 的模式
+class ExtractSliceOpConverter
+    : public OpConversionPattern<tensor::ExtractSliceOp> {
+public:
+  using OpConversionPattern<tensor::ExtractSliceOp>::OpConversionPattern;
+
+  ExtractSliceOpConverter(const TypeConverter &typeConverter,
+                          MLIRContext *context)
+      : OpConversionPattern<tensor::ExtractSliceOp>(typeConverter, context) {}
+
+  LogicalResult
+  matchAndRewrite(tensor::ExtractSliceOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+
+    // 获取原始操作的各种属性
+    Value source = adaptor.getSource();
+    auto offsets = op.getMixedOffsets();
+    auto sizes = op.getMixedSizes();
+    auto strides = op.getMixedStrides();
+
+    // 创建 memref.subview 操作
+    auto resultType =
+        cast<MemRefType>(getTypeConverter()->convertType(op.getType()));
+
+    auto subviewOp = rewriter.create<memref::SubViewOp>(
+        loc, resultType, source, offsets, sizes, strides);
+
+    rewriter.replaceOp(op, subviewOp);
+    return success();
+  }
+};
+
+// 新增 tensor.parallel_insert_slice 转换为 memref.subview + memref.copy 的模式
+class ParallelInsertSliceOpConverter
+    : public OpConversionPattern<tensor::ParallelInsertSliceOp> {
+public:
+  using OpConversionPattern<tensor::ParallelInsertSliceOp>::OpConversionPattern;
+
+  ParallelInsertSliceOpConverter(const TypeConverter &typeConverter,
+                                 MLIRContext *context)
+      : OpConversionPattern<tensor::ParallelInsertSliceOp>(typeConverter,
+                                                           context) {}
+
+  LogicalResult
+  matchAndRewrite(tensor::ParallelInsertSliceOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+
+    // 获取源和目标
+    Value source = adaptor.getSource();
+    Value dest = adaptor.getDest();
+
+    // 获取切片属性
+    auto offsets = op.getMixedOffsets();
+    auto sizes = op.getMixedSizes();
+    auto strides = op.getMixedStrides();
+    rewriter.setInsertionPoint(op);
+    // 创建目标子视图
+    auto destMemrefType = cast<MemRefType>(dest.getType());
+    auto elementType = destMemrefType.getElementType();
+
+    // 创建 SubViewOp
+    auto subviewOp = rewriter.create<memref::SubViewOp>(loc,
+                                                        dest, // 基础 memref
+                                                        offsets, // 切片偏移
+                                                        sizes,   // 切片大小
+                                                        strides  // 切片步长
+    );
+
+    // 创建 memref.copy 操作，将源数据复制到目标子视图中
+    rewriter.create<memref::CopyOp>(loc,
+                                    source,   // 源
+                                    subviewOp // 目标子视图
+    );
+
+    // 替换原始操作
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
 
 // 空tensor的转换
 class EmptyOpConverter : public OpConversionPattern<tensor::EmptyOp> {
@@ -332,8 +412,7 @@ public:
     // 创建 memref 类型 (使用 workgroup 内存空间和 strided layout)
     auto addressSpace = gpu::AddressSpaceAttr::get(
         rewriter.getContext(), gpu::GPUDialect::getPrivateAddressSpace());
-    auto memrefType =
-        MemRefType::get(shape, elementType, AffineMap(), addressSpace);
+    auto memrefType = MemRefType::get(shape, elementType, AffineMap());
 
     // 复制原始 EmptyOp 的所有属性
     SmallVector<NamedAttribute> attrs;
@@ -416,11 +495,13 @@ public:
                            math::MathDialect, linalg::LinalgDialect,
                            gpu::GPUDialect, func::FuncDialect,
                            IREE::VectorExt::IREEVectorExtDialect>();
-    target.addLegalOp<UnrealizedConversionCastOp>();
+    // target.addIllegalOp<UnrealizedConversionCastOp>();
 
     // 设置需要转换的操作
     target.addDynamicallyLegalOp<scf::ForOp>(
         [&](scf::ForOp op) { return typeConverter.isLegal(op); });
+    target.addDynamicallyLegalOp<scf::ForallOp>(
+        [&](scf::ForallOp op) { return typeConverter.isLegal(op); });
 
     target.addDynamicallyLegalOp<scf::YieldOp>(
         [&](scf::YieldOp op) { return typeConverter.isLegal(op); });
@@ -463,6 +544,22 @@ public:
       return !isa<TensorType>(op.getOutputs()[0].getType());
     });
 
+    // 添加 tensor.extract_slice 的合法性检查
+    target.addDynamicallyLegalOp<tensor::ExtractSliceOp>(
+        [](tensor::ExtractSliceOp op) {
+          // 如果操作的输入或结果是 tensor 类型，则认为是非法的
+          return !isa<TensorType>(op.getSource().getType()) &&
+                 !isa<TensorType>(op.getResult().getType());
+        });
+
+    // 添加 tensor.parallel_insert_slice 的合法性检查
+    target.addDynamicallyLegalOp<tensor::ParallelInsertSliceOp>(
+        [](tensor::ParallelInsertSliceOp op) {
+          // 如果操作的源或目标是 tensor 类型，则认为是非法的
+          return !isa<TensorType>(op.getSource().getType()) &&
+                 !isa<TensorType>(op.getDest().getType());
+        });
+
     // 添加转换模式
     RewritePatternSet patterns(context);
 
@@ -476,6 +573,10 @@ public:
     patterns.add<GenericOpConverter>(typeConverter, context);
     patterns.add<FillOpConverter>(typeConverter, context);
 
+    // 添加 ExtractSliceOp ParallelInsertSliceOp 转换模式
+    patterns.add<ExtractSliceOpConverter, ParallelInsertSliceOpConverter>(
+        typeConverter, context);
+
     // 添加 EmptyOp 转换模式
     patterns.add<EmptyOpConverter>(context);
 
@@ -485,7 +586,7 @@ public:
       signalPassFailure();
     }
 
-    PassManager pm(&getContext(), getOperation().getOperationName());
+    PassManager pm(&getContext());
     pm.addPass(createCanonicalizerPass());
     pm.addPass(createCSEPass());
     pm.addPass(mlir::createReconcileUnrealizedCastsPass());
@@ -502,7 +603,7 @@ public:
         // 检查源类型和目标类型是否相同（忽略地址空间）
         auto srcType = castOp.getOperand(0).getType();
         auto dstType = castOp.getResult(0).getType();
-        
+
         if (auto srcMemRef = mlir::dyn_cast<MemRefType>(srcType)) {
           if (auto dstMemRef = mlir::dyn_cast<MemRefType>(dstType)) {
             // 比较除地址空间外的所有属性
@@ -521,7 +622,13 @@ public:
 
 } // namespace
 
-std::unique_ptr<OperationPass<ModuleOp>>
+void triton::populateTTSTransferOpPatterns(RewritePatternSet &patterns,
+                                   TypeConverter &typeConverter) {
+  patterns.add<TransferReadOpConversion, TransferWriteOpConversion>(
+      typeConverter, patterns.getContext());
+}
+
+std::unique_ptr<OperationPass<func::FuncOp>>
 triton::createConvertTritonStructuredToMemrefPass() {
   return std::make_unique<ConvertTritonStructuredToMemref>();
 }

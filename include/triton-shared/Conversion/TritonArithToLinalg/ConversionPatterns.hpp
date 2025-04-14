@@ -12,6 +12,7 @@
 #include "triton-shared/Analysis/MaskAnalysis.h"
 #include "triton-shared/Analysis/OpFoldResultUtils.h"
 #include "triton-shared/Analysis/PtrAnalysis.h"
+#include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 #include "triton-shared/Dialect/TritonTilingExt/IR/TritonTilingExtDialect.h"
 
 #include "triton/Dialect/Triton/IR/Dialect.h"
@@ -1162,7 +1163,7 @@ struct MatmulConverter : public OpConversionPattern<triton::DotOp> {
     auto init =
         rewriter.create<tensor::EmptyOp>(loc, dstType.getShape(), computeType);
     init->setAttr("dot.result_tensor_type",
-                 UnitAttr::get(rewriter.getContext()));
+                  UnitAttr::get(rewriter.getContext()));
     auto matmulRes = rewriter
                          .create<linalg::MatmulOp>(loc, ValueRange{opa, opb},
                                                    ValueRange{init})
@@ -2157,6 +2158,83 @@ static void populateExternElementwiseOpToMLIROps(RewritePatternSet &patterns) {
   patterns.add<ExternElementwiseBinaryOpConverter,
                ExternElementwiseUnaryOpConverter>(patterns.getContext());
 }
+
+static bool isElementwiseMappableOpOnRankedTensors(Operation *op) {
+  if (!OpTrait::hasElementwiseMappableTraits(op))
+    return false;
+
+  // TODO: The conversion pattern can be made to work for `any_of` here, but
+  // it's more complex as it requires tracking which operands are scalars.
+  return llvm::all_of(op->getOperandTypes(), llvm::IsaPred<RankedTensorType>);
+}
+
+static SmallVector<Value, 4>
+getOrCreateOperandsMatchingResultTypes(OpBuilder &b, Operation *op) {
+  assert(isElementwiseMappableOpOnRankedTensors(op));
+  Location loc = op->getLoc();
+  ValueRange operands = op->getOperands();
+  TypeRange rankedTensorTypes = op->getResultTypes();
+  SmallVector<Value, 4> res;
+  res.reserve(rankedTensorTypes.size());
+  for (Type t : rankedTensorTypes) {
+    // Try to find an operand with type matching the result tensor.
+    bool found = false;
+    for (Value v : operands) {
+      if (v.getType() == t && !v.getDefiningOp<mlir::tts::TransferReadOp>()) {
+        found = true;
+        res.push_back(v);
+        break;
+      }
+    }
+    if (found)
+      continue;
+
+    // Extract static / dynamic shape mix from the first operand.
+    res.push_back(b.create<tensor::EmptyOp>(
+        loc, tensor::getMixedSizes(b, loc, operands.front()),
+        cast<RankedTensorType>(t).getElementType()));
+  }
+  return res;
+}
+
+struct ConvertAnyElementwiseMappableOpOnRankedTensorsInTTS
+    : public RewritePattern {
+  ConvertAnyElementwiseMappableOpOnRankedTensorsInTTS(MLIRContext *context)
+      : RewritePattern(MatchAnyOpTypeTag(), /*benefit=*/1, context) {}
+  LogicalResult matchAndRewrite(Operation *op,
+                                PatternRewriter &rewriter) const final {
+    if (!isElementwiseMappableOpOnRankedTensors(op))
+      return rewriter.notifyMatchFailure(
+          op, "requires elementwise op on ranked tensors");
+
+    auto rank = cast<RankedTensorType>(op->getResult(0).getType()).getRank();
+    SmallVector<AffineMap, 3> indexingMaps(
+        op->getNumResults() + op->getNumOperands(),
+        rewriter.getMultiDimIdentityMap(rank));
+    SmallVector<utils::IteratorType, 6> iteratorTypes(
+        rank, utils::IteratorType::parallel);
+    auto outputs = getOrCreateOperandsMatchingResultTypes(rewriter, op);
+    rewriter.replaceOpWithNewOp<linalg::GenericOp>(
+        op, /*resultTensorTypes=*/op->getResultTypes(),
+        /*inputs=*/op->getOperands(),
+        /*outputs=*/outputs,
+        /*indexingMaps=*/indexingMaps,
+        /*iteratorTypes=*/iteratorTypes,
+        /*bodyBuilder=*/
+        [&](OpBuilder &builder, Location loc, ValueRange regionArgs) {
+          auto resultTypes = llvm::to_vector<6>(
+              llvm::map_range(op->getResultTypes(), [](Type type) {
+                return cast<TensorType>(type).getElementType();
+              }));
+          auto *scalarOp =
+              builder.create(loc, op->getName().getIdentifier(),
+                             regionArgs.take_front(op->getNumOperands()),
+                             resultTypes, op->getAttrs());
+          builder.create<linalg::YieldOp>(loc, scalarOp->getResults());
+        });
+    return success();
+  }
+};
 
 } // namespace
 

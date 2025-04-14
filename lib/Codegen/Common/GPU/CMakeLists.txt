@@ -13,6 +13,7 @@ add_triton_library(IREECodegenCommonGPUPasses
     GPUCombineValueBarriers.cpp
     GPUVerifyDistribution.cpp
     GPUReduceBankConflicts.cpp
+    GPUInferMemorySpace.cpp
 
   DEPENDS
     CommonGPUPassIncGen
