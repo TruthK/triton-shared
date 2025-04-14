@@ -563,4 +563,4 @@ void populateGpuMemorySpaceAttributeConversions(
       });
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::

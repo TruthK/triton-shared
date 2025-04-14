@@ -98,10 +98,10 @@ def LLVMGPUPackSharedMemoryAllocPass :
   let summary = "Pass pack shared memory allocation in order to reduce memory usage.";
 }
 
-// def LLVMGPUPrefetchSharedMemoryPass :
-//     InterfacePass<"iree-llvmgpu-prefetch-shared-memory", "mlir::FunctionOpInterface"> {
-//   let summary = "Rotate scf.for loops to prefetch shared memory with distance 1";
-// }
+def LLVMGPUPrefetchSharedMemoryPass :
+    InterfacePass<"iree-llvmgpu-prefetch-shared-memory", "mlir::FunctionOpInterface"> {
+  let summary = "Rotate scf.for loops to prefetch shared memory with distance 1";
+}
 
 // def LLVMGPUPromoteMatmulToFitMMAPass :
 //     InterfacePass<"iree-llvmgpu-promote-matmul-to-fit-mma", "mlir::FunctionOpInterface"> {

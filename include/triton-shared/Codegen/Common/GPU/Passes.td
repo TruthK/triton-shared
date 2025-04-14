@@ -19,11 +19,11 @@ def GPUCheckResourceUsagePass :
   let constructor = "mlir::tts::createGPUCheckResourceUsagePass()";
 }
 
-// def GPUCombineValueBarriersPass :
-//     Pass<"iree-codegen-gpu-combine-value-barriers", ""> {
-//   let summary = "Combines `iree_gpu.value_barrier` ops";
-//   let dependentDialects = ["::mlir::tts::IREE::GPU::IREEGPUDialect"];
-// }
+def GPUCombineValueBarriersPass :
+    Pass<"iree-codegen-gpu-combine-value-barriers", ""> {
+  let summary = "Combines `iree_gpu.value_barrier` ops";
+  let dependentDialects = ["::mlir::tts::IREE::GPU::IREEGPUDialect"];
+}
 
 // def GPUCreateFastSlowPathPass :
 //     InterfacePass<"iree-codegen-gpu-create-fast-slow-path", "mlir::FunctionOpInterface"> {
@@ -31,16 +31,16 @@ def GPUCheckResourceUsagePass :
 //   let dependentDialects = ["::mlir::scf::SCFDialect"];
 // }
 
-// def GPUDistributeForallPass :
-//     InterfacePass<"iree-codegen-gpu-distribute-forall", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass to distribute scf.forall ops.";
-//   let dependentDialects = [
-//     "::mlir::affine::AffineDialect",
-//     "::mlir::gpu::GPUDialect",
-//     "::mlir::scf::SCFDialect",
-//     "::mlir::tts::IREE::GPU::IREEGPUDialect",
-//   ];
-// }
+def GPUDistributeForallPass :
+    InterfacePass<"iree-codegen-gpu-distribute-forall", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to distribute scf.forall ops.";
+  let dependentDialects = [
+    "::mlir::affine::AffineDialect",
+    "::mlir::gpu::GPUDialect",
+    "::mlir::scf::SCFDialect",
+    "::mlir::tts::IREE::GPU::IREEGPUDialect",
+  ];
+}
 
 // def GPUDistributePass :
 //     InterfacePass<"iree-codegen-gpu-distribute", "mlir::FunctionOpInterface"> {
@@ -71,31 +71,31 @@ def GPUDistributeSharedMemoryCopyPass :
 //   ];
 // }
 
-// def GPUFuseAndHoistParallelLoopsPass :
-//     InterfacePass<"iree-codegen-gpu-fuse-and-hoist-parallel-loops", "mlir::FunctionOpInterface"> {
-//   let summary = "Greedily fuses and hoists parallel loops.";
-//   let dependentDialects = [
-//     "::mlir::affine::AffineDialect",
-//     "::mlir::tts::IREE::GPU::IREEGPUDialect",
-//     "::mlir::bufferization::BufferizationDialect"
-//   ];
-// }
+def GPUFuseAndHoistParallelLoopsPass :
+    InterfacePass<"iree-codegen-gpu-fuse-and-hoist-parallel-loops", "mlir::FunctionOpInterface"> {
+  let summary = "Greedily fuses and hoists parallel loops.";
+  let dependentDialects = [
+    "::mlir::affine::AffineDialect",
+    "::mlir::tts::IREE::GPU::IREEGPUDialect",
+    "::mlir::bufferization::BufferizationDialect"
+  ];
+}
 
 // def GPUGeneralizeNamedOpsPass :
 //     InterfacePass<"iree-codegen-gpu-generalize-named-ops", "mlir::FunctionOpInterface"> {
 //   let summary = "Convert named Linalg ops to linalg.generic ops";
 // }
 
-// def GPUGreedilyDistributeToThreadsPass :
-//     InterfacePass<"iree-codegen-gpu-greedily-distribute-to-threads", "mlir::FunctionOpInterface"> {
-//   let summary = "Greedily distributes all remaining tilable ops to threads";
-//   let dependentDialects = [
-//     "::mlir::affine::AffineDialect",
-//     "::mlir::gpu::GPUDialect",
-//     "::mlir::scf::SCFDialect",
-//     "::mlir::tts::IREE::GPU::IREEGPUDialect",
-//   ];
-// }
+def GPUGreedilyDistributeToThreadsPass :
+    InterfacePass<"iree-codegen-gpu-greedily-distribute-to-threads", "mlir::FunctionOpInterface"> {
+  let summary = "Greedily distributes all remaining tilable ops to threads";
+  let dependentDialects = [
+    "::mlir::affine::AffineDialect",
+    "::mlir::gpu::GPUDialect",
+    "::mlir::scf::SCFDialect",
+    "::mlir::tts::IREE::GPU::IREEGPUDialect",
+  ];
+}
 
 // def GPUInferMemorySpacePass :
 //     InterfacePass<"iree-codegen-gpu-infer-memory-space", "mlir::FunctionOpInterface"> {
@@ -185,15 +185,15 @@ def GPUPropagateDispatchSizeBoundsPass :
   let summary = "Pass to annotate workitem and workgroup IDs with known bounds";
 }
 
-// def GPUReduceBankConflictsPass :
-//     InterfacePass<"iree-codegen-gpu-reduce-bank-conflicts", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass to try to reduce the number of bank conflicts by padding memref.alloc ops.";
-//   let options = [
-//     Option<"paddingBits", "padding-bits", "unsigned",
-//             /*default=*/"128",
-//             "Padding size (in bits) to introduce between rows.">
-//   ];
-// }
+def GPUReduceBankConflictsPass :
+    InterfacePass<"iree-codegen-gpu-reduce-bank-conflicts", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to try to reduce the number of bank conflicts by padding memref.alloc ops.";
+  let options = [
+    Option<"paddingBits", "padding-bits", "unsigned",
+            /*default=*/"128",
+            "Padding size (in bits) to introduce between rows.">
+  ];
+}
 
 // def GPUReuseSharedMemoryAllocsPass :
 //     InterfacePass<"iree-codegen-gpu-reuse-shared-memory-allocs", "mlir::FunctionOpInterface"> {
@@ -269,13 +269,13 @@ def GPUPropagateDispatchSizeBoundsPass :
 //   let dependentDialects = ["::mlir::scf::SCFDialect"];
 // }
 
-// def GPUVerifyDistributionPass :
-//     InterfacePass<"iree-codegen-gpu-verify-distribution", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass to verify writes before resolving distributed contexts.";
-//   let dependentDialects = [
-//     "::mlir::gpu::GPUDialect",
-//   ];
-// }
+def GPUVerifyDistributionPass :
+    InterfacePass<"iree-codegen-gpu-verify-distribution", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to verify writes before resolving distributed contexts.";
+  let dependentDialects = [
+    "::mlir::gpu::GPUDialect",
+  ];
+}
 
 // def GPUVectorAllocPass :
 //     InterfacePass<"iree-codegen-gpu-vector-alloc", "mlir::FunctionOpInterface"> {

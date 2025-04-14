@@ -19,6 +19,7 @@ add_triton_library(IREEGPUDialectTransforms
     Transforms.cpp
     UnrollToIntrinsics.cpp
     VectorizeIREEGPUOps.cpp
+    GPUDistributeForall.cpp
 
   DEPENDS
   GPUTransformsPassesIncGen

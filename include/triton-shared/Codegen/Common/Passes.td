@@ -100,7 +100,7 @@ def ConvertBf16ToUInt16BuffersPass :
 //       "Transforms convolution operations into an implicit GEMM format.";
 //   let dependentDialects = [
 //     "tensor::TensorDialect",
-//     "iree_compiler::IREE::LinalgExt::IREELinalgExtDialect"
+//     "::IREE::LinalgExt::IREELinalgExtDialect"
 //   ];
 // }
 
@@ -148,10 +148,10 @@ def DecomposeAffineOpsPass: Pass<"iree-codegen-decompose-affine-ops"> {
   ];
 }
 
-// def DecomposeConvolutionToLowerDimOpsPass :
-//     Pass<"iree-codegen-decompose-convolution-to-lower-dim-ops", ""> {
-//   let summary = "Decomposes linalg convolution ops to lower dim ops";
-// }
+def DecomposeConvolutionToLowerDimOpsPass :
+    Pass<"iree-codegen-decompose-convolution-to-lower-dim-ops", ""> {
+  let summary = "Decomposes linalg convolution ops to lower dim ops";
+}
 
 // def DecomposeLinalgGenericPass :
 //     Pass<"iree-codegen-decompose-linalg-generic", ""> {
@@ -318,32 +318,32 @@ def FoldTensorExtractOpPass :
 //   let summary = "Fuse tensor.pad op into its consumer op's tiled loop nest";
 // }
 
-// def GenericVectorizationPass :
-//     InterfacePass<"iree-codegen-generic-vectorization", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass to perform vectorization on tensor/linalg ops.";
-//   let options = [
-//     Option<"enableVectorMasking", "enable-vector-masking", "bool",/*default=*/"false",
-//       "Enable vector masking during vectorization.">,
-//     Option<"useConfiguredVectorSizes", "use-configured-vector-sizes", "bool",/*default=*/"true",
-//       "Control whether the op lowering config represents a set of masked vector sizes">,
-//     Option<"vectorizeCopies", "vectorize-copies", "bool", /*default=*/"true",
-//       "Enable vectorization of linalg.copy operations.">,
-//     Option<"vectorizePadding", "vectorize-padding", "bool", /*default=*/"false",
-//       "Rewrite all tensor.pad ops in the function to vector form.">,
-//     Option<"vectorizeGatherAccesses", "vectorize-gather-accesses", "bool", /*default=*/"false",
-//       "Enable vectorizaiton of operations that may generate vector.gather operations.">,
-//     Option<"enableCleanup", "enable-cleanup", "bool",/*default=*/"true",
-//       "Enable cleanups after vectorization. The patterns touch the structure"
-//       "generated from tiling so it affects later steps like bufferization and vector hoisting.">,
-//     Option<"generateContract", "generate-contract", "bool",/*default=*/"true",
-//       "Enable conversion for reduction ops to contraction ops.">,
-//     Option<"foldCastIntoContract", "fold-cast-into-contract", "bool",/*default=*/"false",
-//       "Enable folding casting ops into vector.contract.">,
-//     Option<"maxVectorSize", "max-vector-size", "int64_t",
-//             /*default=*/"2147483647",
-//            "Max vector size allowed to avoid creating large vectors.">
-//   ];
-// }
+def GenericVectorizationPass :
+    InterfacePass<"iree-codegen-generic-vectorization", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to perform vectorization on tensor/linalg ops.";
+  let options = [
+    Option<"enableVectorMasking", "enable-vector-masking", "bool",/*default=*/"false",
+      "Enable vector masking during vectorization.">,
+    Option<"useConfiguredVectorSizes", "use-configured-vector-sizes", "bool",/*default=*/"true",
+      "Control whether the op lowering config represents a set of masked vector sizes">,
+    Option<"vectorizeCopies", "vectorize-copies", "bool", /*default=*/"true",
+      "Enable vectorization of linalg.copy operations.">,
+    Option<"vectorizePadding", "vectorize-padding", "bool", /*default=*/"false",
+      "Rewrite all tensor.pad ops in the function to vector form.">,
+    Option<"vectorizeGatherAccesses", "vectorize-gather-accesses", "bool", /*default=*/"false",
+      "Enable vectorizaiton of operations that may generate vector.gather operations.">,
+    Option<"enableCleanup", "enable-cleanup", "bool",/*default=*/"true",
+      "Enable cleanups after vectorization. The patterns touch the structure"
+      "generated from tiling so it affects later steps like bufferization and vector hoisting.">,
+    Option<"generateContract", "generate-contract", "bool",/*default=*/"true",
+      "Enable conversion for reduction ops to contraction ops.">,
+    Option<"foldCastIntoContract", "fold-cast-into-contract", "bool",/*default=*/"false",
+      "Enable folding casting ops into vector.contract.">,
+    Option<"maxVectorSize", "max-vector-size", "int64_t",
+            /*default=*/"2147483647",
+           "Max vector size allowed to avoid creating large vectors.">
+  ];
+}
 
 def OptimizeTensorInsertExtractSlicesPass
     : InterfacePass<"iree-codegen-optimize-tensor-insert-extract-slices",
@@ -633,20 +633,20 @@ def TileAndDistributeToWorkgroupsUsingForallOpPass :
   ];
 }
 
-// def TileLargeTensorsPass :
-//     InterfacePass<"iree-codegen-tile-large-tensors", "mlir::FunctionOpInterface"> {
-//   let summary = "Greedily tiles all linalg ops that are beyond a certain size";
-//   let dependentDialects = [
-//     "::mlir::arith::ArithDialect",
-//     "::mlir::affine::AffineDialect",
-//     "::mlir::scf::SCFDialect",
-//   ];
-//   let options = [
-//     Option<"maxVectorSize", "max-vector-size", "int64_t",
-//            /*default=*/"64",
-//            "Maximum static size to tile to (i.e. all remaining ops will be smaller)">,
-//   ];
-// }
+def TileLargeTensorsPass :
+    InterfacePass<"iree-codegen-tile-large-tensors", "mlir::FunctionOpInterface"> {
+  let summary = "Greedily tiles all linalg ops that are beyond a certain size";
+  let dependentDialects = [
+    "::mlir::arith::ArithDialect",
+    "::mlir::affine::AffineDialect",
+    "::mlir::scf::SCFDialect",
+  ];
+  let options = [
+    Option<"maxVectorSize", "max-vector-size", "int64_t",
+           /*default=*/"64",
+           "Maximum static size to tile to (i.e. all remaining ops will be smaller)">,
+  ];
+}
 
 // def TransformDialectInterpreterPass :
 //     Pass<"iree-transform-dialect-interpreter"> {
@@ -671,15 +671,15 @@ def TileAndDistributeToWorkgroupsUsingForallOpPass :
 //   let summary = "Propogate the type of tensor to avoid load/stores of illegal bit widths";
 // }
 
-// def UnrollAnnotatedLoopsPass :
-//     InterfacePass<"iree-codegen-unroll-annotated-loops", "mlir::FunctionOpInterface"> {
-//   let summary = "Unrolls all scf.for loops marked with `unroll_loop`";
-// }
+def UnrollAnnotatedLoopsPass :
+    InterfacePass<"iree-codegen-unroll-annotated-loops", "mlir::FunctionOpInterface"> {
+  let summary = "Unrolls all scf.for loops marked with `unroll_loop`";
+}
 
-// def VectorizeMemrefCopyPass :
-//     Pass<"iree-codegen-vectorize-memref-copy", ""> {
-//   let summary = "Vectorizes memref copy operations.";
-// }
+def VectorizeMemrefCopyPass :
+    Pass<"iree-codegen-vectorize-memref-copy", ""> {
+  let summary = "Vectorizes memref copy operations.";
+}
 
 def VerifyWorkgroupDistributionPass :
     InterfacePass<"iree-codegen-verify-workgroup-distribution", "mlir::FunctionOpInterface"> {

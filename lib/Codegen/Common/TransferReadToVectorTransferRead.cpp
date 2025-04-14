@@ -152,10 +152,9 @@ struct ConvertVectorExtTransferReadToVectorTransferRead
     // 创建vector.transfer_write操作
     auto storeOp = rewriter.create<vector::TransferWriteOp>(
         loc, vecReadOp.getResult(), allocOp.getResult(),
-        ValueRange(zeroIndices), permMapAttr,inBoundsAttr);
-
+        ValueRange(zeroIndices), permMapAttr, inBoundsAttr);
     // 重写所有使用原始op的memref.subview操作
-    for (Operation *user : op->getUsers()) {
+    for (Operation *user : op->getResults()[0].getUsers()) {
       if (auto subviewOp = dyn_cast<memref::SubViewOp>(user)) {
         rewriter.setInsertionPoint(subviewOp);
         // 创建新的subview，使用storeOp的source作为源
@@ -169,11 +168,18 @@ struct ConvertVectorExtTransferReadToVectorTransferRead
         // 替换原subview的所有使用
         subviewOp.getResult().replaceAllUsesWith(newSubview.getResult());
         rewriter.eraseOp(subviewOp);
+
+      } else if (auto linalgOp = dyn_cast<linalg::LinalgOp>(user)) {
+        rewriter.replaceOp(op, storeOp.getSource());
+        break;
+
+      } else {
+        user->dump();
+        assert(false);
       }
     }
-
-    rewriter.eraseOp(op);
-
+    if (op->use_empty())
+      rewriter.eraseOp(op);
     return success();
   }
 };
@@ -220,11 +226,12 @@ struct ConvertVectorExtTransferWriteToVectorTransferWrite
     }
 
     // 使用vector.transfer_read将value从memref转换为vector
-    auto vectorValue = rewriter
-                           .create<vector::TransferReadOp>(
-                               loc, vectorType, op.getValue(),
-                               ValueRange(zeroIndices), permMapAttr,inBoundsAttr)
-                           .getResult();
+    auto vectorValue =
+        rewriter
+            .create<vector::TransferReadOp>(loc, vectorType, op.getValue(),
+                                            ValueRange(zeroIndices),
+                                            permMapAttr, inBoundsAttr)
+            .getResult();
 
     SmallVector<Value> indices;
     int dimIdx = 0;

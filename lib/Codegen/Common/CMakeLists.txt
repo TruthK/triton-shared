@@ -29,8 +29,14 @@ add_triton_library(IREECodegenCommon
     IREEExpandStridedMetadata.cpp
     TransferReadSubviewFusion.cpp
     TransferReadToVectorTransferRead.cpp
-
-
+    NormalizeLoopBounds.cpp
+    TileLargeTensors.cpp
+    UnrollAnnotatedLoops.cpp
+    DecomposeConvolutionToLowerDimOps.cpp
+    VectorizeMemrefCopy.cpp
+    GenericVectorization.cpp
+    TileSizeSelection.cpp
+    
 DEPENDS
     CommonCodegenPassIncGen
     FoldTensorExtractOpIncGen
