@@ -386,15 +386,10 @@ void addGPUTileAndFusePassPipeline(OpPassManager &funcPassManager,
   funcPassManager.addPass(createTileLargeTensorsPass());
   funcPassManager.addPass(createCanonicalizerPass());
   funcPassManager.addPass(createCSEPass());
-  // funcPassManager.addPass(createIREELoopInvariantCodeMotionPass());
-  // funcPassManager.addPass(
-  //     mlir::triton::createConvertTritonStructuredToMemrefPass());
-  // funcPassManager.addPass(mlir::createReconcileUnrealizedCastsPass());
-  // funcPassManager.addPass(createCanonicalizerPass());
-  // funcPassManager.addPass(createCSEPass());
+
 
   funcPassManager.addPass(IREE::GPU::createCombineBarrierRegionsPass());
-  funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
+ 
 
   // Step 6. Lower special ops and vectorize.
   funcPassManager.addPass(IREE::GPU::createVectorizeIREEGPUOpsPass());

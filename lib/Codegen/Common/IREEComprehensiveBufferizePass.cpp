@@ -10,9 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "triton-shared/Codegen/Common/Passes.h"
-#include "triton-shared/Codegen/Interfaces/BufferizationInterfaces.h"
-#include "triton-shared/Codegen/Utils/Utils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
@@ -32,6 +29,9 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
+#include "triton-shared/Codegen/Common/Passes.h"
+#include "triton-shared/Codegen/Interfaces/BufferizationInterfaces.h"
+#include "triton-shared/Codegen/Utils/Utils.h"
 #include <cassert>
 
 #define DEBUG_TYPE "iree-codegen-linalg-bufferize"
@@ -249,6 +249,7 @@ createIREEComprehensiveBufferizePass(
 }
 
 void addIREEPostBufferizationPasses(OpPassManager &funcPassManager) {
+  funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
   funcPassManager.addPass(memref::createResolveShapedTypeResultDimsPass());
   funcPassManager.addPass(createCanonicalizerPass());
   funcPassManager.addPass(createCSEPass());
