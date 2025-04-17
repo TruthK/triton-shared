@@ -29,9 +29,12 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
+
 #include "triton-shared/Codegen/Common/Passes.h"
 #include "triton-shared/Codegen/Interfaces/BufferizationInterfaces.h"
 #include "triton-shared/Codegen/Utils/Utils.h"
+#include "triton-shared/Conversion/TritonToLinalgExperimental/TritonToLinalgExperimental.h"
+
 #include <cassert>
 
 #define DEBUG_TYPE "iree-codegen-linalg-bufferize"
@@ -264,10 +267,11 @@ void addIREEComprehensiveBufferizePasses(
     OpPassManager &funcPassManager,
     std::optional<BufferizationOptions::AllocationFn> allocationFn,
     std::optional<BufferizationOptions::MemCpyFn> memCpyFn) {
-  // funcPassManager.addPass(createEliminateEmptyTensorsPass());
-  // funcPassManager.addPass(bufferization::createEmptyTensorToAllocTensorPass());
-  // funcPassManager.addPass(
-  //     createIREEComprehensiveBufferizePass(allocationFn, memCpyFn));
+  funcPassManager.addPass(createEliminateEmptyTensorsPass());
+  funcPassManager.addPass(bufferization::createEmptyTensorToAllocTensorPass());
+  funcPassManager.addPass(triton::createConvertTTSTransferOpPass());
+  funcPassManager.addPass(
+      createIREEComprehensiveBufferizePass(allocationFn, memCpyFn));
   addIREEPostBufferizationPasses(funcPassManager);
 }
 

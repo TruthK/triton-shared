@@ -34,8 +34,16 @@ def LinalgGenericFusionPass : Pass<"linalg-generic-fusion", "mlir::ModuleOp"> {
 }
 
 def ConvertTTSTransferOp : Pass<"convert-triton-transfer-op", "mlir::func::FuncOp"> {
-  let summary = "Convert Triton Structured transfer ops to memref transfer ops";
+  let summary = "Convert Triton Structured transfer ops to memref or vector transfer ops";
+  let description = [{
+    This pass converts Triton Structured transfer operations to either IREE vector extension 
+    operations or vector dialect operations.
+  }];
   let constructor = "triton::createConvertTTSTransferOpPass()";
+  let options = [
+    Option<"isTensorToVector", "tensor-to-vector", "bool", /*default=*/"false",
+           "Convert TTS transfer ops directly to vector transfer operations">
+  ];
 }
 
 #endif

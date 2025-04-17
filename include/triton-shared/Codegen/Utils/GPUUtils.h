@@ -206,6 +206,11 @@ std::optional<int> getGPUSubgroupSize(mlir::FunctionOpInterface func);
 // SmallVector<IREE::GPU::MMAIntrinsic>
 // queryMMAIntrinsics(IREE::Codegen::ExecutableVariantOp executableOp);
 
+/// Return true if the given memref has one of the global address spaces - no
+/// adress space, explicit integer 0, #gpu.address_space<global>, or
+/// #amdgpu.address_space<fat_raw_buffer>
+bool hasGlobalMemoryAddressSpace(MemRefType memrefType);
+
 } // namespace mlir::tts
 
 #endif // IREE_COMPILER_CODEGEN_UTILS_GPUUTILS_H_

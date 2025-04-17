@@ -63,9 +63,9 @@ void addConstantBufferizePasses(OpPassManager &funcPassManager);
 // Wrappers that not use tablegen options. See Passes.td for details.
 //------------------------------------------------------------------------------
 
-// std::unique_ptr<InterfacePass<FunctionOpInterface>>
-// createConvertToDestinationPassingStylePass(
-//     bool useWARForCooperativeMatrixCodegen);
+std::unique_ptr<InterfacePass<FunctionOpInterface>>
+createConvertToDestinationPassingStylePass(
+    bool useWARForCooperativeMatrixCodegen);
 
 // std::unique_ptr<Pass> createDecomposeSoftmaxPass(bool useFusion);
 
@@ -87,11 +87,11 @@ createIREEComprehensiveBufferizePass(
 // std::unique_ptr<Pass>
 // createTransformDialectInterpreterPass(StringRef transformSequenceName);
 
-// /// Pass to tile and distribute to workgroups.
-// std::unique_ptr<InterfacePass<FunctionOpInterface>>
-// createTileAndDistributeToWorkgroupsPass(
-//     int32_t maxWorkgroupParallelDims,
-//     linalg::DistributionMethod distributionMethod);
+/// Pass to tile and distribute to workgroups.
+std::unique_ptr<InterfacePass<FunctionOpInterface>>
+createTileAndDistributeToWorkgroupsPass(
+    int32_t maxWorkgroupParallelDims,
+    linalg::DistributionMethod distributionMethod);
 
 //----------------------------------------------------------------------------//
 // CodeGen Common Patterns
@@ -103,10 +103,10 @@ createIREEComprehensiveBufferizePass(
 // void populateConcretizePadResultShapePatterns(
 //     RewritePatternSet &patterns, ArrayRef<int64_t> numWorkgroups = {});
 
-// /// Populates `patterns` with patterns to fold `affine.min` ops in tiled and
-// /// distributed loops.
-// void populateFoldAffineMinInDistributedLoopsPatterns(
-//     RewritePatternSet &patterns, ArrayRef<int64_t> staticNumWorkgroup = {});
+/// Populates `patterns` with patterns to fold `affine.min` ops in tiled and
+/// distributed loops.
+void populateFoldAffineMinInDistributedLoopsPatterns(
+    RewritePatternSet &patterns, ArrayRef<int64_t> staticNumWorkgroup = {});
 
 // /// Populates `patterns` with a very specific pattern that vectorizes a
 // /// linalg.conv op for a single thread. The linalg.conv should compute on

@@ -36,7 +36,14 @@ add_triton_library(IREECodegenCommon
     VectorizeMemrefCopy.cpp
     GenericVectorization.cpp
     TileSizeSelection.cpp
-    
+    RematerializeParallelOps.cpp
+    ForOpCanonicalizationPass.cpp
+    FoldAffineMinInDistributedLoops.cpp
+    TileAndDistributeToWorkgroupsPass.cpp
+    ConvertToDestinationPassingStylePass.cpp
+    BufferizationAnalysis.cpp
+
+
 DEPENDS
     CommonCodegenPassIncGen
     FoldTensorExtractOpIncGen
@@ -90,6 +97,9 @@ LINK_LIBS PUBLIC
     MLIRVectorDialect
     MLIRVectorTransforms
     MLIRViewLikeInterface
+
+    TritonToLinalgExperimental
+    
     IREECodegenTransforms
     IREECodegenDialect
     IREECodegenDialectUtils
@@ -100,4 +110,6 @@ LINK_LIBS PUBLIC
     IREECodegenUKernelOpInterface
     IREEEncodingDialect
     IREECodegenUtils
+
+    TritonStructuredIR
 )

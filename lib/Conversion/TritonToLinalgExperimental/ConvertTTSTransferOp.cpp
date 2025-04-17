@@ -59,11 +59,25 @@ namespace {
 class TransferReadOpConversion
     : public OpConversionPattern<tts::TransferReadOp> {
 public:
-  using OpConversionPattern<tts::TransferReadOp>::OpConversionPattern;
+  TransferReadOpConversion(MLIRContext *context, bool isTensorToVector = false)
+      : OpConversionPattern<tts::TransferReadOp>(context),
+        isTensorToVector(isTensorToVector) {}
 
   LogicalResult
   matchAndRewrite(tts::TransferReadOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    if (isTensorToVector) {
+      return matchAndRewriteToVectorTransferRead(op, adaptor, rewriter);
+    } else {
+      return matchAndRewriteToIREETransferRead(op, adaptor, rewriter);
+    }
+  }
+
+private:
+  // 转换为IREE TransferRead的实现
+  LogicalResult
+  matchAndRewriteToIREETransferRead(tts::TransferReadOp op, OpAdaptor adaptor,
+                                    ConversionPatternRewriter &rewriter) const {
     // 获取操作数
     Value base = adaptor.getBase();
     auto maskDims = op.getMixedMaskDims();
@@ -92,9 +106,6 @@ public:
         StridedLayoutAttr::get(rewriter.getContext(), offset, strides);
 
     // 创建新的 memref 类型，保持原有的地址空间
-    // auto resultType = MemRefType::get(shape, baseType.getElementType(),
-    //                                   stridedLayout,
-    //                                   baseType.getMemorySpace());
     auto resultType = MemRefType::get(shape, baseType.getElementType(),
                                       AffineMap(), baseType.getMemorySpace());
 
@@ -114,17 +125,141 @@ public:
     rewriter.replaceOp(op, tensor);
     return success();
   }
+
+  // 转换为vector.transfer_read的实现
+  LogicalResult matchAndRewriteToVectorTransferRead(
+      tts::TransferReadOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const {
+    // 获取操作数
+    Value base = adaptor.getBase();
+    auto maskDims = op.getMixedMaskDims();
+    Value other = adaptor.getOther();
+    auto loc = op.getLoc();
+
+    // 获取基本信息
+    auto baseType = cast<MemRefType>(base.getType());
+    int64_t rank = baseType.getRank();
+    auto resultType = op.getResult().getType();
+
+    // 创建索引，默认为0
+    SmallVector<Value> indices;
+    for (int i = 0; i < rank; ++i) {
+      indices.push_back(rewriter.create<arith::ConstantIndexOp>(loc, 0));
+    }
+
+    // 获取memref的形状
+    auto memrefShape = baseType.getShape();
+    SmallVector<int64_t> vectorShape;
+    for (auto dim : memrefShape) {
+      vectorShape.push_back(dim);
+    }
+
+    // 创建vector类型作为transfer_read的返回类型
+    auto vecType = VectorType::get(vectorShape, baseType.getElementType());
+
+    // 1. 如果有掩码维度，创建vector mask
+    Value mask;
+    if (!maskDims.empty()) {
+      // 创建所有维度的常量1作为mask的基础形状
+      SmallVector<int64_t> maskShape;
+      for (auto dim : memrefShape) {
+        maskShape.push_back(dim);
+      }
+
+      // 创建mask的初始值 - 全部为true
+      auto maskType = VectorType::get(maskShape, rewriter.getI1Type());
+      Value trueMask = rewriter.create<vector::BroadcastOp>(
+          loc, maskType, rewriter.create<arith::ConstantIntOp>(loc, 1, 1));
+
+      // 对于每个维度，如果有掩码，则应用掩码
+      for (int64_t i = 0; i < rank; i++) {
+        if (i < static_cast<int64_t>(maskDims.size()) &&
+            !maskDims[i].isNull()) {
+          // 获取掩码值
+          Value maskDim;
+          if (auto attr = dyn_cast<Attribute>(maskDims[i])) {
+            if (auto intAttr = dyn_cast<IntegerAttr>(attr)) {
+              maskDim = rewriter.create<arith::ConstantOp>(loc, intAttr);
+            } else {
+              return failure();
+            }
+          } else {
+            maskDim = cast<Value>(maskDims[i]);
+          }
+
+          // 为该维度创建mask
+          mask = rewriter.create<vector::CreateMaskOp>(loc, maskType, maskDim);
+
+          // 如果有多个维度的mask，使用and操作合并
+          if (trueMask) {
+            mask = rewriter.create<arith::AndIOp>(loc, trueMask, mask);
+          }
+        }
+      }
+
+      // 如果没有创建任何维度的mask，使用全1的mask
+      if (!mask) {
+        mask = trueMask;
+      }
+    }
+
+    // 2. 创建vector.transfer_read操作
+    Value inBoundsMask;
+    AffineMap map =
+        AffineMap::getMultiDimIdentityMap(rank, rewriter.getContext());
+    Value result;
+
+    // 创建AffineMapAttr
+    auto mapAttr = AffineMapAttr::get(map);
+
+    // 创建in_bounds属性
+    SmallVector<bool> inBounds(rank, false);
+    auto inBoundsAttr = rewriter.getBoolArrayAttr(inBounds);
+
+    if (mask) {
+      // 使用mask
+      result = rewriter.create<vector::TransferReadOp>(
+          loc, vecType, base, indices, mapAttr, other, mask, inBoundsAttr);
+    } else {
+      // 不使用mask
+      result = rewriter.create<vector::TransferReadOp>(
+          loc, vecType, base, indices, mapAttr, inBoundsAttr);
+    }
+
+    // 3. 将vector结果转换为预期的返回类型（tensor）
+    auto unrealizedCast =
+        rewriter.create<UnrealizedConversionCastOp>(loc, resultType, result);
+
+    rewriter.replaceOp(op, unrealizedCast.getResults());
+    return success();
+  }
+
+  bool isTensorToVector;
 };
 
-// 转换 TTS_TransferWriteOp 到 IREE::VectorExt::TransferWriteOp
+// 转换 TTS_TransferWriteOp
 class TransferWriteOpConversion
     : public OpConversionPattern<tts::TransferWriteOp> {
 public:
-  using OpConversionPattern<tts::TransferWriteOp>::OpConversionPattern;
+  TransferWriteOpConversion(MLIRContext *context, bool isTensorToVector = false)
+      : OpConversionPattern<tts::TransferWriteOp>(context),
+        isTensorToVector(isTensorToVector) {}
 
   LogicalResult
   matchAndRewrite(tts::TransferWriteOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    if (isTensorToVector) {
+      return matchAndRewriteToVectorTransferWrite(op, adaptor, rewriter);
+    } else {
+      return matchAndRewriteToMemrefCopy(op, adaptor, rewriter);
+    }
+  }
+
+private:
+  // 转换为memref.copy实现
+  LogicalResult
+  matchAndRewriteToMemrefCopy(tts::TransferWriteOp op, OpAdaptor adaptor,
+                              ConversionPatternRewriter &rewriter) const {
     // 获取操作数
     Value dest = adaptor.getBase();
     Value value = adaptor.getValue();
@@ -151,7 +286,11 @@ public:
         // 获取掩码值
         Value maskDim;
         if (auto attr = dyn_cast<Attribute>(maskDims[i])) {
-          maskDim = rewriter.create<arith::ConstantOp>(loc, attr);
+          if (auto intAttr = dyn_cast<IntegerAttr>(attr)) {
+            maskDim = rewriter.create<arith::ConstantOp>(loc, intAttr);
+          } else {
+            return failure();
+          }
         } else {
           maskDim = cast<Value>(maskDims[i]);
         }
@@ -196,16 +335,21 @@ public:
     SmallVector<int64_t> sliceSizes;
     for (auto s : sizes) {
       if (auto attr = dyn_cast<Attribute>(s)) {
-        sliceSizes.push_back(cast<IntegerAttr>(getInt(attr)));
+        if (auto intAttr = dyn_cast<IntegerAttr>(attr)) {
+          sliceSizes.push_back(intAttr.getInt());
+        } else {
+          sliceSizes.push_back(ShapedType::kDynamic);
+        }
       } else {
         sliceSizes.push_back(ShapedType::kDynamic);
       }
     }
 
+    auto rankedSourceType = cast<RankedTensorType>(valueType);
     auto sliceResultType = tensor::ExtractSliceOp::inferResultType(
-        valueType.getShape(), sliceSizes,
-        SmallVector<int64_t>(rank, 1), // strides为1
-        valueType.getElementType());
+        rankedSourceType, SmallVector<int64_t>(rank, 0), // offsets
+        sliceSizes, SmallVector<int64_t>(rank, 1)        // strides
+    );
 
     auto extractSlice = rewriter.create<tensor::ExtractSliceOp>(
         loc, sliceResultType, value, offsets, sizes, strides);
@@ -220,8 +364,17 @@ public:
         loc, memrefType, extractSlice.getResult(), false);
 
     // 3. 创建memref.subview来获取目标的相应部分
+    auto destType = cast<MemRefType>(dest.getType());
+
+    // 创建 SubViewOp
+    auto resultType = memref::SubViewOp::inferResultType(destType, // 源类型
+                                                         offsets,  // 偏移
+                                                         sizes,    // 大小
+                                                         strides   // 步长
+    );
+
     auto subview = rewriter.create<memref::SubViewOp>(
-        loc, toMemref.getType(), dest, offsets, sizes, strides);
+        loc, cast<MemRefType>(resultType), dest, offsets, sizes, strides);
 
     // 4. 使用memref.copy将数据从源memref复制到目标memref
     rewriter.create<memref::CopyOp>(loc, toMemref, subview);
@@ -230,18 +383,75 @@ public:
     rewriter.eraseOp(op);
     return success();
   }
+
+  // 转换为vector.transfer_write实现
+  LogicalResult matchAndRewriteToVectorTransferWrite(
+      tts::TransferWriteOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const {
+    // 获取操作数
+    Value dest = adaptor.getBase();
+    Value value = adaptor.getValue();
+    auto loc = op.getLoc();
+
+    // 获取基本信息
+    auto destType = cast<MemRefType>(dest.getType());
+    int64_t rank = destType.getRank();
+
+    // 创建索引，默认为0
+    SmallVector<Value> indices;
+    for (int i = 0; i < rank; ++i) {
+      indices.push_back(rewriter.create<arith::ConstantIndexOp>(loc, 0));
+    }
+
+    // 创建vector.transfer_write的输入值
+    // 首先需要将tensor值转换为vector
+    auto tensorType = cast<TensorType>(value.getType());
+    auto vectorType =
+        VectorType::get(tensorType.getShape(), tensorType.getElementType());
+
+    // 将tensor转换为vector
+    Value vectorValue =
+        rewriter.create<UnrealizedConversionCastOp>(loc, vectorType, value)
+            .getResult(0);
+
+    // 创建vector.transfer_write操作
+    // 注意：TransferWriteOp不需要掩码
+    AffineMap map =
+        AffineMap::getMultiDimIdentityMap(rank, rewriter.getContext());
+
+    // 创建AffineMapAttr和in_bounds属性
+    auto mapAttr = AffineMapAttr::get(map);
+    SmallVector<bool> inBounds(rank, false);
+    auto inBoundsAttr = rewriter.getBoolArrayAttr(inBounds);
+
+    rewriter.create<vector::TransferWriteOp>(loc, vectorValue, dest, indices,
+                                             mapAttr,
+                                             /*mask=*/Value(), inBoundsAttr);
+
+    // 删除原始操作
+    rewriter.eraseOp(op);
+    return success();
+  }
+
+  bool isTensorToVector;
 };
 
 // 修改ConvertTTSTransferOp类
 class ConvertTTSTransferOp
     : public triton::impl::ConvertTTSTransferOpBase<ConvertTTSTransferOp> {
 public:
+  ConvertTTSTransferOp() = default;
+
+  explicit ConvertTTSTransferOp(bool isTensorToVector)
+      : isTensorToVector(isTensorToVector) {}
+
   void getDependentDialects(DialectRegistry &registry) const override {
     registry
         .insert<func::FuncDialect, arith::ArithDialect, memref::MemRefDialect,
                 math::MathDialect, linalg::LinalgDialect, scf::SCFDialect,
                 ttx::TritonTilingExtDialect, tts::TritonStructuredDialect,
-                bufferization::BufferizationDialect, tensor::TensorDialect>();
+                bufferization::BufferizationDialect, tensor::TensorDialect,
+                vector::VectorDialect>();
   }
 
   void runOnOperation() override {
@@ -255,10 +465,12 @@ public:
         IREE::VectorExt::IREEVectorExtDialect,
         bufferization::BufferizationDialect, tensor::TensorDialect>();
 
+    target.addLegalOp<UnrealizedConversionCastOp>();
     target.addIllegalOp<tts::TransferReadOp, tts::TransferWriteOp>();
     // 添加转换模式
     RewritePatternSet patterns(context);
-    patterns.add<TransferReadOpConversion, TransferWriteOpConversion>(context);
+    patterns.add<TransferReadOpConversion, TransferWriteOpConversion>(
+        context, isTensorToVector);
 
     // 应用转换
     if (failed(applyPartialConversion(getOperation(), target,
@@ -266,6 +478,9 @@ public:
       signalPassFailure();
     }
   }
+
+private:
+  bool isTensorToVector = false;
 };
 
 } // namespace
@@ -273,4 +488,9 @@ public:
 std::unique_ptr<OperationPass<func::FuncOp>>
 triton::createConvertTTSTransferOpPass() {
   return std::make_unique<ConvertTTSTransferOp>();
+}
+
+std::unique_ptr<OperationPass<func::FuncOp>>
+triton::createConvertTTSTransferOpPass(bool isTensorToVector) {
+  return std::make_unique<ConvertTTSTransferOp>(isTensorToVector);
 }

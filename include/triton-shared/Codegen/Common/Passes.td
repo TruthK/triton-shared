@@ -75,24 +75,24 @@ def ConvertBf16ToUInt16BuffersPass :
   let summary = "Convert BF16 buffer ops and conversions to simulated behavior with uint16.";
 }
 
-// def ConvertToDestinationPassingStylePass :
-//     InterfacePass<"iree-codegen-convert-to-destination-passing-style", "mlir::FunctionOpInterface"> {
-//   let summary =
-//       "Transforms the code to make the dispatch use destination-passing style";
-//   let description = [{
-//     Converts entry point function within dispatch regions to use
-//     destination-passing style, which is better suited for the upstream
-//     comprehensive bufferization pass.
-//   }];
-//   let options = [
-//     Option<"convertInputsToDestinations", "convert-inputs-to-destinations",
-//            "bool", /*default=*/"true",
-//            "Controls whether to adjust consumers to convert one of its inputs to a destination">,
-//     Option<"useWARForCooperativeMatrixCodegen", "use-war-for-cooperative-matrix-codegen",
-//            "bool", /*default=*/"false",
-//            "WAR for failure in Cooperative matrix codegen pipelines. See #10648.">
-//   ];
-// }
+def ConvertToDestinationPassingStylePass :
+    InterfacePass<"iree-codegen-convert-to-destination-passing-style", "mlir::FunctionOpInterface"> {
+  let summary =
+      "Transforms the code to make the dispatch use destination-passing style";
+  let description = [{
+    Converts entry point function within dispatch regions to use
+    destination-passing style, which is better suited for the upstream
+    comprehensive bufferization pass.
+  }];
+  let options = [
+    Option<"convertInputsToDestinations", "convert-inputs-to-destinations",
+           "bool", /*default=*/"true",
+           "Controls whether to adjust consumers to convert one of its inputs to a destination">,
+    Option<"useWARForCooperativeMatrixCodegen", "use-war-for-cooperative-matrix-codegen",
+           "bool", /*default=*/"false",
+           "WAR for failure in Cooperative matrix codegen pipelines. See #10648.">
+  ];
+}
 
 // def ConvolutionToIGEMMPass :
 //     InterfacePass<"iree-codegen-convolution-to-igemm", "mlir::FunctionOpInterface"> {
@@ -291,10 +291,10 @@ def ExtractAddressComputationPass : Pass<"iree-codegen-extract-address-computati
 //   }];
 // }
 
-// def FoldAffineMinInDistributedLoopsPass :
-//   InterfacePass<"iree-codegen-fold-affinemin-in-distributed-loops", "mlir::FunctionOpInterface"> {
-//   let summary = "Fold `affine.min` ops in distributed loops";
-// }
+def FoldAffineMinInDistributedLoopsPass :
+  InterfacePass<"iree-codegen-fold-affinemin-in-distributed-loops", "mlir::FunctionOpInterface"> {
+  let summary = "Fold `affine.min` ops in distributed loops";
+}
 
 def FoldTensorExtractOpPass :
   Pass<"iree-codegen-fold-tensor-extract-op", ""> {
@@ -307,11 +307,11 @@ def FoldTensorExtractOpPass :
   }];
 }
 
-// def ForOpCanonicalizationPass :
-//   InterfacePass<"iree-codegen-canonicalize-scf-for", "mlir::FunctionOpInterface"> {
-//   let summary =
-//       "Adhoc canonicalization of selected loop-carried values/dependencies for scf.for ops";
-// }
+def ForOpCanonicalizationPass :
+  InterfacePass<"iree-codegen-canonicalize-scf-for", "mlir::FunctionOpInterface"> {
+  let summary =
+      "Adhoc canonicalization of selected loop-carried values/dependencies for scf.for ops";
+}
 
 // def FuseTensorPadWithConsumerPass :
 //     InterfacePass<"iree-codegen-fuse-tensor-pad-with-consumer", "mlir::FunctionOpInterface"> {
@@ -535,10 +535,10 @@ def PolynomialApproximationPass :
 //   }];
 // }
 
-// def RematerializeParallelOpsPass :
-//     InterfacePass<"iree-codegen-rematerialize-parallel-ops", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass to rematerialize and merge parallel ops into consumers.";
-// }
+def RematerializeParallelOpsPass :
+    InterfacePass<"iree-codegen-rematerialize-parallel-ops", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to rematerialize and merge parallel ops into consumers.";
+}
 
 // def RemoveSingleIterationLoopPass :
 //     InterfacePass<"iree-codegen-remove-single-iteration-loop", "mlir::FunctionOpInterface"> {
@@ -598,28 +598,18 @@ def IREELoopInvariantCodeMotionPass :
 //   let summary = "Test the PartitionableLoopsInterface";
 // }
 
-// def TileAndDistributeToWorkgroupsPass :
-//     InterfacePass<"iree-codegen-tile-and-distribute-to-workgroups", "mlir::FunctionOpInterface"> {
-//   let summary = "Tile and distribute operations to workgroups";
-//   let options = [
-//     Option<"maxWorkgroupParallelDims", "max-workgroup-parallel-dims", "int32_t",
-//       /*default=*/ "kNumMaxParallelDims",
-//       "Maximum number of dims to distribute workgroups across.">,
-//     Option<"distributionMethod", "distribution-method", "linalg::DistributionMethod",
-//       /*default=*/ "linalg::DistributionMethod::Cyclic",
-//       "Pick the distribution method. See linalg::DistributionMethod for details",
-//       [{::llvm::cl::values(
-//             clEnumValN(linalg::DistributionMethod::Cyclic,
-//                        "0", "Use Cyclic strategy"),
-//             clEnumValN(linalg::DistributionMethod::CyclicNumProcsGeNumIters,
-//                        "1", "Use CyclicNumProcGeNumIter strategy"),
-//             clEnumValN(linalg::DistributionMethod::CyclicNumProcsEqNumIters,
-//                        "2", "Use CyclicNumProcEqNumIter strategy"),
-//             clEnumValN(linalg::DistributionMethod::None,
-//                        "3", "Use None strategy")
-//         )}]>,
-//   ];
-// }
+def TileAndDistributeToWorkgroupsPass :
+    InterfacePass<"iree-codegen-tile-and-distribute-to-workgroups", "mlir::FunctionOpInterface"> {
+  let summary = "Tile and distribute operations to workgroups";
+  let options = [
+    Option<"maxWorkgroupParallelDims", "max-workgroup-parallel-dims", "int32_t",
+      /*default=*/ "kNumMaxParallelDims",
+      "Maximum number of dims to distribute workgroups across.">,
+    Option<"distributionMethod", "distribution-method", "linalg::DistributionMethod",
+      /*default=*/ "linalg::DistributionMethod::Cyclic",
+      "Pick the distribution method. See linalg::DistributionMethod for details">,
+  ];
+}
 
 def TileAndDistributeToWorkgroupsUsingForallOpPass :
     InterfacePass<"iree-codegen-tile-and-distribute-to-workgroups-using-forall-op",

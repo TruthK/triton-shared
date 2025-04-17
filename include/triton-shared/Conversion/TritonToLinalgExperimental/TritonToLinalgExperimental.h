@@ -29,6 +29,7 @@ createConvertTritonStructuredToMemrefPass();
 std::unique_ptr<OperationPass<ModuleOp>> createLinalgGenericFusionPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>> createConvertTTSTransferOpPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createConvertTTSTransferOpPass(bool isTensorToVector);
 void populateTTSTransferOpPatterns(RewritePatternSet &patterns,
                                    TypeConverter &typeConverter);
 

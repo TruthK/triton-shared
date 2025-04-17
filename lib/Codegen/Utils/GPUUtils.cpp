@@ -13,8 +13,6 @@
 #include "triton-shared/Codegen/Utils/Utils.h"
 #include "llvm/ADT/STLExtras.h"
 
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
@@ -22,6 +20,8 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include <cassert>
 #include <cstdint>
@@ -1000,9 +1000,25 @@ std::optional<int> getGPUSubgroupSize(mlir::FunctionOpInterface func) {
 //   if (IREE::GPU::TargetAttr target = getGPUTargetAttr(executableOp)) {
 //     mmaIntrinsics = llvm::map_to_vector(
 //         target.getWgp().getMma(),
-//         [](IREE::GPU::MMAAttr attr) { return attr.getIntrinsic().getValue(); });
+//         [](IREE::GPU::MMAAttr attr) { return attr.getIntrinsic().getValue();
+//         });
 //   }
 //   return mmaIntrinsics;
 // }
 
+bool hasGlobalMemoryAddressSpace(MemRefType memrefType) {
+  Attribute addrSpace = memrefType.getMemorySpace();
+  if (!addrSpace)
+    return true;
+  auto intAttr = llvm::dyn_cast<IntegerAttr>(addrSpace);
+  // Accept both default numeric address space and HAL descriptor type address
+  // space--the former is used by LLVMGPU while the latter is used by SPIR-V.
+  if (intAttr && intAttr.getInt() == 0)
+    return true;
+  auto gpuAttr = llvm::dyn_cast<gpu::AddressSpaceAttr>(addrSpace);
+  if (gpuAttr && gpuAttr.getValue() == gpu::AddressSpace::Global)
+    return true;
+
+  return false;
+}
 } // namespace mlir::tts

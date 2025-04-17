@@ -263,11 +263,11 @@ def GPUReduceBankConflictsPass :
 //   let summary = "Tile Linalg ops with tensor semantics to invocations";
 // }
 
-// def GPUTileReductionPass :
-//     InterfacePass<"iree-codegen-gpu-tile-reduction", "mlir::FunctionOpInterface"> {
-//   let summary = "Pass to tile linalg reduction dimensions.";
-//   let dependentDialects = ["::mlir::scf::SCFDialect"];
-// }
+def GPUTileReductionPass :
+    InterfacePass<"iree-codegen-gpu-tile-reduction", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to tile linalg reduction dimensions.";
+  let dependentDialects = ["::mlir::scf::SCFDialect"];
+}
 
 def GPUVerifyDistributionPass :
     InterfacePass<"iree-codegen-gpu-verify-distribution", "mlir::FunctionOpInterface"> {
@@ -300,15 +300,15 @@ def ReorderWorkgroupsPass :
   ];
 }
 
-// def VectorReductionToGPUPass :
-//     InterfacePass<"iree-codegen-vector-reduction-to-gpu", "mlir::FunctionOpInterface"> {
-//   let summary = "Convert vector reduction to GPU ops.";
-//   let constructor = "mlir::tts::createConvertVectorReductionToGPUPass()";
-//   let dependentDialects = [
-//     "::mlir::affine::AffineDialect", "::mlir::gpu::GPUDialect",
-//     "::mlir::memref::MemRefDialect", "::mlir::scf::SCFDialect",
-//   ];
-// }
+def VectorReductionToGPUPass :
+    InterfacePass<"iree-codegen-vector-reduction-to-gpu", "mlir::FunctionOpInterface"> {
+  let summary = "Convert vector reduction to GPU ops.";
+  let constructor = "mlir::tts::createConvertVectorReductionToGPUPass()";
+  let dependentDialects = [
+    "::mlir::affine::AffineDialect", "::mlir::gpu::GPUDialect",
+    "::mlir::memref::MemRefDialect", "::mlir::scf::SCFDialect",
+  ];
+}
 
 def ExpandGPUOpsPass :
     InterfacePass<"iree-codegen-expand-gpu-ops", "mlir::FunctionOpInterface"> {
