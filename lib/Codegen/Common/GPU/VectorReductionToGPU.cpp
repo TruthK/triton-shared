@@ -232,7 +232,7 @@ struct VectorReductionToGPUPass final
 
     // 3. Hoist the scalar code outside of the warp region.
     moveScalarAndBindingUniformCode(warpOp);
-
+    warpOp.dump();
     debugPrint(funcOp, "after step #3: hosting uniform code");
 
     // 4. Distribute transfer write operations and propagate vector

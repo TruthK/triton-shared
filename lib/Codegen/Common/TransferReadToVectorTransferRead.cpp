@@ -29,6 +29,41 @@ namespace mlir::tts {
 
 namespace {
 
+/// 优化bufferization链中的memref.copy操作
+/// 将 bufferization.to_tensor -> bufferization.to_memref -> memref.copy 
+/// 简化为直接 memref.copy，跳过中间转换
+struct OptimizeBufferizationChainCopy
+    : public OpRewritePattern<memref::CopyOp> {
+public:
+  using OpRewritePattern<memref::CopyOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(memref::CopyOp copyOp,
+                                PatternRewriter &rewriter) const override {
+    // 获取源操作数（要检查的是源操作数）
+    Value source = copyOp.getSource();
+    Value target = copyOp.getTarget();
+    
+    // 检查源是否来自 bufferization.to_memref
+    auto toMemRefOp = source.getDefiningOp<bufferization::ToMemrefOp>();
+    if (!toMemRefOp)
+      return failure();
+      
+    // 检查 to_memref 的输入是否来自 bufferization.to_tensor
+    Value tensorSource = toMemRefOp.getTensor();
+    auto toTensorOp = tensorSource.getDefiningOp<bufferization::ToTensorOp>();
+    if (!toTensorOp)
+      return failure();
+      
+    // 获取原始的memref源
+    Value originalMemRef = toTensorOp.getMemref();
+    
+    // 创建新的memref.copy操作，跳过中间转换
+    rewriter.replaceOpWithNewOp<memref::CopyOp>(copyOp, originalMemRef, target);
+    
+    return success();
+  }
+};
+
 /// 将 iree_vector_ext.transfer_read 转换为 vector.transfer_read
 struct ConvertVectorExtTransferReadToVectorTransferRead
     : public OpRewritePattern<IREE::VectorExt::TransferReadOp> {
@@ -447,6 +482,8 @@ struct VectorExtTransferToVectorTransferPass
     // 添加转换模式
     patterns.add<ConvertVectorExtTransferReadToVectorTransferRead>(context);
     patterns.add<ConvertVectorExtTransferWriteToVectorTransferWrite>(context);
+    // 添加新的优化模式
+    patterns.add<OptimizeBufferizationChainCopy>(context);
 
     // 应用模式
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {

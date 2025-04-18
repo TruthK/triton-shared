@@ -39,7 +39,7 @@ bash create_conda_env.sh ${cud_version}
 sudo apt-get update -y
 sudo apt-get install -y ccache clang lld
 
-cd third_party/llvm-project  # your clone of LLVM.
+cd third_party/llvm-project  
 mkdir build
 cd build
 cmake -G Ninja -DCMAKE_BUILD_TYPE=Release  -DCMAKE_C_COMPILER=clang       -DCMAKE_CXX_COMPILER=clang++       -DCMAKE_LINKER=lld -DLLVM_ENABLE_ASSERTIONS=ON ../llvm -DLLVM_ENABLE_PROJECTS="mlir;llvm" -DLLVM_TARGETS_TO_BUILD="host;NVPTX;AMDGPU" 

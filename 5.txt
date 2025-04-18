@@ -2431,10 +2431,8 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
     %reinterpret_cast_4 = memref.reinterpret_cast %arg0 to offset: [%28], sizes: [4096], strides: [1] : memref<*xf32> to memref<4096xf32, strided<[1], offset: ?>>
     %29 = arith.minsi %4, %c4096 : index
     %subview = memref.subview %alloc[0] [%29] [1] : memref<4096xf32, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>>
-    %30 = bufferization.to_tensor %subview : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to tensor<?xf32>
-    %31 = bufferization.to_memref %30 : tensor<?xf32> to memref<?xf32>
     %subview_5 = memref.subview %reinterpret_cast_4[0] [%29] [1] : memref<4096xf32, strided<[1], offset: ?>> to memref<?xf32, strided<[1], offset: ?>>
-    memref.copy %31, %subview_5 : memref<?xf32> to memref<?xf32, strided<[1], offset: ?>>
+    memref.copy %subview, %subview_5 : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1], offset: ?>>
   } {tt.num_stages = 2 : i32}
   return
 }
@@ -2488,10 +2486,8 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
     %reinterpret_cast_4 = memref.reinterpret_cast %arg0 to offset: [%28], sizes: [4096], strides: [1] : memref<*xf32> to memref<4096xf32, strided<[1], offset: ?>>
     %29 = arith.minsi %4, %c4096 : index
     %subview = memref.subview %alloc[0] [%29] [1] : memref<4096xf32, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>>
-    %30 = bufferization.to_tensor %subview : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to tensor<?xf32>
-    %31 = bufferization.to_memref %30 : tensor<?xf32> to memref<?xf32>
     %subview_5 = memref.subview %reinterpret_cast_4[0] [%29] [1] : memref<4096xf32, strided<[1], offset: ?>> to memref<?xf32, strided<[1], offset: ?>>
-    memref.copy %31, %subview_5 : memref<?xf32> to memref<?xf32, strided<[1], offset: ?>>
+    memref.copy %subview, %subview_5 : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1], offset: ?>>
   } {tt.num_stages = 2 : i32}
   return
 }
@@ -2545,10 +2541,8 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
     %reinterpret_cast_4 = memref.reinterpret_cast %arg0 to offset: [%28], sizes: [4096], strides: [1] : memref<*xf32> to memref<4096xf32, strided<[1], offset: ?>>
     %29 = arith.minsi %4, %c4096 : index
     %subview = memref.subview %alloc[0] [%29] [1] : memref<4096xf32, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>>
-    %30 = bufferization.to_tensor %subview : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to tensor<?xf32>
-    %31 = bufferization.to_memref %30 : tensor<?xf32> to memref<?xf32>
     %subview_5 = memref.subview %reinterpret_cast_4[0] [%29] [1] : memref<4096xf32, strided<[1], offset: ?>> to memref<?xf32, strided<[1], offset: ?>>
-    memref.copy %31, %subview_5 : memref<?xf32> to memref<?xf32, strided<[1], offset: ?>>
+    memref.copy %subview, %subview_5 : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1], offset: ?>>
   } {tt.num_stages = 2 : i32}
   return
 }
@@ -2601,10 +2595,8 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
     %28 = arith.index_cast %27 : i32 to index
     %reinterpret_cast_4 = memref.reinterpret_cast %arg0 to offset: [%28], sizes: [4096], strides: [1] : memref<*xf32> to memref<4096xf32, strided<[1], offset: ?>>
     %subview = memref.subview %alloc[0] [%7] [1] : memref<4096xf32, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>>
-    %29 = bufferization.to_tensor %subview : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to tensor<?xf32>
-    %30 = bufferization.to_memref %29 : tensor<?xf32> to memref<?xf32>
     %subview_5 = memref.subview %reinterpret_cast_4[0] [%7] [1] : memref<4096xf32, strided<[1], offset: ?>> to memref<?xf32, strided<[1], offset: ?>>
-    memref.copy %30, %subview_5 : memref<?xf32> to memref<?xf32, strided<[1], offset: ?>>
+    memref.copy %subview, %subview_5 : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1], offset: ?>>
   } {tt.num_stages = 2 : i32}
   return
 }
@@ -2657,10 +2649,8 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
     %28 = arith.index_cast %27 : i32 to index
     %reinterpret_cast_4 = memref.reinterpret_cast %arg0 to offset: [%28], sizes: [4096], strides: [1] : memref<*xf32> to memref<4096xf32, strided<[1], offset: ?>>
     %subview = memref.subview %alloc[0] [%7] [1] : memref<4096xf32, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>>
-    %29 = bufferization.to_tensor %subview : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to tensor<?xf32>
-    %30 = bufferization.to_memref %29 : tensor<?xf32> to memref<?xf32>
     %subview_5 = memref.subview %reinterpret_cast_4[0] [%7] [1] : memref<4096xf32, strided<[1], offset: ?>> to memref<?xf32, strided<[1], offset: ?>>
-    memref.copy %30, %subview_5 : memref<?xf32> to memref<?xf32, strided<[1], offset: ?>>
+    memref.copy %subview, %subview_5 : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1], offset: ?>>
   } {tt.num_stages = 2 : i32}
   return
 }
@@ -2713,10 +2703,8 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
     %28 = arith.index_cast %27 : i32 to index
     %reinterpret_cast_4 = memref.reinterpret_cast %arg0 to offset: [%28], sizes: [4096], strides: [1] : memref<*xf32> to memref<4096xf32, strided<[1], offset: ?>>
     %subview = memref.subview %alloc[0] [%7] [1] : memref<4096xf32, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>>
-    %29 = bufferization.to_tensor %subview : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to tensor<?xf32>
-    %30 = bufferization.to_memref %29 : tensor<?xf32> to memref<?xf32>
     %subview_5 = memref.subview %reinterpret_cast_4[0] [%7] [1] : memref<4096xf32, strided<[1], offset: ?>> to memref<?xf32, strided<[1], offset: ?>>
-    memref.copy %30, %subview_5 : memref<?xf32> to memref<?xf32, strided<[1], offset: ?>>
+    memref.copy %subview, %subview_5 : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1], offset: ?>>
   } {tt.num_stages = 2 : i32}
   return
 }
@@ -2769,10 +2757,8 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
     %28 = arith.index_cast %27 : i32 to index
     %reinterpret_cast_4 = memref.reinterpret_cast %arg0 to offset: [%28], sizes: [4096], strides: [1] : memref<*xf32> to memref<4096xf32, strided<[1], offset: ?>>
     %subview = memref.subview %alloc[0] [%7] [1] : memref<4096xf32, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>>
-    %29 = bufferization.to_tensor %subview : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to tensor<?xf32>
-    %30 = bufferization.to_memref %29 : tensor<?xf32> to memref<?xf32>
     %subview_5 = memref.subview %reinterpret_cast_4[0] [%7] [1] : memref<4096xf32, strided<[1], offset: ?>> to memref<?xf32, strided<[1], offset: ?>>
-    memref.copy %30, %subview_5 : memref<?xf32> to memref<?xf32, strided<[1], offset: ?>>
+    memref.copy %subview, %subview_5 : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1], offset: ?>>
   } {tt.num_stages = 2 : i32}
   return
 }
@@ -2825,10 +2811,8 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
     %28 = arith.index_cast %27 : i32 to index
     %reinterpret_cast_4 = memref.reinterpret_cast %arg0 to offset: [%28], sizes: [4096], strides: [1] : memref<*xf32> to memref<4096xf32, strided<[1], offset: ?>>
     %subview = memref.subview %alloc[0] [%7] [1] : memref<4096xf32, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>>
-    %29 = bufferization.to_tensor %subview : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to tensor<?xf32>
-    %30 = bufferization.to_memref %29 : tensor<?xf32> to memref<?xf32>
     %subview_5 = memref.subview %reinterpret_cast_4[0] [%7] [1] : memref<4096xf32, strided<[1], offset: ?>> to memref<?xf32, strided<[1], offset: ?>>
-    memref.copy %30, %subview_5 : memref<?xf32> to memref<?xf32, strided<[1], offset: ?>>
+    memref.copy %subview, %subview_5 : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1], offset: ?>>
   } {tt.num_stages = 2 : i32}
   return
 }
@@ -2881,10 +2865,8 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
     %28 = arith.index_cast %27 : i32 to index
     %reinterpret_cast_4 = memref.reinterpret_cast %arg0 to offset: [%28], sizes: [4096], strides: [1] : memref<*xf32> to memref<4096xf32, strided<[1], offset: ?>>
     %subview = memref.subview %alloc[0] [%7] [1] : memref<4096xf32, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>>
-    %29 = bufferization.to_tensor %subview : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to tensor<?xf32>
-    %30 = bufferization.to_memref %29 : tensor<?xf32> to memref<?xf32>
     %subview_5 = memref.subview %reinterpret_cast_4[0] [%7] [1] : memref<4096xf32, strided<[1], offset: ?>> to memref<?xf32, strided<[1], offset: ?>>
-    memref.copy %30, %subview_5 : memref<?xf32> to memref<?xf32, strided<[1], offset: ?>>
+    memref.copy %subview, %subview_5 : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1], offset: ?>>
   } {tt.num_stages = 2 : i32}
   return
 }
@@ -2937,10 +2919,8 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
     %27 = arith.muli %arg6, %arg3 : i32
     %28 = arith.index_cast %27 : i32 to index
     %reinterpret_cast_4 = memref.reinterpret_cast %arg0 to offset: [%28], sizes: [4096], strides: [1] : memref<*xf32> to memref<4096xf32, strided<[1], offset: ?>>
-    %29 = bufferization.to_tensor %subview : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to tensor<?xf32>
-    %30 = bufferization.to_memref %29 : tensor<?xf32> to memref<?xf32>
     %subview_5 = memref.subview %reinterpret_cast_4[0] [%5] [1] : memref<4096xf32, strided<[1], offset: ?>> to memref<?xf32, strided<[1], offset: ?>>
-    memref.copy %30, %subview_5 : memref<?xf32> to memref<?xf32, strided<[1], offset: ?>>
+    memref.copy %subview, %subview_5 : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1], offset: ?>>
   } {tt.num_stages = 2 : i32}
   return
 }
@@ -2993,10 +2973,8 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
     %27 = arith.muli %arg6, %arg3 : i32
     %28 = arith.index_cast %27 : i32 to index
     %reinterpret_cast_4 = memref.reinterpret_cast %arg0 to offset: [%28], sizes: [4096], strides: [1] : memref<*xf32> to memref<4096xf32, strided<[1], offset: ?>>
-    %29 = bufferization.to_tensor %subview : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to tensor<?xf32>
-    %30 = bufferization.to_memref %29 : tensor<?xf32> to memref<?xf32>
     %subview_5 = memref.subview %reinterpret_cast_4[0] [%5] [1] : memref<4096xf32, strided<[1], offset: ?>> to memref<?xf32, strided<[1], offset: ?>>
-    memref.copy %30, %subview_5 : memref<?xf32> to memref<?xf32, strided<[1], offset: ?>>
+    memref.copy %subview, %subview_5 : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1], offset: ?>>
   } {tt.num_stages = 2 : i32}
   return
 }
@@ -3049,10 +3027,8 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
     %27 = arith.muli %arg6, %arg3 : i32
     %28 = arith.index_cast %27 : i32 to index
     %reinterpret_cast_4 = memref.reinterpret_cast %arg0 to offset: [%28], sizes: [4096], strides: [1] : memref<*xf32> to memref<4096xf32, strided<[1], offset: ?>>
-    %29 = bufferization.to_tensor %subview : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to tensor<?xf32>
-    %30 = bufferization.to_memref %29 : tensor<?xf32> to memref<?xf32>
     %subview_5 = memref.subview %reinterpret_cast_4[0] [%5] [1] : memref<4096xf32, strided<[1], offset: ?>> to memref<?xf32, strided<[1], offset: ?>>
-    memref.copy %30, %subview_5 : memref<?xf32> to memref<?xf32, strided<[1], offset: ?>>
+    memref.copy %subview, %subview_5 : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1], offset: ?>>
   } {tt.num_stages = 2 : i32}
   return
 }
@@ -3105,10 +3081,8 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
     %27 = arith.muli %arg6, %arg3 : i32
     %28 = arith.index_cast %27 : i32 to index
     %reinterpret_cast_4 = memref.reinterpret_cast %arg0 to offset: [%28], sizes: [4096], strides: [1] : memref<*xf32> to memref<4096xf32, strided<[1], offset: ?>>
-    %29 = bufferization.to_tensor %subview : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to tensor<?xf32>
-    %30 = bufferization.to_memref %29 : tensor<?xf32> to memref<?xf32>
     %subview_5 = memref.subview %reinterpret_cast_4[0] [%5] [1] : memref<4096xf32, strided<[1], offset: ?>> to memref<?xf32, strided<[1], offset: ?>>
-    memref.copy %30, %subview_5 : memref<?xf32> to memref<?xf32, strided<[1], offset: ?>>
+    memref.copy %subview, %subview_5 : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1], offset: ?>>
   } {tt.num_stages = 2 : i32}
   return
 }
@@ -3161,10 +3135,8 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
     %27 = arith.muli %arg6, %arg3 : i32
     %28 = arith.index_cast %27 : i32 to index
     %reinterpret_cast_4 = memref.reinterpret_cast %arg0 to offset: [%28], sizes: [4096], strides: [1] : memref<*xf32> to memref<4096xf32, strided<[1], offset: ?>>
-    %29 = bufferization.to_tensor %subview : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to tensor<?xf32>
-    %30 = bufferization.to_memref %29 : tensor<?xf32> to memref<?xf32>
     %subview_5 = memref.subview %reinterpret_cast_4[0] [%5] [1] : memref<4096xf32, strided<[1], offset: ?>> to memref<?xf32, strided<[1], offset: ?>>
-    memref.copy %30, %subview_5 : memref<?xf32> to memref<?xf32, strided<[1], offset: ?>>
+    memref.copy %subview, %subview_5 : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1], offset: ?>>
   } {tt.num_stages = 2 : i32}
   return
 }
@@ -3217,10 +3189,8 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
     %27 = arith.muli %arg6, %arg3 : i32
     %28 = arith.index_cast %27 : i32 to index
     %reinterpret_cast_4 = memref.reinterpret_cast %arg0 to offset: [%28], sizes: [4096], strides: [1] : memref<*xf32> to memref<4096xf32, strided<[1], offset: ?>>
-    %29 = bufferization.to_tensor %subview : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to tensor<?xf32>
-    %30 = bufferization.to_memref %29 : tensor<?xf32> to memref<?xf32>
     %subview_5 = memref.subview %reinterpret_cast_4[0] [%5] [1] : memref<4096xf32, strided<[1], offset: ?>> to memref<?xf32, strided<[1], offset: ?>>
-    memref.copy %30, %subview_5 : memref<?xf32> to memref<?xf32, strided<[1], offset: ?>>
+    memref.copy %subview, %subview_5 : memref<?xf32, strided<[1]>, #gpu.address_space<workgroup>> to memref<?xf32, strided<[1], offset: ?>>
   } {tt.num_stages = 2 : i32}
   return
 }
@@ -3228,49 +3198,85 @@ func.func @softmax_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %ar
 triton-shared-opt: /workspace/triton-shared/third_party/llvm-project/mlir/lib/Dialect/GPU/IR/GPUDialect.cpp:2304: static void mlir::gpu::WarpExecuteOnLane0Op::build(mlir::OpBuilder &, mlir::OperationState &, mlir::TypeRange, mlir::Value, int64_t, mlir::ValueRange, mlir::TypeRange): Assertion `args.size() == blockArgTypes.size()' failed.
 PLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.
 Stack dump:
-0.	Program arguments: triton/python/build/cmake.linux-x86_64-cpython-3.10/third_party/ttsnv/tools/triton-shared-opt/triton-shared-opt ir_files/tt_softmax_kernel.mlir --triton-to-linalg-experimental --iree-materialize-target --iree-llvmgpu-select-lowering-strategy --llvmgpu-codegen --iree-hal-serialize-target-executables --mlir-print-ir-after-all
+0.	Program arguments: ./triton/python/build/cmake.linux-x86_64-cpython-3.11/third_party/ttsnv/tools/triton-shared-opt/triton-shared-opt ir_files/tt_softmax_kernel.mlir --triton-to-linalg-experimental --iree-materialize-target --iree-llvmgpu-select-lowering-strategy --llvmgpu-codegen --mlir-print-ir-after-all
 Stack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):
-0  triton-shared-opt 0x000055ff0220015c
-1  triton-shared-opt 0x000055ff021fdb2e
-2  triton-shared-opt 0x000055ff022008a3
-3  libc.so.6         0x00007f545073e520
-4  libc.so.6         0x00007f54507929fc pthread_kill + 300
-5  libc.so.6         0x00007f545073e476 raise + 22
-6  libc.so.6         0x00007f54507247f3 abort + 211
-7  libc.so.6         0x00007f545072471b
-8  libc.so.6         0x00007f5450735e96
-9  triton-shared-opt 0x000055fefcd4093e
-10 triton-shared-opt 0x000055fefef44be4
-11 triton-shared-opt 0x000055fefef44718
-12 triton-shared-opt 0x000055fefef45205
-13 triton-shared-opt 0x000055fefef40f85
-14 triton-shared-opt 0x000055ff0172cc34
-15 triton-shared-opt 0x000055ff017291f5
-16 triton-shared-opt 0x000055ff01705eaf
-17 triton-shared-opt 0x000055ff01702497
-18 triton-shared-opt 0x000055fefc6f2d8f
-19 triton-shared-opt 0x000055feff670f87
-20 triton-shared-opt 0x000055feff6715a1
-21 triton-shared-opt 0x000055feff67605e
-22 triton-shared-opt 0x000055fefc63a394
-23 triton-shared-opt 0x000055feff670f87
-24 triton-shared-opt 0x000055feff6715a1
-25 triton-shared-opt 0x000055feff676e06
-26 triton-shared-opt 0x000055feff672c7b
-27 triton-shared-opt 0x000055feff6710fe
-28 triton-shared-opt 0x000055feff6715a1
-29 triton-shared-opt 0x000055feff67605e
-30 triton-shared-opt 0x000055fefc641c3a
-31 triton-shared-opt 0x000055feff670f87
-32 triton-shared-opt 0x000055feff6715a1
-33 triton-shared-opt 0x000055feff673c5b
-34 triton-shared-opt 0x000055feff66ce41
-35 triton-shared-opt 0x000055feff66ca60
-36 triton-shared-opt 0x000055ff0212f805
-37 triton-shared-opt 0x000055feff6656db
-38 triton-shared-opt 0x000055feff6659e5
-39 triton-shared-opt 0x000055feff665c47
-40 triton-shared-opt 0x000055fefc702e3a
-41 libc.so.6         0x00007f5450725d90
-42 libc.so.6         0x00007f5450725e40 __libc_start_main + 128
-43 triton-shared-opt 0x000055fefc2ee0a5
+0  triton-shared-opt 0x000055581f3666bd
+1  triton-shared-opt 0x000055581f366bab
+2  triton-shared-opt 0x000055581f364bd6
+3  triton-shared-opt 0x000055581f3673e5
+4  libc.so.6         0x00007fd607848520
+5  libc.so.6         0x00007fd60789c9fc pthread_kill + 300
+6  libc.so.6         0x00007fd607848476 raise + 22
+7  libc.so.6         0x00007fd60782e7f3 abort + 211
+8  libc.so.6         0x00007fd60782e71b
+9  libc.so.6         0x00007fd60783fe96
+10 triton-shared-opt 0x0000555815e0d954
+11 triton-shared-opt 0x0000555819b9fe96
+12 triton-shared-opt 0x0000555819b9ee55
+13 triton-shared-opt 0x0000555819b9f523
+14 triton-shared-opt 0x0000555819b912f7
+15 triton-shared-opt 0x000055581dcb5a86
+16 triton-shared-opt 0x000055581dcb58c5
+17 triton-shared-opt 0x000055581a812629
+18 triton-shared-opt 0x000055581dcb73cd
+19 triton-shared-opt 0x000055581dcb428c
+20 triton-shared-opt 0x000055581dc654eb
+21 triton-shared-opt 0x000055581dc64741
+22 triton-shared-opt 0x000055581dc64715
+23 triton-shared-opt 0x000055581a812629
+24 triton-shared-opt 0x000055581dc63ddd
+25 triton-shared-opt 0x000055581dc621f5
+26 triton-shared-opt 0x000055581dc61ecf
+27 triton-shared-opt 0x00005558151589cf
+28 triton-shared-opt 0x000055581a8058fb
+29 triton-shared-opt 0x000055581a805895
+30 triton-shared-opt 0x000055581a812629
+31 triton-shared-opt 0x000055581a808add
+32 triton-shared-opt 0x000055581a800e0a
+33 triton-shared-opt 0x000055581a8013c4
+34 triton-shared-opt 0x000055581a805871
+35 triton-shared-opt 0x000055581a8055f2
+36 triton-shared-opt 0x000055581509f984
+37 triton-shared-opt 0x000055581a8058fb
+38 triton-shared-opt 0x000055581a805895
+39 triton-shared-opt 0x000055581a812629
+40 triton-shared-opt 0x000055581a808add
+41 triton-shared-opt 0x000055581a800e0a
+42 triton-shared-opt 0x000055581a8013c4
+43 triton-shared-opt 0x000055581a806e68
+44 triton-shared-opt 0x000055581a806ca0
+45 triton-shared-opt 0x000055581a806a39
+46 triton-shared-opt 0x000055581a806905
+47 triton-shared-opt 0x000055581a802713
+48 triton-shared-opt 0x000055581a801fb9
+49 triton-shared-opt 0x000055581a801ab7
+50 triton-shared-opt 0x000055581a8058e6
+51 triton-shared-opt 0x000055581a805895
+52 triton-shared-opt 0x000055581a812629
+53 triton-shared-opt 0x000055581a808add
+54 triton-shared-opt 0x000055581a800e0a
+55 triton-shared-opt 0x000055581a8013c4
+56 triton-shared-opt 0x000055581a805871
+57 triton-shared-opt 0x000055581a8055f2
+58 triton-shared-opt 0x00005558150a722a
+59 triton-shared-opt 0x000055581a8058fb
+60 triton-shared-opt 0x000055581a805895
+61 triton-shared-opt 0x000055581a812629
+62 triton-shared-opt 0x000055581a808add
+63 triton-shared-opt 0x000055581a800e0a
+64 triton-shared-opt 0x000055581a8013c4
+65 triton-shared-opt 0x000055581a802eac
+66 triton-shared-opt 0x000055581a802dcf
+67 triton-shared-opt 0x000055581a7e832a
+68 triton-shared-opt 0x000055581a7e7eed
+69 triton-shared-opt 0x000055581a7e7cab
+70 triton-shared-opt 0x000055581a7e7c2d
+71 triton-shared-opt 0x000055581f1dd389
+72 triton-shared-opt 0x000055581f1dc930
+73 triton-shared-opt 0x000055581a7e3ca6
+74 triton-shared-opt 0x000055581a7e4071
+75 triton-shared-opt 0x000055581a7e4248
+76 triton-shared-opt 0x000055581516b5ea
+77 libc.so.6         0x00007fd60782fd90
+78 libc.so.6         0x00007fd60782fe40 __libc_start_main + 128
+79 triton-shared-opt 0x0000555814d4ffa5
