@@ -531,7 +531,7 @@ std::optional<TargetDetails> getNVIDIAGPUTargetDetails(StringRef target) {
       .Case("rtx3070", TargetDetails{ampereWgp, &rtx3070Chip})
       .Cases("ampere", "sm_80", "sm_86", "sm_87","sm_89",
              TargetDetails{ampereWgp, nullptr})
-      .Cases("turing", "sm_75", TargetDetails{turingWgp, nullptr})
+      .Cases("turing", "sm_89", TargetDetails{turingWgp, nullptr})
       .Cases("volta", "sm_70", "sm_72", TargetDetails{voltaWgp, nullptr})
       .Cases("pascal", "sm_60", "sm_61", "sm_62",
              TargetDetails{pascalWgp, nullptr})
@@ -547,12 +547,12 @@ StringRef normalizeNVIDIAGPUTarget(StringRef target) {
   if (target.starts_with("rtx30"))
     return "sm_86";
   if (target.starts_with("rtx20"))
-    return "sm_75";
+    return "sm_89";
 
   return llvm::StringSwitch<StringRef>(target.lower())
       .Case("a100", "sm_80")
       .Case("ampere", "sm_80") // Or sm_86/87; use smaller version
-      .Case("turing", "sm_75")
+      .Case("turing", "sm_89")
       .Case("volta", "sm_70")  // Or sm_72; use smaller version
       .Case("pascal", "sm_60") // Or sm_61/62; use smaller version
       .Default("");

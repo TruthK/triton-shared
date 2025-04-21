@@ -58,6 +58,8 @@ public:
   void runOnOperation() override {
     auto moduleOp = getOperation();
     PassManager pm(&getContext(), moduleOp.getOperationName());
+    pm.addPass(createCSEPass());
+    pm.addPass(createCanonicalizerPass());
     pm.addPass(createTritonToStructuredPass());
 
     // Erase dead code and fold constants created during lowering
@@ -80,6 +82,8 @@ public:
 
     pm.addPass(createCanonicalizerPass());
     pm.addPass(createCSEPass());
+    pm.addPass(createTTSLoopUnrollPass());
+
     // pm.addPass(createConvertTritonStructuredToMemrefPass());
     // pm.addPass(createReconcileUnrealizedCastsPass());
     // pm.addPass(createCanonicalizerPass());

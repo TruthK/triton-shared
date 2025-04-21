@@ -14,9 +14,7 @@ namespace NVIDIA {
 //     ModuleAxisInfoAnalysis &axisInfoAnalysis, int computeCapability,
 //     const TargetInfo &targetInfo, PatternBenefit benefit);
 
-void populateTTSSPMDOpToLLVMPattern(LLVMTypeConverter &typeConverter,
-                                    const TargetInfoBase &targetInfo,
-                                    RewritePatternSet &patterns);
+void populateTTSSPMDOpToLLVMPattern(RewritePatternSet &patterns);
 
 void populateTTSFuncOpConversionPattern(LLVMTypeConverter &typeConverter,
                                         RewritePatternSet &patterns,

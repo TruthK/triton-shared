@@ -1,3 +1,5 @@
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/MLIRContext.h"
@@ -15,61 +17,48 @@ using namespace mlir::tts;
 namespace {
 
 struct GetNumProgramsOpConversion
-    : public ConvertOpToLLVMPattern<triton::GetNumProgramsOp> {
-  using ConvertOpToLLVMPattern<
-      triton::GetNumProgramsOp>::ConvertOpToLLVMPattern;
+    : public OpRewritePattern<triton::GetNumProgramsOp> {
+  using OpRewritePattern<triton::GetNumProgramsOp>::OpRewritePattern;
 
-  LogicalResult
-  matchAndRewrite(triton::GetNumProgramsOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    // It is not easy to get the compute capability here, so we use numCTAs to
-    // decide the semantic of GetNumProgramsOp. If numCTAs = 1, then
-    // GetNumProgramsOp is converted to "%nctaid", otherwise it is converted to
-    // "%nclusterid".
-    auto moduleOp = op->getParentOfType<ModuleOp>();
-    assert(moduleOp && "Parent ModuleOp not found for GetProgramIdOp");
-    // TODO triton::gpu::TritonGPUDialect::getNumCTAs(moduleOp);
-    assert(false);
-    int numCTAs = 1;
-
+  LogicalResult matchAndRewrite(triton::GetNumProgramsOp op,
+                                PatternRewriter &rewriter) const override {
+    static constexpr mlir::gpu::Dimension dims[] = {mlir::gpu::Dimension::x,
+                                                    mlir::gpu::Dimension::y,
+                                                    mlir::gpu::Dimension::z};
     Location loc = op->getLoc();
     assert(op.getAxisAsInt() < 3);
-    std::string sreg = numCTAs == 1 ? "nctaid." : "nclusterid.";
-    sreg.append(1, 'x' + op.getAxisAsInt()); // 0 -> 'x', 1 -> 'y', 2 -> 'z'
-
-    Value numPrograms = LLVM::tts::NVIDIA::getSRegValue(rewriter, loc, sreg);
-    rewriter.replaceOp(op, numPrograms);
+    Value blockId =
+        rewriter.create<::mlir::gpu::GridDimOp>(loc, dims[op.getAxisAsInt()]);
+    Type i32_ty = rewriter.getIntegerType(32);
+    rewriter.replaceOpWithNewOp<arith::IndexCastOp>(op, i32_ty, blockId);
     return success();
   }
 };
 
 struct GetProgramIdOpConversion
-    : public ConvertOpToLLVMPattern<triton::GetProgramIdOp> {
-  explicit GetProgramIdOpConversion(LLVMTypeConverter &typeConverter,
-                                    const TargetInfoBase &targetInfo,
-                                    PatternBenefit benefit = 1)
-      : ConvertOpToLLVMPattern<triton::GetProgramIdOp>(typeConverter, benefit),
-        targetInfo(targetInfo) {}
+    : public OpRewritePattern<triton::GetProgramIdOp> {
 
-  LogicalResult
-  matchAndRewrite(triton::GetProgramIdOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    Value programId = targetInfo.programId(rewriter, op->getLoc(),
-                                           op->getParentOfType<ModuleOp>(),
-                                           op.getAxisAsInt());
-    rewriter.replaceOp(op, programId);
+  using OpRewritePattern<triton::GetProgramIdOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(triton::GetProgramIdOp op,
+                                PatternRewriter &rewriter) const override {
+    static constexpr mlir::gpu::Dimension dims[] = {mlir::gpu::Dimension::x,
+                                                    mlir::gpu::Dimension::y,
+                                                    mlir::gpu::Dimension::z};
+
+    Location loc = op->getLoc();
+    Type i32_ty = rewriter.getIntegerType(32);
+    Value blockId =
+        rewriter.create<::mlir::gpu::BlockIdOp>(loc, dims[op.getAxisAsInt()]);
+
+    rewriter.replaceOpWithNewOp<arith::IndexCastOp>(op, i32_ty, blockId);
     return success();
   }
-
-private:
-  const TargetInfoBase &targetInfo;
 };
 
 } // namespace
 
 void mlir::tts::NVIDIA::populateTTSSPMDOpToLLVMPattern(
-    LLVMTypeConverter &typeConverter, const TargetInfoBase &targetInfo,
     RewritePatternSet &patterns) {
-  patterns.add<GetNumProgramsOpConversion>(typeConverter);
-  patterns.add<GetProgramIdOpConversion>(typeConverter, targetInfo);
+  patterns.add<GetNumProgramsOpConversion>(patterns.getContext());
+  patterns.add<GetProgramIdOpConversion>(patterns.getContext());
 }

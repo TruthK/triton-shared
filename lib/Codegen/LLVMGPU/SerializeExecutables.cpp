@@ -28,6 +28,7 @@
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -38,6 +39,8 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO.h"
 
+#define DEBUG_TYPE "iree-serialize"
+
 namespace mlir::tts {
 
 #define GEN_PASS_DEF_SERIALIZETARGETEXECUTABLESPASS
@@ -46,7 +49,7 @@ namespace mlir::tts {
 namespace {
 
 struct CUDAOptions {
-  std::string clTarget = "sm_75";
+  std::string clTarget = "sm_89";
   std::string clTargetFeatures = "+ptx84";
 };
 
@@ -225,7 +228,10 @@ LogicalResult serializeExecutable(std::string &targetPTX,
   optimizeModule(*llvmModule, *targetMachine, maxWorkgroupSize);
   // Serialize ptx kernel into the binary that we will embed in the
   // final FlatBuffer.
-  llvmModule->dump();
+  LLVM_DEBUG({
+    llvm::dbgs() << "creating tts::store:\n";
+    llvmModule->dump();
+  });
 
   targetPTX = translateModuleToISA(*llvmModule, *targetMachine);
   if (targetPTX.empty()) {

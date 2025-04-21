@@ -155,8 +155,6 @@ struct ConvertToNVVMPass final
       mlir::tts::NVIDIA::populateTTSFuncOpConversionPattern(
           typeConverter, llvmPatterns, 1, targetInfo);
       cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
-      mlir::tts::NVIDIA::populateTTSSPMDOpToLLVMPattern(converter, targetInfo,
-                                                        llvmPatterns);
       arith::populateCeilFloorDivExpandOpsPatterns(llvmPatterns);
       arith::populateArithToLLVMConversionPatterns(converter, llvmPatterns);
       vector::populateVectorRankReducingFMAPattern(llvmPatterns);

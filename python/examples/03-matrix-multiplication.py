@@ -245,13 +245,13 @@ def matmul_kernel(
         # Pointers to matrices
         a_ptr, b_ptr, c_ptr,
         # Matrix dimensions
-        M, N, K,
+        M: tl.constexpr, N: tl.constexpr, K: tl.constexpr,
         # The stride variables represent how much to increase the ptr by when moving by 1
         # element in a particular dimension. E.g. `stride_am` is how much to increase `a_ptr`
         # by to get the element one row down (A has M rows).
-        stride_am, stride_ak,  #
-        stride_bk, stride_bn,  #
-        stride_cm, stride_cn,
+        stride_am: tl.constexpr, stride_ak: tl.constexpr,  #
+        stride_bk: tl.constexpr, stride_bn: tl.constexpr,  #
+        stride_cm: tl.constexpr, stride_cn: tl.constexpr,
         # Meta-parameters
         BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr, BLOCK_SIZE_K: tl.constexpr,  #
         GROUP_SIZE_M: tl.constexpr,  #
@@ -341,10 +341,10 @@ def matmul(a, b, activation=""):
     grid = lambda META: (triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']), )
     matmul_kernel[grid](
         a, b, c,  #
-        M, N, K,  #
-        a.stride(0), a.stride(1),  #
-        b.stride(0), b.stride(1),  #
-        c.stride(0), c.stride(1),  #
+        M=M, N=N, K=K,  #
+        stride_am=a.stride(0), stride_ak=a.stride(1),  #
+        stride_bk=b.stride(0), stride_bn=b.stride(1),  #
+        stride_cm=c.stride(0), stride_cn=c.stride(1),  #
         ACTIVATION=activation  #
     )
     return c

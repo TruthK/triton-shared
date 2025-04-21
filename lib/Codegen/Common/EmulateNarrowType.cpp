@@ -4,9 +4,6 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "triton-shared/Codegen/Common/Passes.h"
-#include "triton-shared/Codegen/Common/Transforms.h"
-#include "llvm/Support/FormatVariadic.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Transforms/NarrowTypeEmulationConverter.h"
@@ -20,6 +17,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "triton-shared/Codegen/Common/Passes.h"
+#include "triton-shared/Codegen/Common/Transforms.h"
+#include "llvm/Support/FormatVariadic.h"
 
 namespace mlir::tts {
 
@@ -70,7 +70,8 @@ namespace {
 //         currentType.getShape(), adaptor.getDynamicDims(), rewriter);
 //     memref::LinearizedMemRefInfo linearizedMemRefInfo =
 //         memref::getLinearizedMemRefOffsetAndSize(rewriter, loc, srcBits,
-//                                                  dstBits, elementOffset, sizes);
+//                                                  dstBits, elementOffset,
+//                                                  sizes);
 
 //     SmallVector<Value> dynamicLinearizedSize;
 //     if (newResultType.getRank() > 0 && !newResultType.hasStaticShape()) {
@@ -100,9 +101,9 @@ namespace {
 struct EmulateNarrowTypePass final
     : impl::EmulateNarrowTypePassBase<EmulateNarrowTypePass> {
   void getDependentDialects(DialectRegistry &registry) const override {
-    registry.insert<arith::ArithDialect, func::FuncDialect,
-                    memref::MemRefDialect, vector::VectorDialect,
-                    affine::AffineDialect>();
+    registry
+        .insert<arith::ArithDialect, func::FuncDialect, memref::MemRefDialect,
+                vector::VectorDialect, affine::AffineDialect>();
   }
 
   void runOnOperation() override {

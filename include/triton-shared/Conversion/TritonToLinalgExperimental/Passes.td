@@ -46,4 +46,13 @@ def ConvertTTSTransferOp : Pass<"convert-triton-transfer-op", "mlir::func::FuncO
   ];
 }
 
+def TTSLoopUnroll : Pass<"tts-loop-unroll", "mlir::ModuleOp"> {
+  let summary = "Loop unroller";
+  let description = [{
+    The pass unrolls a scf loop with tt.loop_unroll_factor attribute. The attribute specialises how many iterations
+    the loop should be unrolled.
+  }];
+  let constructor = "triton::createTTSLoopUnrollPass()";
+}
+
 #endif

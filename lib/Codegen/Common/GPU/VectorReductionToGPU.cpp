@@ -4,13 +4,10 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "triton-shared/Codegen/Common/GPU/Passes.h"
-#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
-#include "triton-shared/Codegen/Utils/GPUUtils.h"
-#include "triton-shared/Codegen/Utils/Utils.h"
 #include "mlir/Dialect/AMDGPU/IR/AMDGPUDialect.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
@@ -20,6 +17,10 @@
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "triton-shared/Codegen/Common/GPU/Passes.h"
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
+#include "triton-shared/Codegen/Utils/GPUUtils.h"
+#include "triton-shared/Codegen/Utils/Utils.h"
 
 #define DEBUG_TYPE "iree-codegen-vector-reduction-to-gpu"
 
@@ -78,6 +79,8 @@ static void moveScalarAndBindingUniformCode(gpu::WarpExecuteOnLane0Op warpOp) {
       return false;
     if (!llvm::all_of(op->getOperands(), definedOutside))
       return false;
+    if (isa<vector::CreateMaskOp>(op))
+      return true;
     if (isMemoryEffectFree(op))
       return true;
 
@@ -109,7 +112,8 @@ static void moveScalarAndBindingUniformCode(gpu::WarpExecuteOnLane0Op warpOp) {
   // operations from there.
   for (auto &op : body->without_terminator()) {
     bool hasVectorResult = llvm::any_of(op.getResults(), [](Value result) {
-      return llvm::isa<VectorType>(result.getType());
+      return llvm::isa<VectorType>(result.getType()) &&
+             !isa<vector::CreateMaskOp>(result.getDefiningOp());
     });
     if ((!hasVectorResult || isUniformLoad(&op)) &&
         canBeHoisted(&op, isDefinedOutsideOfBody)) {
@@ -213,18 +217,26 @@ struct VectorReductionToGPUPass final
     const int groupSize = workgroupSize[0];
     Location loc = funcOp.getLoc();
     OpBuilder builder(funcOp);
+    Block &entry = funcOp.front();
+    builder.setInsertionPointToStart(&entry);
     auto threadX = builder.create<gpu::ThreadIdOp>(loc, builder.getIndexType(),
                                                    gpu::Dimension::x);
     auto cstGroupSize = builder.create<arith::ConstantIndexOp>(loc, groupSize);
     auto warpOp = builder.create<gpu::WarpExecuteOnLane0Op>(
         loc, TypeRange(), threadX.getResult(), groupSize);
-    warpOp.getWarpRegion().takeBody(funcOp.getFunctionBody());
-    Block &newBlock = funcOp.getFunctionBody().emplaceBlock();
-    threadX->moveBefore(&newBlock, newBlock.end());
-    cstGroupSize->moveBefore(&newBlock, newBlock.end());
-    warpOp->moveBefore(&newBlock, newBlock.end());
-    warpOp.getWarpRegion().getBlocks().back().back().moveBefore(&newBlock,
-                                                                newBlock.end());
+    // Move all original function ops into the warp region.
+    {
+      Block &entryBlock = funcOp.front();
+      Block &warpBlock = warpOp.getWarpRegion().getBlocks().front();
+      Operation *terminator = entryBlock.getTerminator();
+      Operation *curOp = warpOp.getOperation()->getNextNode();
+      while (curOp && curOp != terminator) {
+        Operation *nextOp = curOp->getNextNode();
+        curOp->moveBefore(&warpBlock, warpBlock.end());
+        curOp = nextOp;
+      }
+    }
+
     builder.setInsertionPointToEnd(&warpOp.getWarpRegion().getBlocks().back());
     builder.create<gpu::YieldOp>(loc);
 
@@ -232,7 +244,6 @@ struct VectorReductionToGPUPass final
 
     // 3. Hoist the scalar code outside of the warp region.
     moveScalarAndBindingUniformCode(warpOp);
-    warpOp.dump();
     debugPrint(funcOp, "after step #3: hosting uniform code");
 
     // 4. Distribute transfer write operations and propagate vector
@@ -304,4 +315,4 @@ createConvertVectorReductionToGPUPass(bool expandSubgroupReduction) {
   return std::make_unique<VectorReductionToGPUPass>(expandSubgroupReduction);
 }
 
-} // namespace mlir::iree_compiler
+} // namespace mlir::tts

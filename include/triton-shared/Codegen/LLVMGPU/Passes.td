@@ -20,7 +20,7 @@ def LLVMGPUCodegenPass : Pass<"llvmgpu-codegen", "ModuleOp"> {
   }];
   let options = [
     Option<"computeCapability", "compute-capability",
-            "int32_t", /*default*/"75",
+            "int32_t", /*default*/"89",
             "device compute capability">,
     Option<"ptxVersion", "ptx-version",
             "int32_t", /*default*/"84",
@@ -33,13 +33,17 @@ def MaterializeTargetPass : Pass<"iree-materialize-target", "ModuleOp"> {
   let summary = "Materialize the target attribute from the metadata";
    let options = [
         Option<"computeCapability", "compute-capability",
-               "int32_t", /*default*/"75",
+               "int32_t", /*default*/"89",
                "device compute capability">,
         Option<"ptxVersion", "ptx-version",
                "int32_t", /*default*/"84",
                "PTX version">,
     ];
   
+}
+
+def SPMDOpPass : InterfacePass<"convert-triton-spmdop", "mlir::FunctionOpInterface">{
+  let summary = "convert-triton-spmdop";
 }
 
 
@@ -50,7 +54,7 @@ def ConvertToNVVMPass :
     "and NVVM dialects";
      let options = [
         Option<"computeCapability", "compute-capability",
-               "int32_t", /*default*/"75",
+               "int32_t", /*default*/"89",
                "device compute capability">,
         Option<"ptxVersion", "ptx-version",
                "int32_t", /*default*/"84",
@@ -179,7 +183,7 @@ def SerializeTargetExecutablesPass :
   }];
    let options = [
     Option<"computeCapability", "compute-capability",
-            "int32_t", /*default*/"75",
+            "int32_t", /*default*/"89",
             "device compute capability">,
     Option<"ptxVersion", "ptx-version",
             "int32_t", /*default*/"84",

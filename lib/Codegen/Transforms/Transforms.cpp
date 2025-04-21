@@ -532,6 +532,10 @@ void moveLoopInvariantCodeFromGuaranteedLoops(Operation *target) {
         if (!ubValue.getType().isIndex()) {
           // Create index cast operation
           OpBuilder builder(ubValue.getContext());
+          // 检查 ubValue 是否有定义操作，如果没有则直接返回
+          if (!ubValue.getDefiningOp() ||
+              ubValue.getDefiningOp()->getBlock() == nullptr)
+            return;
           builder.setInsertionPointAfter(ubValue.getDefiningOp());
           Value newUb = builder.create<arith::IndexCastOp>(
               ubValue.getLoc(), builder.getIndexType(), ubValue);

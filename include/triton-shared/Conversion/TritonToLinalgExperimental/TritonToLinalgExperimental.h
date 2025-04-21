@@ -30,6 +30,10 @@ std::unique_ptr<OperationPass<ModuleOp>> createLinalgGenericFusionPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>> createConvertTTSTransferOpPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createConvertTTSTransferOpPass(bool isTensorToVector);
+
+std::unique_ptr<OperationPass<ModuleOp>> createTTSLoopUnrollPass();
+
+
 void populateTTSTransferOpPatterns(RewritePatternSet &patterns,
                                    TypeConverter &typeConverter);
 
