@@ -161,17 +161,17 @@ def LLVMGPUVectorToGPUPass :
 //   let summary = "Test pass for querying the supported mma intrinsic instructions.";
 // }
 
-//  def PtrTransformPass :
-//      Pass<"llvmgpu-ptr-transform", "ModuleOp"> {
-//    let summary = "Transform !llvm.ptr to !llvm.ptr<1> for matmul_kernel arguments";
-//    let description = [{
-//      This pass transforms function signature for matmul_kernel by:
-//      1. Finding i64 + !llvm.ptr parameter pairs
-//      2. Removing the i64 parameter
-//      3. Transforming !llvm.ptr to !llvm.ptr<1>
-//      4. Creating a new function with the transformed signature
-//    }];
-//  }
+ def PtrTransformPass :
+     Pass<"llvmgpu-ptr-transform", "ModuleOp"> {
+   let summary = "Transform !llvm.ptr to !llvm.ptr<1> for matmul_kernel arguments";
+   let description = [{
+     This pass transforms function signature for matmul_kernel by:
+     1. Finding i64 + !llvm.ptr parameter pairs
+     2. Removing the i64 parameter
+     3. Transforming !llvm.ptr to !llvm.ptr<1>
+     4. Creating a new function with the transformed signature
+   }];
+ }
 
 def SerializeTargetExecutablesPass :
     Pass<"iree-hal-serialize-target-executables", "ModuleOp"> {

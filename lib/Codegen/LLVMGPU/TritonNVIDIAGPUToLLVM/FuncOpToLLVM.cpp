@@ -258,69 +258,7 @@ struct KernelArgCleanupPattern : public OpRewritePattern<LLVM::LLVMFuncOp> {
 
   LogicalResult matchAndRewrite(LLVM::LLVMFuncOp funcOp,
                                PatternRewriter &rewriter) const override {
-    // 仅对matmul_kernel函数应用此模式
-    if (funcOp.getName() != "matmul_kernel")
-      return failure();
-
-    auto funcType = funcOp.getFunctionType();
-    SmallVector<Type> newInputTypes;
-    bool needsRewrite = false;
-
-    // 扫描参数列表寻找i64后接!llvm.ptr的参数
-    unsigned i = 0;
-    while (i < funcType.getNumParams()) {
-      Type currentType = funcType.getParamType(i);
-      
-      // 检查是否为i64参数且下一个参数为!llvm.ptr
-      if (i + 1 < funcType.getNumParams() && 
-          isa<IntegerType>(currentType) && 
-          cast<IntegerType>(currentType).getWidth() == 64) {
-        
-        Type nextType = funcType.getParamType(i + 1);
-        if (isa<LLVM::LLVMPointerType>(nextType)) {
-          auto ptrType = cast<LLVM::LLVMPointerType>(nextType);
-          
-          // 检查指针是否没有地址空间或地址空间为0
-          if (!ptrType.getAddressSpace() || ptrType.getAddressSpace() == 0) {
-            // 创建新的地址空间为1的指针类型
-            auto newPtrType = LLVM::LLVMPointerType::get(
-                rewriter.getContext(), /*addressSpace=*/1);
-            newInputTypes.push_back(newPtrType);
-            
-            needsRewrite = true;
-            i += 2; // 同时跳过i64和原始ptr参数
-            continue;
-          }
-        }
-      }
-      
-      // 对于不需要更改的参数，直接复制
-      newInputTypes.push_back(currentType);
-      i++;
-    }
-    
-    if (!needsRewrite)
-      return failure();
-    
-    // 创建新的函数类型
-    auto newFuncType = LLVM::LLVMFunctionType::get(
-        funcType.getReturnType(), newInputTypes, funcType.isVarArg());
-    
-    // 创建新函数，使用尽可能简单的构造方式
-    auto newFuncOp = rewriter.create<LLVM::LLVMFuncOp>(
-        funcOp.getLoc(), funcOp.getName(), newFuncType);
-    
-    // 复制原函数的关键属性
-    if (auto linkageAttr = funcOp->getAttrOfType<LLVM::LinkageAttr>("llvm.linkage"))
-      newFuncOp->setAttr("llvm.linkage", linkageAttr);
-    
-    // 处理非空函数体
-    if (!funcOp.isExternal()) {
-      rewriter.inlineRegionBefore(funcOp.getBody(), newFuncOp.getBody(), 
-                                 newFuncOp.end());
-    }
-    
-    rewriter.eraseOp(funcOp);
+   
     return success();
   }
 };

@@ -391,7 +391,7 @@ void addGPUTileAndFusePassPipeline(OpPassManager &funcPassManager,
 
   //   // Step 7. Bufferize.
   addGPUBufferizePasses(funcPassManager);
-
+  funcPassManager.addPass(createSPMDOpPass());
   // Step 8. Resolve remaining parallel loops.
   funcPassManager.addPass(mlir::tts::createNormalizeLoopBoundsPass(
       NormalizeLoopBoundsPassOptions{/*normalizeFor=*/false,

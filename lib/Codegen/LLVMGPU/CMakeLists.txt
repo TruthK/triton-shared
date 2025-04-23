@@ -21,6 +21,7 @@ add_triton_library(IREECodegenLLVMGPU
  SerializeExecutables.cpp
  LLVMGPUPrefetching.cpp
  SPMDOp.cpp
+ PtrTransform.cpp
 
   DEPENDS
     LLVMGPUCodegenPassIncGen

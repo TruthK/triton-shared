@@ -516,8 +516,8 @@ class KzxCudaLauncher(object):
         src = make_launcher(constants, signature)
         mod = compile_module_from_src(src, "__triton_launcher")
         self.launch = mod.launch
-        self.global_scratch_size = metadata.global_scratch_size
-        self.global_scratch_align = metadata.global_scratch_align
+        self.global_scratch_size = 0
+        self.global_scratch_align = 0
         self.launch_cooperative_grid = metadata.launch_cooperative_grid
 
     def __call__(self, gridX, gridY, gridZ, stream, function, *args):

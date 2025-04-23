@@ -248,12 +248,13 @@ class KzxCUDABackend(BaseBackend):
         # Get tts-MLIR as string
         pm = ir.pass_manager(mod.context)
         pm.enable_debug()
-        ttsnv.passes.tts_codegen.iree_materialize_target(pm,75,ptx_version)
+        ttsnv.passes.tts_codegen.iree_materialize_target(pm,capability,ptx_version)
         ttsnv.passes.tts_codegen.iree_llvmgpu_select_lowering_strategy(pm)
-        ttsnv.passes.tts_codegen.iree_llvmgpu_codegen(pm,75,ptx_version)
-        
+        ttsnv.passes.tts_codegen.iree_llvmgpu_codegen(pm,capability,ptx_version)
+        ttsnv.passes.tts_codegen.llvmgpu_ptr_transform(pm)
         pm.run(mod)
-        
+        metadata["shared"] = mod.get_int_attr("ttg.shared")
+
         # LLVM-IR (MLIR) -> LLVM-IR (LLVM)
         llvm.init_targets()
         context = llvm.context()
@@ -298,8 +299,6 @@ class KzxCUDABackend(BaseBackend):
         if capability == 100:
             proc = 'sm_90a'
         features = get_features(opt, self.target.arch)
-        print("make_ptx");
-        Path(".vscode/core_dump1.ir").write_text(str(src))
         ret = llvm.translate_to_asm(src, triple, proc, features, ['nvptx-short-ptr'], opt.enable_fp_fusion, False)
         Path(".vscode/core_dump.ir").write_text(str(ret))
         

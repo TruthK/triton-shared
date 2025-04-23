@@ -44,6 +44,8 @@ void init_tts_codegen(py::module &&m) {
           options.ptxVersion = ptxVersion;
           pm.addPass(mlir::tts::createLLVMGPUCodegenPass(options));
         });
+   ADD_PASS_WRAPPER_0("llvmgpu_ptr_transform",
+                     mlir::tts::createPtrTransformPass);
 }
 
 void init_triton_ttsnv(py::module &&m) {

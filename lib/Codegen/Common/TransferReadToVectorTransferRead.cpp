@@ -116,6 +116,64 @@ private:
         maskValues);
   }
 
+  // 计算融合后的 mask 的辅助函数
+  Value calculateFusedMask(IREE::VectorExt::TransferReadOp extOp,
+                           vector::TransferReadOp vecOp,
+                           VectorType resultVectorType,
+                           PatternRewriter &rewriter) const {
+    Location loc = vecOp.getLoc();
+    SmallVector<Value> maskValues;
+    SmallVector<OpFoldResult> mixedMaskDims = extOp.getMixedMaskDims();
+    ValueRange vecIndices = vecOp.getIndices();
+    for (unsigned i = 0; i < resultVectorType.getRank(); ++i) {
+      // 获取 extMaskValue
+      Value extMaskValue;
+      if (i < mixedMaskDims.size()) {
+        OpFoldResult maskDim = mixedMaskDims[i];
+        if (auto attr = maskDim.dyn_cast<Attribute>()) {
+          extMaskValue = rewriter.create<arith::ConstantIndexOp>(
+              loc, mlir::cast<IntegerAttr>(attr).getInt());
+        } else {
+          extMaskValue = cast<Value>(maskDim);
+        }
+      } else {
+        extMaskValue = rewriter.create<arith::ConstantIndexOp>(
+            loc, resultVectorType.getDimSize(i));
+      }
+
+      // 获取 vecIdxValue
+      Value vecIdx = (i < vecIndices.size()) ? vecIndices[i]
+          : rewriter.create<arith::ConstantIndexOp>(loc, 0);
+
+      // 获取 resultDimSizeValue
+      int64_t resultDimSize = resultVectorType.getDimSize(i);
+      Value resultDimSizeValue = rewriter.create<arith::ConstantIndexOp>(
+          loc, resultDimSize);
+
+      // cond: extMaskValue > vecIdx
+      Value cond = rewriter.create<arith::CmpIOp>(
+          loc, arith::CmpIPredicate::sgt, extMaskValue, vecIdx);
+
+      // diff: extMaskValue - vecIdx
+      Value diff = rewriter.create<arith::SubIOp>(loc, extMaskValue, vecIdx);
+
+      // minVal: min(diff, resultDimSizeValue)
+      Value minVal = rewriter.create<arith::MinSIOp>(
+          loc, diff, resultDimSizeValue);
+
+      // zero constant
+      Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+
+      // select
+      Value maskVal = rewriter.create<arith::SelectOp>(
+          loc, cond, minVal, zero);
+      maskValues.push_back(maskVal);
+    }
+    return rewriter.create<vector::CreateMaskOp>(
+        loc, VectorType::get(resultVectorType.getShape(), rewriter.getI1Type()),
+        maskValues);
+  }
+
   // 将独立的 iree_vector_ext.transfer_read 转换为 vector.transfer_read + memref.alloc + vector.transfer_write
   LogicalResult rewriteStandaloneTransferRead(IREE::VectorExt::TransferReadOp op,
                                              PatternRewriter &rewriter) const {
@@ -214,8 +272,8 @@ private:
 
     VectorType resultVectorType = vecReadOp.getVectorType();
 
-    // 1. 计算 Mask (使用 extReadOp 的 mask_dims 和 indices, 以及最终的 resultVectorType)
-    Value mask = calculateMask(extReadOp, resultVectorType, rewriter);
+    // 1. 计算 Mask (融合 extReadOp 和 vecReadOp 的 mask_dims 与 indices)
+    Value mask = calculateFusedMask(extReadOp, vecReadOp, resultVectorType, rewriter);
 
     // 2. 合并 Indices
     SmallVector<Value> combinedIndices;

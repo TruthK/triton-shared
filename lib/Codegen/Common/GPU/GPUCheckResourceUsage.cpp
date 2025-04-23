@@ -55,13 +55,21 @@ static int shapedTypeStaticSize(
 static LogicalResult checkGPUAllocationSize(
     mlir::FunctionOpInterface funcOp, unsigned limit,
     std::function<unsigned(mlir::FunctionOpInterface)> getIndexBitwidth) {
-  if (funcOp.getFunctionBody().empty())
+  ModuleOp moduleOp = funcOp->getParentOfType<ModuleOp>();
+  MLIRContext *ctx = moduleOp.getContext();
+  if (funcOp.getFunctionBody().empty()) {
+    moduleOp->setAttr("ttg.shared", mlir::IntegerAttr::get(
+                                        mlir::IntegerType::get(ctx, 32), 0));
     return success();
+  }
 
   SmallVector<memref::AllocOp> allocOps;
   funcOp.walk([&](memref::AllocOp allocOp) { allocOps.push_back(allocOp); });
-  if (allocOps.empty())
+  if (allocOps.empty()) {
+    moduleOp->setAttr("ttg.shared", mlir::IntegerAttr::get(
+                                        mlir::IntegerType::get(ctx, 32), 0));
     return success();
+  }
 
   int cumSize = 0;
   for (auto allocOp : allocOps) {
@@ -87,6 +95,10 @@ static LogicalResult checkGPUAllocationSize(
            << cumSize << " bytes of shared memory; exceeded the limit of "
            << limit << " bytes";
   }
+
+  moduleOp->setAttr("ttg.shared",
+                    mlir::IntegerAttr::get(mlir::IntegerType::get(ctx, 32),
+                                           llvm::divideCeil(cumSize, 1024)));
   return success();
 }
 
