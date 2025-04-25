@@ -251,136 +251,67 @@ public:
     if (isTensorToVector) {
       return matchAndRewriteToVectorTransferWrite(op, adaptor, rewriter);
     } else {
-      return matchAndRewriteToMemrefCopy(op, adaptor, rewriter);
+      return matchAndRewriteToVectorEXT(op, adaptor, rewriter);
     }
   }
 
 private:
   // 转换为memref.copy实现
   LogicalResult
-  matchAndRewriteToMemrefCopy(tts::TransferWriteOp op, OpAdaptor adaptor,
-                              ConversionPatternRewriter &rewriter) const {
+  matchAndRewriteToVectorEXT(tts::TransferWriteOp op, OpAdaptor adaptor,
+                             ConversionPatternRewriter &rewriter) const {
     // 获取操作数
+    auto loc = op.getLoc();
     Value dest = adaptor.getBase();
     Value value = adaptor.getValue();
     auto maskDims = op.getMixedMaskDims();
 
+    // 如果value是tensor类型，则先将tensor转换为memref
+    Value writeValue = value;
+    if (auto tensorType = mlir::dyn_cast<TensorType>(value.getType())) {
+      // 使用bufferization::ToMemrefOp将tensor转为memref
+      auto memrefType = MemRefType::get(
+          tensorType.getShape(), tensorType.getElementType(),
+          AffineMap(),
+          cast<MemRefType>(dest.getType()).getMemorySpace());
+      writeValue = rewriter.create<bufferization::ToMemrefOp>(loc, memrefType, value);
+    }
+
     // 创建默认的indices - 全0
-    auto loc = op.getLoc();
     auto baseType = cast<MemRefType>(dest.getType());
     int64_t rank = baseType.getRank();
+    // 创建OpFoldResult数组,全部使用静态0
+    SmallVector<OpFoldResult> indices;
+    indices.resize(rank, rewriter.getI64IntegerAttr(0));
 
-    // 创建OpFoldResult数组，用于offsets，全部使用静态0
-    SmallVector<OpFoldResult> offsets;
-    offsets.resize(rank, rewriter.getI64IntegerAttr(0));
-
-    // 获取结果的形状
-    auto resultShape = baseType.getShape();
-
-    // 创建sizes数组 - 计算min(mask[dim], resultShape[dim])
-    SmallVector<OpFoldResult> sizes;
-    SmallVector<Value> dynamicSizes;
-    for (int64_t i = 0; i < rank; i++) {
-      // 检查maskDims是否有该维度的掩码
-      if (i < static_cast<int64_t>(maskDims.size()) && !maskDims[i].isNull()) {
-        // 获取掩码值
-        Value maskDim;
-        if (auto attr = dyn_cast<Attribute>(maskDims[i])) {
-          if (auto intAttr = dyn_cast<IntegerAttr>(attr)) {
-            maskDim = rewriter.create<arith::ConstantOp>(loc, intAttr);
-          } else {
-            return failure();
-          }
-        } else {
-          maskDim = cast<Value>(maskDims[i]);
-        }
-
-        // 创建常量表示resultShape[i]
-        Value shapeDim;
-        if (resultShape[i] == ShapedType::kDynamic) {
-          // 如果是动态维度，获取动态尺寸
-          auto dimOp = rewriter.create<memref::DimOp>(loc, dest, i);
-          shapeDim = dimOp.getResult();
-        } else {
-          // 如果是静态维度，创建常量
-          shapeDim =
-              rewriter.create<arith::ConstantIndexOp>(loc, resultShape[i]);
-        }
-
-        // 计算min(mask[dim], resultShape[dim])
-        Value minSize = rewriter.create<arith::MinSIOp>(loc, maskDim, shapeDim);
-        dynamicSizes.push_back(minSize);
-        sizes.push_back(minSize);
-      } else {
-        // 如果没有掩码，使用整个维度
-        if (resultShape[i] == ShapedType::kDynamic) {
-          // 如果是动态维度，获取动态尺寸
-          auto dimOp = rewriter.create<memref::DimOp>(loc, dest, i);
-          dynamicSizes.push_back(dimOp.getResult());
-          sizes.push_back(dimOp.getResult());
-        } else {
-          // 如果是静态维度，使用常量
-          sizes.push_back(rewriter.getIndexAttr(resultShape[i]));
-        }
-      }
+    // 创建带有 stride 的结果类型
+    auto shape = baseType.getShape();
+    int64_t offset = 0;
+    SmallVector<int64_t> strides;
+    int64_t stride = 1;
+    for (int i = shape.size() - 1; i >= 0; --i) {
+      strides.insert(strides.begin(), stride);
+      if (shape[i] != ShapedType::kDynamic)
+        stride *= shape[i];
     }
+    auto stridedLayout =
+        StridedLayoutAttr::get(rewriter.getContext(), offset, strides);
 
-    // 创建strides数组，全部为1（表示连续存储）
-    SmallVector<OpFoldResult> strides;
-    strides.resize(rank, rewriter.getIndexAttr(1));
+    // 创建新的 memref 类型，保持原有的地址空间
+    auto resultType = MemRefType::get(shape, baseType.getElementType(),
+                                      AffineMap(), baseType.getMemorySpace());
 
-    // 1. 创建tensor.extract_slice操作
-    // 获取value的类型并基于它创建extract_slice
-    auto valueType = cast<TensorType>(value.getType());
-    SmallVector<int64_t> sliceSizes;
-    for (auto s : sizes) {
-      if (auto attr = dyn_cast<Attribute>(s)) {
-        if (auto intAttr = dyn_cast<IntegerAttr>(attr)) {
-          sliceSizes.push_back(intAttr.getInt());
-        } else {
-          sliceSizes.push_back(ShapedType::kDynamic);
-        }
-      } else {
-        sliceSizes.push_back(ShapedType::kDynamic);
-      }
-    }
-
-    auto rankedSourceType = cast<RankedTensorType>(valueType);
-    auto sliceResultType = tensor::ExtractSliceOp::inferResultType(
-        rankedSourceType, SmallVector<int64_t>(rank, 0), // offsets
-        sliceSizes, SmallVector<int64_t>(rank, 1)        // strides
+    // 使用builder创建新的IREE::VectorExt::TransferWriteOp操作
+    auto newOp = rewriter.create<mlir::tts::IREE::VectorExt::TransferWriteOp>(
+        loc,
+        dest,       // 基址
+        writeValue, // 写入值（可能已转换为memref）
+        indices,    // 索引(全0)
+        maskDims    // mask维度(从原始op获取)
     );
 
-    auto extractSlice = rewriter.create<tensor::ExtractSliceOp>(
-        loc, sliceResultType, value, offsets, sizes, strides);
+    rewriter.replaceOp(op, newOp);
 
-    // 2. 使用bufferization::ToMemrefOp将切片转换为memref
-    auto memrefType = MemRefType::get(
-        sliceResultType.getShape(), sliceResultType.getElementType(),
-        AffineMap(),                // 使用默认映射
-        baseType.getMemorySpace()); // 使用和目标相同的内存空间
-
-    auto toMemref = rewriter.create<bufferization::ToMemrefOp>(
-        loc, memrefType, extractSlice.getResult(), false);
-
-    // 3. 创建memref.subview来获取目标的相应部分
-    auto destType = cast<MemRefType>(dest.getType());
-
-    // 创建 SubViewOp
-    auto resultType = memref::SubViewOp::inferResultType(destType, // 源类型
-                                                         offsets,  // 偏移
-                                                         sizes,    // 大小
-                                                         strides   // 步长
-    );
-
-    auto subview = rewriter.create<memref::SubViewOp>(
-        loc, cast<MemRefType>(resultType), dest, offsets, sizes, strides);
-
-    // 4. 使用memref.copy将数据从源memref复制到目标memref
-    rewriter.create<memref::CopyOp>(loc, toMemref, subview);
-
-    // 5. 替换原始操作
-    rewriter.eraseOp(op);
     return success();
   }
 
@@ -465,7 +396,12 @@ public:
         IREE::VectorExt::IREEVectorExtDialect,
         bufferization::BufferizationDialect, tensor::TensorDialect>();
 
-    target.addLegalOp<UnrealizedConversionCastOp>();
+    target.addLegalOp<UnrealizedConversionCastOp, tensor::ExtractSliceOp,
+                      bufferization::ToTensorOp, bufferization::ToMemrefOp,
+                      vector::TransferWriteOp, vector::TransferReadOp,
+                      IREE::VectorExt::TransferWriteOp,
+                      IREE::VectorExt::TransferReadOp>();
+
     target.addIllegalOp<tts::TransferReadOp, tts::TransferWriteOp>();
     // 添加转换模式
     RewritePatternSet patterns(context);

@@ -33,6 +33,7 @@
 #include "triton-shared/Codegen/Common/Passes.h"
 #include "triton-shared/Codegen/Interfaces/BufferizationInterfaces.h"
 #include "triton-shared/Codegen/Utils/Utils.h"
+#include "triton-shared/Codegen/LLVMGPU/Passes.h"
 #include "triton-shared/Conversion/TritonToLinalgExperimental/TritonToLinalgExperimental.h"
 
 #include <cassert>
@@ -253,6 +254,7 @@ createIREEComprehensiveBufferizePass(
 
 void addIREEPostBufferizationPasses(OpPassManager &funcPassManager) {
   funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
+  funcPassManager.addPass(createLLVMGPUVectorTransferReadOptimizePass());
   funcPassManager.addPass(memref::createResolveShapedTypeResultDimsPass());
   funcPassManager.addPass(createCanonicalizerPass());
   funcPassManager.addPass(createCSEPass());

@@ -2,12 +2,16 @@ add_triton_library(TritonStructuredIR
   TritonStructuredOps.cpp
   TritonStructuredDialect.cpp
   TritonStructuredAttr.cpp
+  TilingInterfaceImpl.cpp
 
   DEPENDS
   TritonStructuredTableGen
 
   LINK_LIBS PUBLIC
   TritonIR
+
+  LLVMSupport
+  
   MLIRIR
   MLIRSupport
   MLIRTilingInterface
@@ -16,4 +20,5 @@ add_triton_library(TritonStructuredIR
   LLVMSupport
   MLIRAffineDialect
   MLIRSideEffectInterfaces
+  MLIRTensorDialect
   )

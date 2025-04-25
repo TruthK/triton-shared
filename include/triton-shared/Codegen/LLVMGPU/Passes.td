@@ -80,6 +80,23 @@ def LLVMGPUCastAddressSpaceFunctionPass :
   let summary = "Cast address space to generic in CallOp and FuncOp";
 }
 
+def LLVMGPUVectorTransferReadOptimizePass :
+    InterfacePass<"iree-llvmgpu-vector-transfer-read-optimize", "mlir::FunctionOpInterface"> {
+  let summary = "Optimize vector.transfer_read operations by removing unnecessary bufferization";
+  let description = [{
+    This pass optimizes vector.transfer_read operations by removing the pattern:
+    %tensor = bufferization.to_tensor %memref
+    %memref2 = bufferization.to_memref %tensor
+    %result = vector.transfer_read %memref2[...]
+    
+    And replacing it with:
+    %result = vector.transfer_read %memref[...]
+  }];
+  let dependentDialects = [
+      "vector::VectorDialect", "bufferization::BufferizationDialect", "memref::MemRefDialect"
+  ];
+}
+
 // def LLVMGPUCastTypeToFitMMAPass : InterfacePass<"iree-llvmgpu-cast-type-to-fit-mma",
 //                                                 "mlir::FunctionOpInterface"> {
 //   let summary = "Perform type extension/truncation over vector.contract types "
@@ -145,6 +162,25 @@ def LLVMGPUVectorLoweringPass :
 def LLVMGPUVectorToGPUPass :
     InterfacePass<"iree-llvmgpu-vector-to-gpu", "mlir::FunctionOpInterface"> {
   let summary = "Pass to convert vector to gpu.";
+}
+
+def TensorTransferWriteFusionPass :
+    InterfacePass<"triton-transfer-write-fusion", "mlir::FunctionOpInterface"> {
+  let summary = "Fuse tensor.parallel_insert_slice with tts.transfer_write operations";
+  let description = [{
+    This pass fuses tensor.parallel_insert_slice with tts.transfer_write operations.
+    
+    When a tts.transfer_write's value comes from an scf.forall result, and the scf.forall
+    has only one shared output, and that output is written by tensor.parallel_insert_slice,
+    this pass replaces the tensor.parallel_insert_slice with a new tts.transfer_write.
+    
+    The new tts.transfer_write keeps most information from the original operation,
+    but updates indices by adding tensor.parallel_insert_slice's offsets to the original
+    tts.transfer_write's indices. The original tts.transfer_write is then deleted.
+  }];
+  let dependentDialects = [
+      "mlir::scf::SCFDialect", "mlir::tts::TritonStructuredDialect", "mlir::tensor::TensorDialect"
+  ];
 }
 
 //------------------------------------------------------------------------------

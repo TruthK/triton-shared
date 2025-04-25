@@ -153,7 +153,7 @@ struct ConvertToNVVMPass final
       mlir::tts::MemrefToLLVMTypeConverter typeConverter(m.getContext(),
                                                          options);
       mlir::tts::NVIDIA::populateTTSFuncOpConversionPattern(
-          typeConverter, llvmPatterns, 1, targetInfo);
+          typeConverter, llvmPatterns, 4, targetInfo);
       cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
       arith::populateCeilFloorDivExpandOpsPatterns(llvmPatterns);
       arith::populateArithToLLVMConversionPatterns(converter, llvmPatterns);

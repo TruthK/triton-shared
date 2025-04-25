@@ -238,7 +238,8 @@ LogicalResult serializeExecutable(std::string &targetPTX,
     return failure();
   }
 
-  llvm::outs() << "targetPTX: " << targetPTX << "\n";
+  llvm::outs() << "targetPTX: " << "\n"<< targetPTX;
+  llvm::outs()  << "\n"<< "end targetPTX: "<< "\n";
 
   return success();
 }

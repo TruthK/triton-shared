@@ -171,8 +171,8 @@ static void tileAndDistributeToWorkgroup(
         convertToDpsOptions = ConvertToDestinationPassingStylePassOptions{},
     ReorderWorkgroupsStrategy strategy = ReorderWorkgroupsStrategy::None) {
   if (useForall) {
-    funcPassManager.addPass(
-        createTileAndDistributeToWorkgroupsUsingForallOpPass());
+    // funcPassManager.addPass(
+        // createTileAndDistributeToWorkgroupsUsingForallOpPass());
     funcPassManager.addPass(createTransferReadSubviewFusionPass());
   } else {
     funcPassManager.addPass(createTileAndDistributeToWorkgroupsPass(
@@ -579,6 +579,7 @@ void addGPUMatmulTensorCoreMmaSyncPassPipeline(
   funcPassManager.addPass(createCSEPass());
   // funcPassManager.addPass(createTransferReadSubviewFusionPass());
   funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
+  funcPassManager.addPass(createLLVMGPUVectorTransferReadOptimizePass());
   funcPassManager.addPass(createOptimizeVectorTransferPass());
   funcPassManager.addPass(createOptimizeTensorInsertExtractSlicesPass());
 
@@ -1174,6 +1175,8 @@ void registerCodegenLLVMGPUPasses() {
   //     [](OpPassManager &modulePassManager) {
   //       buildLLVMGPULinkingPassPipeline(modulePassManager);
   //     });
+
+  registerPass(createTensorTransferWriteFusionPass);
 }
 
 } // namespace mlir::tts

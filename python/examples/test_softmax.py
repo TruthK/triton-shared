@@ -76,7 +76,7 @@ def bench_softmax(size, provider):
 
 
 if __name__ == "__main__":
-    benchmark.select_cpu_backend()
+    benchmark.select_kzx_backend()
     for X in [2**i for i in range(10, 14, 1)]:
         for provider in ['torch', 'triton']:
             bench_softmax(X, provider)

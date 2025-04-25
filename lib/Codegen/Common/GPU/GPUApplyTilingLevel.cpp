@@ -4,13 +4,6 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "triton-shared/Codegen/Common/GPU/Passes.h"
-#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
-#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenInterfaces.h"
-#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUAttrs.h"
-#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUEnums.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/STLForwardCompat.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
@@ -25,6 +18,14 @@
 #include "mlir/Interfaces/TilingInterface.h"
 #include "mlir/Interfaces/ValueBoundsOpInterface.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "triton-shared/Codegen/Common/GPU/Passes.h"
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenInterfaces.h"
+#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUAttrs.h"
+#include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUEnums.h"
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/STLForwardCompat.h"
+#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "iree-codegen-gpu-apply-tiling-level"
 
@@ -40,8 +41,6 @@ struct GPUApplyTilingLevelPass final
   void runOnOperation() override;
 };
 } // namespace
-
-
 
 /// This collects the set of operations to tile + fuse starting from the given
 /// root |op| and walking up to its producers. Stops at operations given by
@@ -79,11 +78,22 @@ static LogicalResult applyTileAndFuseToEachRoot(
 
     llvm::SmallDenseSet<Operation *> tiledAndFusedOps =
         collectTiledAndFusedOps(tilingInterfaceOp, payloadOps);
+    LLVM_DEBUG({
+      llvm::dbgs() << "applyTileAndFuseToEachRoot : tiledAndFusedOps:\n";
+      for (auto op : tiledAndFusedOps) {
+        op->dump();
+      }
+    });
     llvm::DenseSet<Operation *> yieldReplacementsFor;
     for (auto op : tiledAndFusedOps) {
       if (llvm::any_of(op->getUsers(), [&](Operation *user) {
             return dominanceInfo.properlyDominates(tilingInterfaceOp, user);
           })) {
+        LLVM_DEBUG({
+          llvm::dbgs()
+              << "applyTileAndFuseToEachRoot : yieldReplacementsFor:\n";
+          op->dump();
+        });
         yieldReplacementsFor.insert(op);
       }
     }
@@ -182,7 +192,6 @@ static LogicalResult applyTileAndFuseToEachRoot(
           context, zeroSliceGuard);
     }
 
-
     tileAndFuseOptions.cleanupPatterns =
         FrozenRewritePatternSet(std::move(cleanupPatterns));
 
@@ -249,7 +258,8 @@ void GPUApplyTilingLevelPass::runOnOperation() {
   if (failed(applyTileAndFuseToEachRoot(rewriter, targetOps, tilingLevel,
                                         allowZeroSlices))) {
     funcOp.emitWarning() << "tiling of level "
-                       << IREE::GPU::stringifyEnum(tilingLevel) << " failed\n";
+                         << IREE::GPU::stringifyEnum(tilingLevel)
+                         << " failed\n";
     // return signalPassFailure();
   }
 
@@ -267,4 +277,4 @@ void GPUApplyTilingLevelPass::runOnOperation() {
   }
 }
 
-} // namespace mlir::
+} // namespace mlir::tts

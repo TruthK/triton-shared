@@ -168,7 +168,7 @@ def bench_matmul(M, N, K, provider):
 
 
 if __name__ == "__main__":
-    benchmark.select_cpu_backend()
+    benchmark.select_kzx_backend()
     for X in [128 * i for i in range(2, 7)]:
         for provider in ['torch', 'triton']:
             bench_matmul(X, X, X, provider)

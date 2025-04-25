@@ -5,7 +5,7 @@ import triton
 from triton.backends.ttsnv.driver import KzxCudaDriver
 
 
-def select_cpu_backend():
+def select_kzx_backend():
     triton.runtime.driver.set_active(KzxCudaDriver())
 
 

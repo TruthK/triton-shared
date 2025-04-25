@@ -37,8 +37,7 @@ static constexpr StringRef barePtrAttrName = "llvm.bareptr";
 /// Return `true` if the `op` should use bare pointer calling convention.
 static bool shouldUseBarePtrCallConv(Operation *op,
                                      const LLVMTypeConverter *typeConverter) {
-  return (op && op->hasAttr(barePtrAttrName)) ||
-         typeConverter->getOptions().useBarePtrCallConv;
+  return true;
 }
 
 inline Type u1Ty(MLIRContext *ctx) {

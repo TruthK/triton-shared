@@ -71,4 +71,7 @@ inline void registerTritonSharedDialects(mlir::DialectRegistry &registry) {
   mlir::tts::registerCodegenInterfaces(registry);
   mlir::tts::registerUKernelBufferizationInterface(registry);
   mlir::tts::registerCodegenPasses();
+
+
+  mlir::tts::registerTilingInterfaceExternalModels(registry);
 }

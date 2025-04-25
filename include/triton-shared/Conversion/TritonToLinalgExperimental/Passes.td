@@ -55,4 +55,14 @@ def TTSLoopUnroll : Pass<"tts-loop-unroll", "mlir::ModuleOp"> {
   let constructor = "triton::createTTSLoopUnrollPass()";
 }
 
+def ReinterpretCastHoist : Pass<"reinterpret-cast-hoist", "mlir::ModuleOp"> {
+  let summary = "Hoist memref.reinterpret_cast operations";
+  let description = [{
+    This pass hoists memref.reinterpret_cast operations to their earliest valid position,
+    typically after their dependent operations or at the beginning of the entry block
+    if no dynamic dependencies exist.
+  }];
+  let constructor = "triton::createReinterpretCastHoistPass()";
+}
+
 #endif

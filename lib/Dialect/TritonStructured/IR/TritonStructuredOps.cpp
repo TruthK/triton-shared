@@ -317,16 +317,23 @@ void TransferReadOp::build(OpBuilder &b, OperationState &state, Type resultType,
 }
 
 void TransferWriteOp::build(OpBuilder &b, OperationState &state, Value base,
-                            Value value, ArrayRef<OpFoldResult> mask_dims) {
-  SmallVector<int64_t> staticMaskDims;
-  SmallVector<Value> dynamicMaskDims;
+                            Value value, ArrayRef<OpFoldResult> indices,
+                            ArrayRef<OpFoldResult> mask_dims) {
+  // 将 OpFoldResult 数组转换为 ValueRange
+  SmallVector<Value> dynamicIndices;
+  SmallVector<int64_t> staticIndices;
+  dispatchIndexOpFoldResults(indices, dynamicIndices, staticIndices);
 
-  // 分离静态和动态的mask维度
+  // 处理 mask_dims
+  SmallVector<Value> dynamicMaskDims;
+  SmallVector<int64_t> staticMaskDims;
   dispatchIndexOpFoldResults(mask_dims, dynamicMaskDims, staticMaskDims);
 
-  build(b, state, base, value, dynamicMaskDims,
+  build(b, state, base, value, dynamicIndices,
+        b.getDenseI64ArrayAttr(staticIndices), dynamicMaskDims,
         b.getDenseI64ArrayAttr(staticMaskDims));
 }
+
 
 } // namespace tts
 } // namespace mlir

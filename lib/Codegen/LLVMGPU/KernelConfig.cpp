@@ -1884,6 +1884,10 @@ LogicalResult initGPULaunchConfig(FunctionOpInterface funcOp) {
     return funcOp.emitError("missing GPU target in #hal.executable.target");
 
   SmallVector<Operation *> computeOps = getComputeOps(funcOp);
+  llvm::erase_if(computeOps, [](Operation *op) {
+    return isa<mlir::tts::TransferWriteOp>(op);
+  });
+
   if (IREE::Codegen::TranslationInfoAttr translationInfo =
           getTranslationInfo(funcOp)) {
     // Currently some ROCDL requires propagation of user lowering configs.

@@ -7,6 +7,7 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/AttrTypeBase.td"
 include "mlir/Interfaces/TilingInterface.td"
 include "mlir/IR/OpAsmInterface.td"
+include "mlir/Interfaces/TilingInterface.td"
 
 def Triton_Structured_Dialect : Dialect {
   let name = "tts";
@@ -344,36 +345,46 @@ def TTS_TransferReadOp
 
 def TTS_TransferWriteOp
   : TTS_Op<"transfer_write", [ 
-      MemoryEffects<[MemWrite]>
-    ]> {
+    AttrSizedOperandSegments
+    ]>  {
   let summary = " a tensor points write to memory";
 
   let arguments = (ins AnyMemRef:$base,
                        TTS_Vector:$value,
+                        Variadic<Index>:$indices,
+                       DenseI64ArrayAttr:$static_indices,
                        Variadic<Index>:$mask_dims,
                        DenseI64ArrayAttr:$static_mask_dims);
 
-  let assemblyFormat = [{
-    $value `to` $base 
+    let assemblyFormat = [{
+    $value `write_to` $base 
+    `` `,` `indices` `` `:` custom<DynamicIndexList>($indices, $static_indices)
     `` `,` `mask_dims` `` `:` custom<DynamicIndexList>($mask_dims, $static_mask_dims)
-    attr-dict `:` qualified(type($base)) `to` qualified(type($value))
+    attr-dict `:` qualified(type($value))  `write_to` qualified(type($base))
   }];
 
 
+ 
   let builders = [
     // Build with mixed static and dynamic entries.
     OpBuilder<(ins
       "Value":$base,
-      "Value":$value, 
+       "Value":$value, 
+      "ArrayRef<OpFoldResult>":$indices,
       "ArrayRef<OpFoldResult>":$mask_dims)>,
   ];
 
+
   let extraClassDeclaration = [{
-        /// Return a vector of all the static or dynamic fields
+    /// Return a vector of all the static or dynamic fields
     SmallVector<OpFoldResult> getMixedMaskDims() {
       Builder b(getContext());
       return ::mlir::getMixedValues(getStaticMaskDims(), getMaskDims(), b);
     }
+    SmallVector<OpFoldResult> getMixedIndices() {
+      Builder b(getContext());
+      return ::mlir::getMixedValues(getStaticIndices(), getIndices(), b);
+    } 
 
     bool hasMask() {
       return !getMixedMaskDims().empty();

@@ -82,6 +82,7 @@ public:
 
     pm.addPass(createCanonicalizerPass());
     pm.addPass(createCSEPass());
+    pm.addPass(createReinterpretCastHoistPass());
     pm.addPass(createTTSLoopUnrollPass());
 
     // pm.addPass(createConvertTritonStructuredToMemrefPass());

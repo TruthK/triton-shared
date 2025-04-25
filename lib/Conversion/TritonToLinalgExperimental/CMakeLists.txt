@@ -4,6 +4,7 @@ add_triton_library(TritonToLinalgExperimental
   LinalgGenericFusion.cpp
   ConvertTTSTransferOp.cpp
   LoopUnroll.cpp
+  ReinterpretCastHoist.cpp
 
   DEPENDS
   TritonToLinalgExperimentalConversionPassIncGen

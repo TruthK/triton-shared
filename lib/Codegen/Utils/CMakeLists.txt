@@ -36,6 +36,8 @@ add_triton_library(IREECodegenUtils
     IREEGPUKnownTargets
     IREECodegenPartitionableLoopsInterface
     IREECodegenUKernelOpInterface
+
+    TritonStructuredIR
 )
 
 add_triton_library(IREECodegenVectorOpUtils
