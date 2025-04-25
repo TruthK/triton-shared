@@ -24,6 +24,7 @@ add_triton_library(IREECodegenLLVMGPU
  SPMDOp.cpp
  PtrTransform.cpp
  TensorTransferWriteFusion.cpp
+ TileTTSTransferWritePass.cpp
 
   DEPENDS
     LLVMGPUCodegenPassIncGen

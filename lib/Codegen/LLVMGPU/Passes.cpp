@@ -173,7 +173,7 @@ static void tileAndDistributeToWorkgroup(
   if (useForall) {
     // funcPassManager.addPass(
         // createTileAndDistributeToWorkgroupsUsingForallOpPass());
-    funcPassManager.addPass(createTransferReadSubviewFusionPass());
+    // funcPassManager.addPass(createTransferReadSubviewFusionPass());
   } else {
     funcPassManager.addPass(createTileAndDistributeToWorkgroupsPass(
         kNumMaxParallelDims,
@@ -338,17 +338,17 @@ void addGPUTileAndFusePassPipeline(OpPassManager &funcPassManager,
   // funcPassManager.addPass(createPropagateReshapesByExpansionPass());
 
   // Step 2. Tile and fuse tileable ops to reduction loops.
-  {
-    GPUApplyTilingLevelPassOptions options;
-    options.tilingLevel = IREE::GPU::TilingLevel::Reduction;
-    funcPassManager.addPass(createGPUApplyTilingLevelPass(options));
-    funcPassManager.addPass(createConfigTrackingCanonicalizerPass());
-    funcPassManager.addPass(createCSEPass());
-  }
+  // {
+  //   GPUApplyTilingLevelPassOptions options;
+  //   options.tilingLevel = IREE::GPU::TilingLevel::Reduction;
+  //   funcPassManager.addPass(createGPUApplyTilingLevelPass(options));
+  //   funcPassManager.addPass(createConfigTrackingCanonicalizerPass());
+  //   funcPassManager.addPass(createCSEPass());
+  // }
 
   // funcPassManager.addPass(createPropagateReshapesByExpansionPass());
-  funcPassManager.addPass(createConfigTrackingCanonicalizerPass());
-  funcPassManager.addPass(createCSEPass());
+  // funcPassManager.addPass(createConfigTrackingCanonicalizerPass());
+  // funcPassManager.addPass(createCSEPass());
 
   // Step 4. Tile and fuse tileable ops to subgroups/threads.
   {

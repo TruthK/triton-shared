@@ -7,12 +7,13 @@
 #include "triton-shared/Codegen/Interfaces/PartitionableLoopsInterface.h"
 #include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUDialect.h"
 #include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUOps.h"
+#include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/SmallVectorExtras.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/SmallVectorExtras.h"
 
 // clang-format off
 #include "triton-shared/Codegen/Interfaces/PartitionableLoopsInterface.cpp.inc"  // IWYU pragma: export
@@ -50,7 +51,7 @@ getPartitionableLoopsImpl(linalg::LinalgOp linalgOp,
   return parallelLoops;
 }
 
-/// External model implementation for all LinalgOps.
+/// External model implementation for all Linalg ops.
 template <typename OpTy>
 struct LinalgOpPartitionableLoops
     : public PartitionableLoopsInterface::ExternalModel<
@@ -108,7 +109,7 @@ struct OuterParallelAsPartitionableLoops
     auto interfaceOp = cast<TilingInterface>(op);
     for (auto [index, iteratorType] :
          llvm::enumerate(interfaceOp.getLoopIteratorTypes())) {
-      if (iteratorType != utils::IteratorType::parallel) {
+      if (iteratorType != mlir::utils::IteratorType::parallel) {
         break;
       }
       partitionableLoops.push_back(index);
@@ -124,7 +125,6 @@ struct OuterParallelAsPartitionableLoops
     return partitionableLoops;
   }
 };
-
 
 /// Registers the `LinalgOpPartitionableLoops` model for all Linalg ops. This
 /// needs to be done on a op-by-op basis since registration is on an op-by-op
@@ -176,6 +176,11 @@ void registerPartitionableLoopsInterfaceModels(DialectRegistry &registry) {
         IREE::GPU::MultiMmaOp::attachInterface<
             OuterParallelAsPartitionableLoops<IREE::GPU::MultiMmaOp>>(*ctx);
       });
+  registry.addExtension(+[](MLIRContext *ctx,
+                            mlir::tts::TritonStructuredDialect *dialect) {
+    mlir::tts::TransferWriteOp::attachInterface<
+        OuterParallelAsPartitionableLoops<mlir::tts::TransferWriteOp>>(*ctx);
+  });
 }
 
 } // namespace mlir::tts

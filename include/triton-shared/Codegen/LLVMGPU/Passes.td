@@ -164,6 +164,12 @@ def LLVMGPUVectorToGPUPass :
   let summary = "Pass to convert vector to gpu.";
 }
 
+def TileTTSTransferWritePass :
+    InterfacePass<"iree-llvmgpu-tile-tts-transfer-write", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to tile tts.transfer_write operations.";
+}
+
+
 def TensorTransferWriteFusionPass :
     InterfacePass<"triton-transfer-write-fusion", "mlir::FunctionOpInterface"> {
   let summary = "Fuse tensor.parallel_insert_slice with tts.transfer_write operations";

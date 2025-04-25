@@ -18,11 +18,14 @@
 #include "mlir/Interfaces/TilingInterface.h"
 #include "mlir/Interfaces/ValueBoundsOpInterface.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+
+#include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 #include "triton-shared/Codegen/Common/GPU/Passes.h"
 #include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
 #include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenInterfaces.h"
 #include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUAttrs.h"
 #include "triton-shared/Codegen/Dialect/GPU/IR/IREEGPUEnums.h"
+
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/Support/Debug.h"
@@ -149,6 +152,7 @@ static LogicalResult applyTileAndFuseToEachRoot(
             bool isDestinationOperand)
         -> std::optional<scf::SCFTileAndFuseOptions::ControlFnResult> {
       Operation *owner = originalProducer.getOwner();
+
       if (tilingLevel == IREE::GPU::TilingLevel::Reduction ||
           tilingLevel == IREE::GPU::TilingLevel::Subgroup) {
         // Do not fuse pad in reduction and subgroup tiling. We instead fuse
