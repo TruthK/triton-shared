@@ -2,6 +2,7 @@ add_triton_library(IREEVectorExtDialect
   VectorExtAttrs.cpp
   VectorExtDialect.cpp
   VectorExtOps.cpp
+  TilingInterfaceImpl.cpp
 
   DEPENDS
     IREEVectorExtAttrsGen

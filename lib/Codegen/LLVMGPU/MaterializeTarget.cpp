@@ -17,7 +17,7 @@ namespace mlir::tts {
 
 namespace {
 struct CUDAOptions {
-  std::string clTarget = "sm_75";
+  std::string clTarget = "sm_89";
   std::string clTargetFeatures = "+ptx84";
   // bool clUsePtxas = false;
   // std::string clUsePtxasFrom;
@@ -74,6 +74,17 @@ void MaterializeTargetPass::runOnOperation() {
   CUDAOptions options;
   options.clTarget = "sm_" + std::to_string(computeCapability.getValue());
   options.clTargetFeatures = "+ptx" + std::to_string(ptxVersion.getValue());
+
+  // Create an IntegerAttr with the value
+  IntegerAttr warpAttr =
+      IntegerAttr::get(IntegerType::get(moduleOp.getContext(), 32), numWrap);
+
+  moduleOp.walk([&](func::FuncOp funcOp) {
+    // Add the attribute to the ModuleOp with a name "num_warp"
+    funcOp->setAttr("num_warp", warpAttr);
+    // funcOp->setAttr("llvm.bareptr", BoolAttr::get(funcOp.getContext(),
+    // true));
+  });
 
   auto targetsAttr = getExecutableTarget(&getContext(), options);
   if (!targetsAttr) {

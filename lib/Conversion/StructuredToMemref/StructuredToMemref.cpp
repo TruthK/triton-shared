@@ -5,6 +5,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Support/LLVM.h"
 #include "triton/Dialect/Triton/IR/Types.h"
 
 #include "triton-shared/Analysis/OpFoldResultUtils.h"
@@ -492,10 +493,16 @@ public:
       llvm::dbgs() << "StoreToTransferWriteConverter\n";
       adaptor.getPtr().getType().dump();
     });
+
+    auto baseType = cast<ShapedType>(adaptor.getValue().getType());
+    int64_t rank = baseType.getRank();
+    // 创建OpFoldResult数组,全部使用静态0
+    SmallVector<OpFoldResult> indices;
+    indices.resize(rank, rewriter.getI64IntegerAttr(0));
+
     auto transferWrite = rewriter.create<tts::TransferWriteOp>(
-        op.getLoc(), adaptor.getPtr(), op.getValue(),
-        op.getMixedMaskDims() // mask dimensions
-    );
+        op.getLoc(), adaptor.getPtr(), op.getValue(), indices,
+        op.getMixedMaskDims());
 
     rewriter.replaceOp(op, transferWrite);
     return success();

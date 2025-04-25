@@ -6,7 +6,7 @@
 #loc26 = loc(callsite(#loc1 at #loc15))
 module {
   tt.func public @softmax_kernel(%arg0: !tt.ptr<f32> {tt.divisibility = 16 : i32} loc("/workspace/triton-shared/python/examples/02-fused-softmax.py":85:0), %arg1: !tt.ptr<f32> {tt.divisibility = 16 : i32} loc("/workspace/triton-shared/python/examples/02-fused-softmax.py":85:0)) attributes {noinline = false} {
-    %c1_i32 = arith.constant 1 : i32 loc(#loc1)
+    %c1_i32 = arith.constant 128 : i32 loc(#loc1)
     %c2028_i32 = arith.constant 2028 : i32 loc(#loc1)
     %c1024_i32 = arith.constant 1024 : i32 loc(#loc1)
     %0 = tt.get_program_id x : i32 loc(#loc2)

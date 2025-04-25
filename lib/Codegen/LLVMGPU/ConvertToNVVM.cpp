@@ -61,6 +61,7 @@ struct ConvertToNVVMPass final
     /// Customize the bitwidth used for the device side index computations.
     LowerToLLVMOptions options(m.getContext(), DataLayout(m));
     options.overrideIndexBitwidth(64);
+    // options.useBarePtrCallConv = true;
     LLVMTypeConverter converter(m.getContext(), options);
     populateGpuMemorySpaceAttributeConversions(
         converter, [](gpu::AddressSpace space) -> unsigned {
@@ -153,7 +154,7 @@ struct ConvertToNVVMPass final
       mlir::tts::MemrefToLLVMTypeConverter typeConverter(m.getContext(),
                                                          options);
       mlir::tts::NVIDIA::populateTTSFuncOpConversionPattern(
-          typeConverter, llvmPatterns, 1, targetInfo);
+          typeConverter, llvmPatterns, numWrap, targetInfo);
       cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
       arith::populateCeilFloorDivExpandOpsPatterns(llvmPatterns);
       arith::populateArithToLLVMConversionPatterns(converter, llvmPatterns);

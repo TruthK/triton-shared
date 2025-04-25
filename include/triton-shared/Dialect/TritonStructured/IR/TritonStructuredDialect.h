@@ -1,17 +1,19 @@
 #ifndef MLIR_DIALECT_TRITON_STRUCTURED_IR_TRITON_STRUCTURED_DIALECT_H_
 #define MLIR_DIALECT_TRITON_STRUCTURED_IR_TRITON_STRUCTURED_DIALECT_H_
 
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
+#include "mlir/IR/Attributes.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OpDefinition.h"
-#include "mlir/IR/Attributes.h" 
-#include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
 
 #include "triton/Dialect/Triton/IR/Dialect.h"
 
 namespace mlir {
 namespace tts {
+void registerTilingInterfaceExternalModels(DialectRegistry &registry);
+
 namespace utils {
 mlir::Value getScalarValue(mlir::Value operand, mlir::Location loc,
                            mlir::OpBuilder &builder);

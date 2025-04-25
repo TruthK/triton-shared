@@ -415,6 +415,10 @@ void TileAndDistributeToWorkgroupsUsingForallOpPass::runOnOperation() {
     // Did not find a tileable op. So do nothing.
     return;
   }
+  LLVM_DEBUG({
+    llvm::dbgs() << "TileAndDistributeToWorkgroupsUsingForallOpPass:\n";
+    tilableOp->dump();
+  });
   bool isMatmul = isa<linalg::MatmulOp>(tilableOp);
   mlir::DominanceInfo dominanceInfo(tilableOp);
   llvm::SmallDenseSet<Operation *> tiledAndFusedOps;
@@ -422,6 +426,10 @@ void TileAndDistributeToWorkgroupsUsingForallOpPass::runOnOperation() {
 
   llvm::DenseSet<Operation *> yieldReplacementsFor;
   for (auto op : tiledAndFusedOps) {
+    LLVM_DEBUG({
+      llvm::dbgs() << "tiledAndFusedOps :\n";
+      op->dump();
+    });
     // Yield a replacement if:
     //  a) All users of fused op are dominated by the tiling root.
     //  b) There is at most a single tiled user. If there is more than one
@@ -432,6 +440,10 @@ void TileAndDistributeToWorkgroupsUsingForallOpPass::runOnOperation() {
                        return dominanceInfo.properlyDominates(tilableOp, user);
                      }) &&
         (llvm::count_if(op->getUsers(), [&](Operation *user) {
+           LLVM_DEBUG({
+             llvm::dbgs() << "llvm::count_if(op->getUsers(), [&](Operation *user)  :\n";
+             user->dump();
+           });
            return tiledAndFusedOps.contains(user);
          }) < 2)) {
       yieldReplacementsFor.insert(op);

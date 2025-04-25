@@ -174,7 +174,7 @@ void registerCodegenPasses() {
 void registerCodegenDependentDialects(DialectRegistry &registry) {
 
   registry.insert<gpu::GPUDialect, nvgpu::NVGPUDialect, vector::VectorDialect,
-                  IREE::Codegen::IREECodegenDialect,
+                  IREE::Codegen::IREECodegenDialect,IREE::VectorExt::IREEVectorExtDialect,
                   transform::TransformDialect, IREE::GPU::IREEGPUDialect>();
   mlir::registerBuiltinDialectTranslation(registry);
   mlir::registerLLVMDialectTranslation(registry);

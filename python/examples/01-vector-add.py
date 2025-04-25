@@ -1,7 +1,6 @@
 """
 Vector Addition
 ===============
-
 In this tutorial, you will write a simple vector addition using Triton.
 
 In doing so, you will learn about:
@@ -50,11 +49,13 @@ def add_kernel(x_ptr,  # *Pointer* to first input vector.
     mask = offsets < n_elements
     # Load x and y from DRAM, masking out any extra elements in case the input is not a
     # multiple of the block size.
-    x = tl.load(x_ptr + offsets, mask=mask, other=1)    
-    y = tl.load(y_ptr + offsets, mask=mask, other=1)
+    x = tl.load(x_ptr + offsets, mask=mask)
+    y = tl.load(y_ptr + offsets, mask=mask)
     output = x + y
     # Write x + y back to DRAM.
     tl.store(output_ptr + offsets, output, mask=mask)
+
+
 
 
 # %%
@@ -62,10 +63,10 @@ def add_kernel(x_ptr,  # *Pointer* to first input vector.
 # and (2) enqueue the above kernel with appropriate grid/block sizes:
 
 
+
 def add(x: torch.Tensor, y: torch.Tensor):
     # We need to preallocate the output.
     output = torch.empty_like(x)
-    assert x.is_cuda and y.is_cuda and output.is_cuda
     n_elements = output.numel()
     # The SPMD launch grid denotes the number of kernel instances that run in parallel.
     # It is analogous to CUDA launch grids. It can be either Tuple[int], or Callable(metaparameters) -> Tuple[int].
@@ -85,14 +86,14 @@ def add(x: torch.Tensor, y: torch.Tensor):
 # We can now use the above function to compute the element-wise sum of two `torch.tensor` objects and test its correctness:
 
 torch.manual_seed(0)
-size = 98432
+size = 962508
 x = torch.rand(size, device='cuda')
 y = torch.rand(size, device='cuda')
 output_torch = x + y
 output_triton = add(x, y)
 print(output_torch)
 print(output_triton)
-print(f'The maximum difference between torch and triton is '
+print(f'The maximum difference between torch and tts is '
       f'{torch.max(torch.abs(output_torch - output_triton))}')
 
 # %%
@@ -113,13 +114,14 @@ print(f'The maximum difference between torch and triton is '
         x_vals=[2**i for i in range(12, 28, 1)],  # Different possible values for `x_name`.
         x_log=True,  # x axis is logarithmic.
         line_arg='provider',  # Argument name whose value corresponds to a different line in the plot.
-        line_vals=['triton', 'torch'],  # Possible values for `line_arg`.
-        line_names=['Triton', 'Torch'],  # Label name for the lines.
+        line_vals=['tts', 'torch'],  # Possible values for `line_arg`.
+        line_names=['tts', 'Torch'],  # Label name for the lines.
         styles=[('blue', '-'), ('green', '-')],  # Line styles.
         ylabel='GB/s',  # Label name for the y-axis.
         plot_name='vector-add-performance',  # Name for the plot. Used also as a file name for saving the plot.
         args={},  # Values for function arguments not in `x_names` and `y_name`.
     ))
+
 def benchmark(size, provider):
     select_kzx_cuda_backend()
     x = torch.rand(size, device='cuda', dtype=torch.float32)
@@ -127,7 +129,7 @@ def benchmark(size, provider):
     quantiles = [0.5, 0.2, 0.8]
     if provider == 'torch':
         ms, min_ms, max_ms = triton.testing.do_bench(lambda: x + y, quantiles=quantiles)
-    if provider == 'triton':
+    if provider == 'tts':
         ms, min_ms, max_ms = triton.testing.do_bench(lambda: add(x, y), quantiles=quantiles)
     gbps = lambda ms: 3 * x.numel() * x.element_size() / ms * 1e-6
     return gbps(ms), gbps(max_ms), gbps(min_ms)

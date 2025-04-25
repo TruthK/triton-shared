@@ -33,6 +33,7 @@ std::unique_ptr<OperationPass<func::FuncOp>> createConvertTTSTransferOpPass(bool
 
 std::unique_ptr<OperationPass<ModuleOp>> createTTSLoopUnrollPass();
 
+std::unique_ptr<OperationPass<ModuleOp>> createReinterpretCastHoistPass();
 
 void populateTTSTransferOpPatterns(RewritePatternSet &patterns,
                                    TypeConverter &typeConverter);

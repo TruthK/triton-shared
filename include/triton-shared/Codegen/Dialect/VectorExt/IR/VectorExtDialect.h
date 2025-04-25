@@ -7,16 +7,20 @@
 #ifndef IREE_DIALECTS_DIALECT_VECTOREXT_IR_VECTOREXTDIALECT_H_
 #define IREE_DIALECTS_DIALECT_VECTOREXT_IR_VECTOREXTDIALECT_H_
 
-#include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtInterfaces.h"
 #include "mlir/Bytecode/BytecodeImplementation.h"
 #include "mlir/Bytecode/BytecodeOpInterface.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
-#include "mlir/Dialect/Utils/StaticValueUtils.h"
-#include "mlir/Interfaces/ViewLikeInterface.h"
 #include "mlir/Interfaces/TilingInterface.h"
+#include "mlir/Interfaces/ViewLikeInterface.h"
+#include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtInterfaces.h"
 // clang-format off: must be included after all LLVM/MLIR headers
+
+namespace mlir::tts::IREE::VectorExt {
+void registerTilingInterfaceExternalModels(DialectRegistry &registry);
+} // namespace mlir::tts::IREE::VectorExt
 
 #include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtDialect.h.inc" // IWYU pragma: keep
                                                                              //

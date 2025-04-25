@@ -24,7 +24,7 @@ def LLVMGPUCodegenPass : Pass<"llvmgpu-codegen", "ModuleOp"> {
             "device compute capability">,
     Option<"ptxVersion", "ptx-version",
             "int32_t", /*default*/"84",
-            "PTX version">,
+            "PTX version">
   ];
 }
 
@@ -38,6 +38,9 @@ def MaterializeTargetPass : Pass<"iree-materialize-target", "ModuleOp"> {
         Option<"ptxVersion", "ptx-version",
                "int32_t", /*default*/"84",
                "PTX version">,
+        Option<"numWrap", "num-wrap",
+               "int32_t", "4",
+               "Number of wrap">
     ];
   
 }
@@ -54,11 +57,14 @@ def ConvertToNVVMPass :
     "and NVVM dialects";
      let options = [
         Option<"computeCapability", "compute-capability",
-               "int32_t", /*default*/"89",
+               "int32_t", "89",
                "device compute capability">,
         Option<"ptxVersion", "ptx-version",
-               "int32_t", /*default*/"84",
+               "int32_t", "84",
                "PTX version">,
+        Option<"numWrap", "num-wrap",
+               "int32_t", "4",
+               "Number of wrap">
     ];
 }
 
@@ -78,6 +84,23 @@ def ExtractAddressComputationGPUPass: Pass<"extract-address-computation-gpu"> {
 def LLVMGPUCastAddressSpaceFunctionPass :
     Pass<"iree-llvmgpu-cast-address-space-function", "ModuleOp"> {
   let summary = "Cast address space to generic in CallOp and FuncOp";
+}
+
+def TransferOpCanonicalizePass :
+    InterfacePass<"iree-llvmgpu-vector-transfer-read-optimize", "mlir::FunctionOpInterface"> {
+  let summary = "Optimize vector.transfer_read operations by removing unnecessary bufferization";
+  let description = [{
+    This pass optimizes vector.transfer_read operations by removing the pattern:
+    %tensor = bufferization.to_tensor %memref
+    %memref2 = bufferization.to_memref %tensor
+    %result = vector.transfer_read %memref2[...]
+    
+    And replacing it with:
+    %result = vector.transfer_read %memref[...]
+  }];
+  let dependentDialects = [
+      "vector::VectorDialect", "bufferization::BufferizationDialect", "memref::MemRefDialect","mlir::tts::IREE::VectorExt::IREEVectorExtDialect"
+  ];
 }
 
 // def LLVMGPUCastTypeToFitMMAPass : InterfacePass<"iree-llvmgpu-cast-type-to-fit-mma",
@@ -145,6 +168,37 @@ def LLVMGPUVectorLoweringPass :
 def LLVMGPUVectorToGPUPass :
     InterfacePass<"iree-llvmgpu-vector-to-gpu", "mlir::FunctionOpInterface"> {
   let summary = "Pass to convert vector to gpu.";
+}
+
+def FuseForallPass :
+    InterfacePass<"iree-llvmgpu-fuse-forall", "mlir::FunctionOpInterface"> {
+  let summary = "Fuse scf.forall with iree_vector_ext.transfer_write operations.";
+}
+
+
+def TileTTSTransferWritePass :
+    InterfacePass<"iree-llvmgpu-tile-tts-transfer-write", "mlir::FunctionOpInterface"> {
+  let summary = "Pass to tile tts.transfer_write operations.";
+}
+
+
+def TensorTransferWriteFusionPass :
+    InterfacePass<"triton-transfer-write-fusion", "mlir::FunctionOpInterface"> {
+  let summary = "Fuse tensor.parallel_insert_slice with tts.transfer_write operations";
+  let description = [{
+    This pass fuses tensor.parallel_insert_slice with tts.transfer_write operations.
+    
+    When a tts.transfer_write's value comes from an scf.forall result, and the scf.forall
+    has only one shared output, and that output is written by tensor.parallel_insert_slice,
+    this pass replaces the tensor.parallel_insert_slice with a new tts.transfer_write.
+    
+    The new tts.transfer_write keeps most information from the original operation,
+    but updates indices by adding tensor.parallel_insert_slice's offsets to the original
+    tts.transfer_write's indices. The original tts.transfer_write is then deleted.
+  }];
+  let dependentDialects = [
+      "mlir::scf::SCFDialect", "mlir::tts::TritonStructuredDialect", "mlir::tensor::TensorDialect"
+  ];
 }
 
 //------------------------------------------------------------------------------

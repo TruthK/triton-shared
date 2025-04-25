@@ -171,13 +171,13 @@ static void tileAndDistributeToWorkgroup(
         convertToDpsOptions = ConvertToDestinationPassingStylePassOptions{},
     ReorderWorkgroupsStrategy strategy = ReorderWorkgroupsStrategy::None) {
   if (useForall) {
-    funcPassManager.addPass(
-        createTileAndDistributeToWorkgroupsUsingForallOpPass());
-    funcPassManager.addPass(createTransferReadSubviewFusionPass());
+    // funcPassManager.addPass(
+    // createTileAndDistributeToWorkgroupsUsingForallOpPass());
+    // funcPassManager.addPass(createTransferReadSubviewFusionPass());
   } else {
-    funcPassManager.addPass(createTileAndDistributeToWorkgroupsPass(
-        kNumMaxParallelDims,
-        linalg::DistributionMethod::CyclicNumProcsEqNumIters));
+    // funcPassManager.addPass(createTileAndDistributeToWorkgroupsPass(
+    //     kNumMaxParallelDims,
+    //     linalg::DistributionMethod::CyclicNumProcsEqNumIters));
     funcPassManager.addPass(createCSEPass());
     if (convertToDpsOptions) {
       funcPassManager.addPass(
@@ -338,23 +338,24 @@ void addGPUTileAndFusePassPipeline(OpPassManager &funcPassManager,
   // funcPassManager.addPass(createPropagateReshapesByExpansionPass());
 
   // Step 2. Tile and fuse tileable ops to reduction loops.
-  {
-    GPUApplyTilingLevelPassOptions options;
-    options.tilingLevel = IREE::GPU::TilingLevel::Reduction;
-    funcPassManager.addPass(createGPUApplyTilingLevelPass(options));
-    funcPassManager.addPass(createConfigTrackingCanonicalizerPass());
-    funcPassManager.addPass(createCSEPass());
-  }
+  // {
+  //   GPUApplyTilingLevelPassOptions options;
+  //   options.tilingLevel = IREE::GPU::TilingLevel::Reduction;
+  //   funcPassManager.addPass(createGPUApplyTilingLevelPass(options));
+  //   funcPassManager.addPass(createConfigTrackingCanonicalizerPass());
+  //   funcPassManager.addPass(createCSEPass());
+  // }
 
   // funcPassManager.addPass(createPropagateReshapesByExpansionPass());
-  funcPassManager.addPass(createConfigTrackingCanonicalizerPass());
-  funcPassManager.addPass(createCSEPass());
+  // funcPassManager.addPass(createConfigTrackingCanonicalizerPass());
+  // funcPassManager.addPass(createCSEPass());
 
   // Step 4. Tile and fuse tileable ops to subgroups/threads.
   {
     GPUApplyTilingLevelPassOptions options;
     options.tilingLevel = IREE::GPU::TilingLevel::Thread;
     funcPassManager.addPass(createGPUApplyTilingLevelPass(options));
+    funcPassManager.addPass(createTileTTSTransferWritePass());
     funcPassManager.addPass(createConfigTrackingCanonicalizerPass());
     funcPassManager.addPass(createCSEPass());
   }
@@ -400,6 +401,8 @@ void addGPUTileAndFusePassPipeline(OpPassManager &funcPassManager,
   funcPassManager.addPass(createGPUDistributeForallPass());
 
   // Vectorize copies that came out of bufferization.
+  funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
+  funcPassManager.addPass(createTransferOpCanonicalizePass());
   funcPassManager.addPass(createVectorizeMemrefCopyPass());
 
   // Step 8. Unroll operations to native intrinsic widths.
@@ -550,11 +553,12 @@ void addGPUMatmulTensorCoreMmaSyncPassPipeline(
     OpPassManager &funcPassManager, const GPUPipelineOptions &options,
     unsigned pipelineDepth) {
   tileAndBufferize(funcPassManager);
-
+  funcPassManager.addPass(createSPMDOpPass());
   // Distribute linalg onto warps within the workgroup.
   funcPassManager.addPass(
       createLLVMGPUTileAndDistributePass(/*distributeToWarp=*/true));
   // funcPassManager.addPass(createRemoveSingleIterationLoopPass());
+
   if (pipelineDepth > 1) {
     funcPassManager.addPass(createGPUMultiBufferingPass(
         GPUMultiBufferingPassOptions{pipelineDepth}));
@@ -578,11 +582,14 @@ void addGPUMatmulTensorCoreMmaSyncPassPipeline(
   funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
   funcPassManager.addPass(createCSEPass());
   // funcPassManager.addPass(createTransferReadSubviewFusionPass());
-  funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
+  // funcPassManager.addPass(createFuseForallPass());
+
   funcPassManager.addPass(createOptimizeVectorTransferPass());
   funcPassManager.addPass(createOptimizeTensorInsertExtractSlicesPass());
 
   // Distribute shared memory copies.
+  funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
+  funcPassManager.addPass(createTransferOpCanonicalizePass());
   funcPassManager.addPass(createMemrefCopyToLinalgPass());
   funcPassManager.addPass(createGPUDistributeSharedMemoryCopyPass());
   funcPassManager.addPass(createCanonicalizerPass());
@@ -865,6 +872,16 @@ void addGPUWarpReductionPassPipeline(OpPassManager &funcPassManager) {
   addBufferizePasses(funcPassManager);
 
   funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
+  funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
+  funcPassManager.addPass(createTransferOpCanonicalizePass());
+  funcPassManager.addPass(createMemrefCopyToLinalgPass());
+  funcPassManager.addPass(createGPUDistributeSharedMemoryCopyPass());
+  funcPassManager.addPass(createConfigTrackingCanonicalizerPass());
+  funcPassManager.addPass(createCSEPass());
+  funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
+  funcPassManager.addPass(createCanonicalizerPass());
+  funcPassManager.addPass(createCSEPass());
+
   funcPassManager.addPass(createOptimizeVectorTransferPass());
   funcPassManager.addPass(createOptimizeTensorInsertExtractSlicesPass());
   funcPassManager.addPass(createIREELoopInvariantCodeMotionPass());
@@ -1174,6 +1191,8 @@ void registerCodegenLLVMGPUPasses() {
   //     [](OpPassManager &modulePassManager) {
   //       buildLLVMGPULinkingPassPipeline(modulePassManager);
   //     });
+
+  registerPass(createTensorTransferWriteFusionPass);
 }
 
 } // namespace mlir::tts

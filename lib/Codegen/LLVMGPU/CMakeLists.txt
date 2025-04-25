@@ -14,6 +14,7 @@ add_triton_library(IREECodegenLLVMGPU
  LLVMGPUPackSharedMemoryAlloc.cpp
  LLVMGPUVectorToGPU.cpp
  LLVMGPUVectorLowering.cpp
+ TransferOpCanonicalize.cpp
  ExtractAddressComputationGPUPass.cpp
  LLVMGPUCastAddressSpaceFunction.cpp
  ConvertToNVVM.cpp
@@ -22,6 +23,9 @@ add_triton_library(IREECodegenLLVMGPU
  LLVMGPUPrefetching.cpp
  SPMDOp.cpp
  PtrTransform.cpp
+ TensorTransferWriteFusion.cpp
+ TileTTSTransferWritePass.cpp
+ FuseForall.cpp
 
   DEPENDS
     LLVMGPUCodegenPassIncGen
@@ -41,7 +45,6 @@ add_triton_library(IREECodegenLLVMGPU
   LLVMSupport
   LLVMTarget
   LLVMipo
-  LLVMNVPTXInfo
 
   MLIRAMDGPUDialect
   MLIRAMDGPUToROCDL
