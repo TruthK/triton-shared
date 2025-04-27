@@ -17,6 +17,7 @@ LINK_LIBS PUBLIC
     IREEVectorExtTransforms
     IREECodegenLLVMGPU
     IREECodegenTransforms
+    IREEVectorExtDialect
 )
 
 # iree::compiler::Codegen::Common

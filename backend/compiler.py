@@ -234,20 +234,13 @@ class KzxCUDABackend(BaseBackend):
         pm.run(mod)
         return mod
     
-    @staticmethod
-    def make_ttsharedir(mod, metadata, opt, capability):
-        pm = ir.pass_manager(mod.context)
-        pm.enable_debug()
-        ttsnv.passes.tts.triton_to_linalg(pm)
-        pm.run(mod)
-        return mod
-
 
     def make_llir(self, mod,metadata, options, capability):
         ptx_version = get_ptx_version_from_options(options, self.target.arch)
         # Get tts-MLIR as string
         pm = ir.pass_manager(mod.context)
         pm.enable_debug()
+        ttsnv.passes.tts.triton_to_linalg(pm)
         ttsnv.passes.tts_codegen.iree_materialize_target(pm,capability,ptx_version)
         ttsnv.passes.tts_codegen.iree_llvmgpu_select_lowering_strategy(pm)
         ttsnv.passes.tts_codegen.iree_llvmgpu_codegen(pm,capability,ptx_version)
@@ -261,7 +254,6 @@ class KzxCUDABackend(BaseBackend):
         if os.environ.get("TRITON_ENABLE_ASAN", "0") == "1":
             raise RuntimeError(
                 "Address Sanitizer Error: Address sanitizer is currently only supporteedd on the AMD backend")
-        print("make_llir");
         llvm_mod = llvm.to_module(mod, context)
         proc = 'sm_90a' if capability == 90 else f'sm_{capability}'
         # use sm_90a until sm_100 is open sourced in llvm.
@@ -300,21 +292,22 @@ class KzxCUDABackend(BaseBackend):
             proc = 'sm_90a'
         features = get_features(opt, self.target.arch)
         ret = llvm.translate_to_asm(src, triple, proc, features, ['nvptx-short-ptr'], opt.enable_fp_fusion, False)
-        Path(".vscode/core_dump.ir").write_text(str(ret))
         
         # Find kernel names (there should only be one)
         names = re.findall(r".visible .entry ([a-zA-Z_][a-zA-Z0-9_]*)", ret)
         assert len(names) == 1
         metadata["name"] = names[0]
+        Path(".vscode/tts_ptx_"+str(names[0])+".ir").write_text(str(ret))
+        
         # post-process
         ptx_version = f'{ptx_version//10}.{ptx_version%10}'
         ret = re.sub(r'\.version \d+\.\d+', f'.version {ptx_version}', ret, flags=re.MULTILINE)
         ret = re.sub(r'\.target sm_\d+', f'.target sm_{capability}', ret, flags=re.MULTILINE)
         # Remove the debug flag that prevents ptxas from optimizing the code
         ret = re.sub(r",\s*debug|debug,\s*", "", ret)
-        if os.environ.get("NVPTX_ENABLE_DUMP", "0") == "1":
-            print("// -----// NVPTX Dump //----- //")
-            print(ret)
+        # if os.environ.get("NVPTX_ENABLE_DUMP", "0") == "1":
+        print("// -----// NVPTX Dump //----- //")
+        print(ret)
         return ret
 
     def make_cubin(self, src, metadata, opt, capability):
@@ -366,7 +359,6 @@ class KzxCUDABackend(BaseBackend):
     def add_stages(self, stages, options):
         capability = self._parse_arch(options.arch)
         stages["ttir"] = lambda src, metadata: self.make_ttir(src, metadata, options)
-        stages["ttsharedir"] = lambda src, metadata: self.make_ttsharedir(src, metadata, options,capability)
         stages["llir"] = lambda src, metadata: self.make_llir(src,metadata, options,capability)
         stages["ptx"] = lambda src, metadata: self.make_ptx(src, metadata, options, self.target.arch)
         stages["cubin"] = lambda src, metadata: self.make_cubin(src, metadata, options, self.target.arch)

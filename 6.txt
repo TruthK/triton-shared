@@ -1906,7 +1906,7 @@ func.func @add_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %arg1: 
   return
 }
 
-// -----// IR Dump After LLVMGPUVectorTransferReadOptimizePass (iree-llvmgpu-vector-transfer-read-optimize) //----- //
+// -----// IR Dump After TransferOpCanonicalizePass (iree-llvmgpu-vector-transfer-read-optimize) //----- //
 func.func @add_kernel(%arg0: memref<*xf32> {tt.divisibility = 16 : i32}, %arg1: memref<*xf32> {tt.divisibility = 16 : i32}, %arg2: memref<*xf32> {tt.divisibility = 16 : i32}, %arg3: i32 {tt.divisibility = 16 : i32}) attributes {translation_info = #iree_codegen.translation_info<pipeline = LLVMGPUTileAndFuse workgroup_size = [32, 1, 1] subgroup_size = 32>} {
   %c4 = arith.constant 4 : index
   %cst = arith.constant 0.000000e+00 : f32

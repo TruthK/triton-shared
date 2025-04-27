@@ -355,6 +355,7 @@ void addGPUTileAndFusePassPipeline(OpPassManager &funcPassManager,
     GPUApplyTilingLevelPassOptions options;
     options.tilingLevel = IREE::GPU::TilingLevel::Thread;
     funcPassManager.addPass(createGPUApplyTilingLevelPass(options));
+    funcPassManager.addPass(createTileTTSTransferWritePass());
     funcPassManager.addPass(createConfigTrackingCanonicalizerPass());
     funcPassManager.addPass(createCSEPass());
   }
@@ -578,8 +579,9 @@ void addGPUMatmulTensorCoreMmaSyncPassPipeline(
   funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
   funcPassManager.addPass(createCSEPass());
   // funcPassManager.addPass(createTransferReadSubviewFusionPass());
+  // funcPassManager.addPass(createFuseForallPass());
   funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
-  funcPassManager.addPass(createLLVMGPUVectorTransferReadOptimizePass());
+  funcPassManager.addPass(createTransferOpCanonicalizePass());
   funcPassManager.addPass(createOptimizeVectorTransferPass());
   funcPassManager.addPass(createOptimizeTensorInsertExtractSlicesPass());
 

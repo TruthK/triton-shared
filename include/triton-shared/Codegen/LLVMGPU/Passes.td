@@ -25,6 +25,9 @@ def LLVMGPUCodegenPass : Pass<"llvmgpu-codegen", "ModuleOp"> {
     Option<"ptxVersion", "ptx-version",
             "int32_t", /*default*/"84",
             "PTX version">,
+        Option<"numWrap", "num-wrap",
+               "int32_t", "4",
+               "Number of wrap">
   ];
 }
 
@@ -54,11 +57,14 @@ def ConvertToNVVMPass :
     "and NVVM dialects";
      let options = [
         Option<"computeCapability", "compute-capability",
-               "int32_t", /*default*/"89",
+               "int32_t", "89",
                "device compute capability">,
         Option<"ptxVersion", "ptx-version",
-               "int32_t", /*default*/"84",
+               "int32_t", "84",
                "PTX version">,
+        Option<"numWrap", "num-wrap",
+               "int32_t", "4",
+               "Number of wrap">
     ];
 }
 
@@ -80,7 +86,7 @@ def LLVMGPUCastAddressSpaceFunctionPass :
   let summary = "Cast address space to generic in CallOp and FuncOp";
 }
 
-def LLVMGPUVectorTransferReadOptimizePass :
+def TransferOpCanonicalizePass :
     InterfacePass<"iree-llvmgpu-vector-transfer-read-optimize", "mlir::FunctionOpInterface"> {
   let summary = "Optimize vector.transfer_read operations by removing unnecessary bufferization";
   let description = [{
@@ -93,7 +99,7 @@ def LLVMGPUVectorTransferReadOptimizePass :
     %result = vector.transfer_read %memref[...]
   }];
   let dependentDialects = [
-      "vector::VectorDialect", "bufferization::BufferizationDialect", "memref::MemRefDialect"
+      "vector::VectorDialect", "bufferization::BufferizationDialect", "memref::MemRefDialect","mlir::tts::IREE::VectorExt::IREEVectorExtDialect"
   ];
 }
 
@@ -163,6 +169,12 @@ def LLVMGPUVectorToGPUPass :
     InterfacePass<"iree-llvmgpu-vector-to-gpu", "mlir::FunctionOpInterface"> {
   let summary = "Pass to convert vector to gpu.";
 }
+
+def FuseForallPass :
+    InterfacePass<"iree-llvmgpu-fuse-forall", "mlir::FunctionOpInterface"> {
+  let summary = "Fuse scf.forall with iree_vector_ext.transfer_write operations.";
+}
+
 
 def TileTTSTransferWritePass :
     InterfacePass<"iree-llvmgpu-tile-tts-transfer-write", "mlir::FunctionOpInterface"> {

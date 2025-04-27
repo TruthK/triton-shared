@@ -33,7 +33,9 @@
 #include "triton-shared/Codegen/Common/GPU/Passes.h"
 #include "triton-shared/Codegen/Common/PassUtils.h"
 #include "triton-shared/Codegen/Common/Passes.h"
+#include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtDialect.h"
 #include "triton-shared/Codegen/LLVMGPU/Passes.h"
+#include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 
 namespace mlir::tts {
 
@@ -73,7 +75,8 @@ addLowerAndOptimizeAddressComputationPasses(FunctionLikeNest &funcPassManager) {
 }
 
 static void addLowerToLLVMGPUPasses(OpPassManager &modulePassManager,
-                                    int32_t computeCapability, int32_t ptxVersion) {
+                                    int32_t computeCapability,
+                                    int32_t ptxVersion, int32_t numWrap) {
   modulePassManager.addPass(createCanonicalizerPass());
   modulePassManager.addPass(createCSEPass());
 
@@ -138,6 +141,7 @@ static void addLowerToLLVMGPUPasses(OpPassManager &modulePassManager,
   ConvertToNVVMPassOptions options;
   options.computeCapability = computeCapability;
   options.ptxVersion = ptxVersion;
+  options.numWrap = numWrap;
   modulePassManager.addPass(createConvertToNVVMPass(options));
 }
 
@@ -153,6 +157,8 @@ public:
         .insert<affine::AffineDialect,
                 arith::ArithDialect,
                 bufferization::BufferizationDialect,
+                mlir::tts::TritonStructuredDialect,
+                mlir::tts::IREE::VectorExt::IREEVectorExtDialect,
                 func::FuncDialect,
                 gpu::GPUDialect,
                 linalg::LinalgDialect,
@@ -163,6 +169,7 @@ public:
                 nvgpu::NVGPUDialect,
                 NVVM::NVVMDialect>();
     // clang-format on
+    mlir::tts::registerTilingInterfaceExternalModels(registry);
   }
 
   void runOnOperation() override {
@@ -170,7 +177,18 @@ public:
     ModuleOp moduleOp = getOperation();
 
     PassManager pm(&getContext(), moduleOp.getOperationName());
-    // 创建一个新的 OpPassManager 针对 ModuleOp
+    // Create an IntegerAttr with the value
+    IntegerAttr warpAttr = IntegerAttr::get(
+        IntegerType::get(moduleOp.getContext(), 32), numWrap * 32);
+
+    moduleOp.walk([&](func::FuncOp funcOp) {
+      // Add the attribute to the ModuleOp with a name "num_warp"
+      funcOp->setAttr("num_warp", warpAttr);
+      funcOp->setAttr("llvm.bareptr", BoolAttr::get(funcOp.getContext(), true));
+    });
+
+   
+
     FunctionLikeNest(pm)
         .addPass(createLLVMGPULowerExecutableTargetPass)
         .addPass(createVerifyWorkgroupDistributionPass);
@@ -184,7 +202,7 @@ public:
     //   - All Linalg/Loops/GPU/Affine/Standard ops are converted away.
     //   - The module contains the final llvm.module ready to be serialized.
     //===--------------------------------------------------------------------===//
-    addLowerToLLVMGPUPasses(pm, computeCapability, ptxVersion);
+    addLowerToLLVMGPUPasses(pm, computeCapability, ptxVersion, numWrap);
 
     if (failed(runPipeline(pm, getOperation()))) {
       signalPassFailure();

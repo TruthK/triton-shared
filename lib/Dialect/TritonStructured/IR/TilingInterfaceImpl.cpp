@@ -1,8 +1,16 @@
+//===- TilingInterfaceImpl.cpp - Implementation of TransferWriteOp Tiling -===//
+//
+// This file implements the TilingInterface model for tts::TransferWriteOp.
+//===----------------------------------------------------------------------===//
 #include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
+#include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredOps.h.inc"
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/StructuredOpsUtils.h"
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Interfaces/TilingInterface.h"
 #include "llvm/Support/LogicalResult.h"
@@ -11,14 +19,6 @@
 
 using namespace mlir;
 using namespace mlir::tts;
-
-// 前向声明TransferWriteOp
-namespace mlir {
-namespace tts {
-class TransferWriteOp;
-void registerTilingInterfaceExternalModels(DialectRegistry &registry);
-} // namespace tts
-} // namespace mlir
 
 namespace {
 namespace tts_impl {
@@ -76,7 +76,8 @@ struct TransferWriteTilingInterface
     ranges.reserve(shapedType.getRank());
 
     for (int64_t i = 0; i < shapedType.getRank(); ++i) {
-      Value dim = b.create<tensor::DimOp>(loc, transferWriteOp.getValue(), i);
+      Value dim =
+          b.create<arith::ConstantIndexOp>(loc, shapedType.getDimSize(i));
       Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
       Value one = b.create<arith::ConstantIndexOp>(loc, 1);
       ranges.push_back(Range{zero, dim, one});
@@ -95,19 +96,11 @@ struct TransferWriteTilingInterface
 
     // 创建新的indices，基于原始indices和tile的offsets
     SmallVector<OpFoldResult> newIndices;
-    auto dynamicIndices = transferWriteOp.getIndices();
-    auto staticIndices = transferWriteOp.getStaticIndices();
 
     // 合并当前indices和offsets
     for (auto i = 0; i < offsets.size(); ++i) {
       // 获取原始索引
-      OpFoldResult origIndex;
-      if (i < dynamicIndices.size()) {
-        origIndex = dynamicIndices[i];
-      } else {
-        int64_t staticVal = staticIndices[i];
-        origIndex = b.getIndexAttr(staticVal);
-      }
+      OpFoldResult origIndex = transferWriteOp.getMixedIndices()[i];
 
       // 合并原始索引和offset
       Value offsetValue =
@@ -123,24 +116,12 @@ struct TransferWriteTilingInterface
     Value originalValue = transferWriteOp.getValue();
     ShapedType originalType = cast<ShapedType>(originalValue.getType());
 
-    // 创建新的结果类型（基于tile大小）
-    SmallVector<int64_t> newShape;
-    for (auto size : sizes) {
-      if (auto attr = size.dyn_cast<Attribute>()) {
-        if (auto intAttr = dyn_cast<IntegerAttr>(attr)) {
-          newShape.push_back(intAttr.getInt());
-        }
-      } else {
-        // 如果大小是动态的，使用动态维度
-        newShape.push_back(ShapedType::kDynamic);
-      }
-    }
-
-    auto newType =
-        RankedTensorType::get(newShape, originalType.getElementType());
-
-    // 创建一个extract_slice操作来获取原始value的切片
+    // 推断ExtractSliceOp的结果类型
+    auto sourceType = cast<RankedTensorType>(originalValue.getType());
     SmallVector<OpFoldResult> strides(sizes.size(), b.getIndexAttr(1));
+    auto newType = tensor::ExtractSliceOp::inferResultType(sourceType, offsets,
+                                                           sizes, strides);
+    // 创建一个extract_slice操作来获取原始value的切片
     Value extractedValue = b.create<tensor::ExtractSliceOp>(
         loc, newType, originalValue, offsets, sizes, strides);
 
@@ -149,16 +130,14 @@ struct TransferWriteTilingInterface
     SmallVector<Value> indicesValues =
         tts_impl::convertToValues(b, loc, newIndices);
 
-    // 获取mask维度，将OperandRange转换为Values
-    SmallVector<Value> maskDimValues;
-    for (auto maskDim : transferWriteOp.getMaskDims()) {
-      maskDimValues.push_back(maskDim);
-    }
+    SmallVector<OpFoldResult> indicesValuesofrVec =
+        llvm::to_vector(llvm::map_range(
+            indicesValues, [](Value v) { return OpFoldResult(v); }));
 
     // 创建新的操作
-    auto newOp = b.create<TransferWriteOp>(
-        loc, transferWriteOp.getBase(), extractedValue, indicesValues,
-        ArrayRef<int64_t>{}, maskDimValues, ArrayRef<int64_t>{});
+    auto newOp = b.create<TransferWriteOp>(loc, transferWriteOp.getBase(),
+                                           extractedValue, indicesValuesofrVec,
+                                           transferWriteOp.getMixedMaskDims());
 
     // 返回tiling结果
     TilingResult result;

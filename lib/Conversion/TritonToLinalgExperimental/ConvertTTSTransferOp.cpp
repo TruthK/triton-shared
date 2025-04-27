@@ -271,10 +271,10 @@ private:
     if (auto tensorType = mlir::dyn_cast<TensorType>(value.getType())) {
       // 使用bufferization::ToMemrefOp将tensor转为memref
       auto memrefType = MemRefType::get(
-          tensorType.getShape(), tensorType.getElementType(),
-          AffineMap(),
+          tensorType.getShape(), tensorType.getElementType(), AffineMap(),
           cast<MemRefType>(dest.getType()).getMemorySpace());
-      writeValue = rewriter.create<bufferization::ToMemrefOp>(loc, memrefType, value);
+      writeValue =
+          rewriter.create<bufferization::ToMemrefOp>(loc, memrefType, value);
     }
 
     // 创建默认的indices - 全0
@@ -304,10 +304,10 @@ private:
     // 使用builder创建新的IREE::VectorExt::TransferWriteOp操作
     auto newOp = rewriter.create<mlir::tts::IREE::VectorExt::TransferWriteOp>(
         loc,
-        dest,       // 基址
-        writeValue, // 写入值（可能已转换为memref）
-        indices,    // 索引(全0)
-        maskDims    // mask维度(从原始op获取)
+        dest,                 // 基址
+        writeValue,           // 写入值（可能已转换为memref）
+        op.getMixedIndices(), // 索引(全0)
+        maskDims              // mask维度(从原始op获取)
     );
 
     rewriter.replaceOp(op, newOp);
@@ -382,7 +382,7 @@ public:
                 math::MathDialect, linalg::LinalgDialect, scf::SCFDialect,
                 ttx::TritonTilingExtDialect, tts::TritonStructuredDialect,
                 bufferization::BufferizationDialect, tensor::TensorDialect,
-                vector::VectorDialect>();
+                IREE::VectorExt::IREEVectorExtDialect, vector::VectorDialect>();
   }
 
   void runOnOperation() override {

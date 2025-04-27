@@ -4,12 +4,6 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include <functional>
-#include "triton-shared/Codegen/Common/GPU/Passes.h"
-#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
-#include "triton-shared/Codegen/Dialect/GPU/Transforms/Transforms.h"
-#include "triton-shared/Codegen/Utils/GPUUtils.h"
-#include "triton-shared/Codegen/Utils/Utils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
@@ -18,6 +12,12 @@
 #include "mlir/Dialect/SCF/IR/DeviceMappingInterface.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Utils/StaticValueUtils.h"
+#include "triton-shared/Codegen/Common/GPU/Passes.h"
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
+#include "triton-shared/Codegen/Dialect/GPU/Transforms/Transforms.h"
+#include "triton-shared/Codegen/Utils/GPUUtils.h"
+#include "triton-shared/Codegen/Utils/Utils.h"
+#include <functional>
 
 namespace mlir::tts {
 
@@ -183,10 +183,8 @@ void GPUDistributeForallPass::runOnOperation() {
         "unimplemented: Distribution with dynamic subgroup size.");
     return signalPassFailure();
   }
-
-  int64_t flatWorkgroupSize =
-      std::accumulate(workgroupSize.begin(), workgroupSize.end(), 1,
-                      std::multiplies<int64_t>());
+  Attribute warpSizeAttr = funcOp->getAttr("num_warp");
+  int64_t flatWorkgroupSize = cast<IntegerAttr>(warpSizeAttr).getInt();
   int64_t subgroupSize = *maybeSubgroupSize;
 
   if (flatWorkgroupSize % subgroupSize != 0 &&
@@ -219,4 +217,4 @@ void GPUDistributeForallPass::runOnOperation() {
   }
 }
 
-} // namespace mlir::
+} // namespace mlir::tts

@@ -3,13 +3,13 @@
 #include "mlir/Pass/PassOptions.h"
 #include "mlir/Transforms/Passes.h"
 
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenDialect.h"
+#include "triton-shared/Codegen/Interfaces/Interfaces.h"
 #include "triton-shared/Codegen/LLVMGPU/Passes.h"
 #include "triton-shared/Codegen/Passes.h"
 #include "triton-shared/Conversion/TritonToLinalgExperimental/TritonToLinalgExperimental.h"
 #include "triton-shared/Dialect/TritonStructured/IR/TritonStructuredDialect.h"
 #include "triton-shared/Dialect/TritonTilingExt/IR/TritonTilingExtDialect.h"
-#include "triton-shared/Codegen/Interfaces/Interfaces.h"
-#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenDialect.h"
 
 #include "llvm/IR/Constants.h"
 
@@ -44,7 +44,7 @@ void init_tts_codegen(py::module &&m) {
           options.ptxVersion = ptxVersion;
           pm.addPass(mlir::tts::createLLVMGPUCodegenPass(options));
         });
-   ADD_PASS_WRAPPER_0("llvmgpu_ptr_transform",
+  ADD_PASS_WRAPPER_0("llvmgpu_ptr_transform",
                      mlir::tts::createPtrTransformPass);
 }
 
@@ -65,6 +65,7 @@ void init_triton_ttsnv(py::module &&m) {
     mlir::tts::registerCodegenInterfaces(registry);
     mlir::tts::registerUKernelBufferizationInterface(registry);
     context.appendDialectRegistry(registry);
+    mlir::tts::registerTilingInterfaceExternalModels(registry);
   });
 
   // TODO: could be done in python if we had a generic interface to set metadata
