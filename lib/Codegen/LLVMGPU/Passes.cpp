@@ -172,7 +172,7 @@ static void tileAndDistributeToWorkgroup(
     ReorderWorkgroupsStrategy strategy = ReorderWorkgroupsStrategy::None) {
   if (useForall) {
     // funcPassManager.addPass(
-        // createTileAndDistributeToWorkgroupsUsingForallOpPass());
+    // createTileAndDistributeToWorkgroupsUsingForallOpPass());
     // funcPassManager.addPass(createTransferReadSubviewFusionPass());
   } else {
     funcPassManager.addPass(createTileAndDistributeToWorkgroupsPass(
@@ -401,6 +401,8 @@ void addGPUTileAndFusePassPipeline(OpPassManager &funcPassManager,
   funcPassManager.addPass(createGPUDistributeForallPass());
 
   // Vectorize copies that came out of bufferization.
+  funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
+  funcPassManager.addPass(createTransferOpCanonicalizePass());
   funcPassManager.addPass(createVectorizeMemrefCopyPass());
 
   // Step 8. Unroll operations to native intrinsic widths.
@@ -556,6 +558,7 @@ void addGPUMatmulTensorCoreMmaSyncPassPipeline(
   funcPassManager.addPass(
       createLLVMGPUTileAndDistributePass(/*distributeToWarp=*/true));
   // funcPassManager.addPass(createRemoveSingleIterationLoopPass());
+
   if (pipelineDepth > 1) {
     funcPassManager.addPass(createGPUMultiBufferingPass(
         GPUMultiBufferingPassOptions{pipelineDepth}));

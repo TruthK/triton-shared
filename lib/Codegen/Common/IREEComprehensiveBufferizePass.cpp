@@ -257,8 +257,7 @@ void addIREEPostBufferizationPasses(OpPassManager &funcPassManager) {
   funcPassManager.addPass(createTransferOpCanonicalizePass());
   funcPassManager.addPass(createCanonicalizerPass());
   funcPassManager.addPass(createCSEPass());
-  funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
-  funcPassManager.addPass(createTransferOpCanonicalizePass());
+
   funcPassManager.addPass(memref::createResolveShapedTypeResultDimsPass());
   funcPassManager.addPass(createCanonicalizerPass());
   funcPassManager.addPass(createCSEPass());

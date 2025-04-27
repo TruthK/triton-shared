@@ -61,7 +61,7 @@ struct ConvertToNVVMPass final
     /// Customize the bitwidth used for the device side index computations.
     LowerToLLVMOptions options(m.getContext(), DataLayout(m));
     options.overrideIndexBitwidth(64);
-    options.useBarePtrCallConv = true;
+    // options.useBarePtrCallConv = true;
     LLVMTypeConverter converter(m.getContext(), options);
     populateGpuMemorySpaceAttributeConversions(
         converter, [](gpu::AddressSpace space) -> unsigned {

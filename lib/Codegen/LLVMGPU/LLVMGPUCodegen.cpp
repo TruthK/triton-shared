@@ -184,7 +184,7 @@ public:
     moduleOp.walk([&](func::FuncOp funcOp) {
       // Add the attribute to the ModuleOp with a name "num_warp"
       funcOp->setAttr("num_warp", warpAttr);
-      funcOp->setAttr("llvm.bareptr", BoolAttr::get(funcOp.getContext(), true));
+      // funcOp->setAttr("llvm.bareptr", BoolAttr::get(funcOp.getContext(), true));
     });
 
    

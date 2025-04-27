@@ -199,10 +199,10 @@ def IREEVectorExt_TransferWriteOp
                        DenseI64ArrayAttr:$static_mask_dims);
 
   let assemblyFormat = [{
-    $value `to` $base 
+    $value `write_to` $base 
     `` `,` `indices` `` `:` custom<DynamicIndexList>($indices, $static_indices)
     `` `,` `mask_dims` `` `:` custom<DynamicIndexList>($mask_dims, $static_mask_dims)
-    attr-dict `:` qualified(type($base)) `to` qualified(type($value))
+    attr-dict `:` qualified(type($value)) `write_to` qualified(type($base))
   }];
 
 

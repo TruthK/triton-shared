@@ -23,6 +23,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/TypeSupport.h" // for mlir::isa
 #include "llvm/ADT/APInt.h"
 
 #define DEBUG_TYPE "ptr-transform"
@@ -47,12 +48,14 @@ public:
     transformPointerParams(module);
     removeUnusedI64Args(module);
     adjustGetElementPtrParams(module);
+    removeLoadAfterGEP(module);
   }
 
 private:
   void transformPointerParams(ModuleOp module);
   void removeUnusedI64Args(ModuleOp module);
   void adjustGetElementPtrParams(ModuleOp module);
+  void removeLoadAfterGEP(ModuleOp module);
 }; // struct PtrTransformPass
 
 // 将所有 pointer 参数转换为 address space 1，保留最后一个参数不变
@@ -131,6 +134,24 @@ void PtrTransformPass::adjustGetElementPtrParams(ModuleOp module) {
     }
     if (changed)
       gep.setRawConstantIndices(newRaw);
+  });
+}
+
+// 删除由函数参数作为基址的 GEP 后紧跟的 LoadOp，并用 GEP 的结果替换 LoadOp 的结果
+void PtrTransformPass::removeLoadAfterGEP(ModuleOp module) {
+  module.walk([&](LLVM::LoadOp loadOp) {
+    auto addr = loadOp.getAddr();
+    // 检查 Load 的地址是否由 GEP 生成
+    if (auto gepOp = addr.getDefiningOp<LLVM::GEPOp>()) {
+      auto base = gepOp.getBase();
+      // 仅处理基于函数参数的 GEP，且参数类型为 LLVM 指针
+      if (!mlir::isa<mlir::BlockArgument>(base)) return;
+      if (!mlir::isa<mlir::LLVM::LLVMPointerType>(base.getType())) return;
+      // 用 GEP 的结果替换所有 LoadOp 的使用
+      loadOp.replaceAllUsesWith(gepOp.getResult());
+      // 删除 LoadOp 操作
+      loadOp.getOperation()->erase();
+    }
   });
 }
 
