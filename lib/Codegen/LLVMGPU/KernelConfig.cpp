@@ -1908,6 +1908,8 @@ LogicalResult initGPULaunchConfig(FunctionOpInterface funcOp) {
   // Find the root operation. linalg.generic, linalg.fill, and scatter are not
   // root operations if there are other compute operations present.
   for (Operation *op : llvm::reverse(computeOps)) {
+    if (isa<linalg::FillOp>(op))
+      continue;
     if (!isa<linalg::GenericOp, mlir::tts::IREE::VectorExt::TransferReadOp,
              mlir::tts::TransferReadOp>(op)) {
       rootOperation = op;

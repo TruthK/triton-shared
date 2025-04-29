@@ -78,7 +78,7 @@ public:
     pm.addPass(createTritonToLinalgPass());
     
     // 添加LinalgGenericFusion Pass
-    pm.addPass(createLinalgGenericFusionPass());
+    // pm.addPass(createLinalgGenericFusionPass());
 
     pm.addPass(createCanonicalizerPass());
     pm.addPass(createCSEPass());

@@ -3,10 +3,10 @@
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Visitors.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "mlir/IR/PatternMatch.h"
 
 #include "triton-shared/Analysis/OpFoldResultUtils.h"
 #include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtDialect.h"
@@ -22,7 +22,8 @@ namespace mlir::tts {
 
 namespace {
 
-/// 单一Pattern: 针对bufferization::ToTensorOp，链式匹配ToMemrefOp和TransferOps并重写
+/// 单一Pattern:
+/// 针对bufferization::ToTensorOp，链式匹配ToMemrefOp和TransferOps并重写
 class OptimizeBufferizationTransferPattern
     : public OpRewritePattern<bufferization::ToTensorOp> {
 public:
@@ -34,11 +35,13 @@ public:
     // 遍历所有ToMemrefOp
     for (auto &use : tensorVal.getUses()) {
       auto toMemrefOp = dyn_cast<bufferization::ToMemrefOp>(use.getOwner());
-      if (!toMemrefOp) continue;
+      if (!toMemrefOp)
+        continue;
       Value memrefVal = toMemrefOp.getResult();
       // 遍历所有TransferOp
       for (auto &memUse : memrefVal.getUses()) {
         Operation *userOp = memUse.getOwner();
+        rewriter.setInsertionPoint(userOp);
         // vector.transfer_read
         if (auto readOp = dyn_cast<vector::TransferReadOp>(userOp)) {
           Value origMem = toTensorOp.getMemref();
@@ -46,14 +49,14 @@ public:
               readOp.getLoc(), readOp.getVectorType(), origMem,
               readOp.getIndices(), readOp.getPermutationMap(),
               readOp.getPadding(), readOp.getMask(), readOp.getInBoundsAttr());
-          rewriter.replaceOp(readOp, newRead.getResult());
+          rewriter.replaceOp(readOp, newRead);
           return success();
         }
         // IREE::VectorExt::TransferWriteOp
         if (auto writeOp = dyn_cast<IREE::VectorExt::TransferWriteOp>(userOp)) {
           Value origMem = toTensorOp.getMemref();
           auto newWrite = rewriter.create<IREE::VectorExt::TransferWriteOp>(
-              writeOp.getLoc(), writeOp.getBase(),origMem, 
+              writeOp.getLoc(), writeOp.getBase(), origMem,
               writeOp.getMixedIndices(), writeOp.getMixedMaskDims());
           rewriter.replaceOp(writeOp, newWrite);
           return success();

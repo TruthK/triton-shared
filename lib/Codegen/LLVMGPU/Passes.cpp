@@ -175,9 +175,9 @@ static void tileAndDistributeToWorkgroup(
     // createTileAndDistributeToWorkgroupsUsingForallOpPass());
     // funcPassManager.addPass(createTransferReadSubviewFusionPass());
   } else {
-    funcPassManager.addPass(createTileAndDistributeToWorkgroupsPass(
-        kNumMaxParallelDims,
-        linalg::DistributionMethod::CyclicNumProcsEqNumIters));
+    // funcPassManager.addPass(createTileAndDistributeToWorkgroupsPass(
+    //     kNumMaxParallelDims,
+    //     linalg::DistributionMethod::CyclicNumProcsEqNumIters));
     funcPassManager.addPass(createCSEPass());
     if (convertToDpsOptions) {
       funcPassManager.addPass(
@@ -872,6 +872,16 @@ void addGPUWarpReductionPassPipeline(OpPassManager &funcPassManager) {
   addBufferizePasses(funcPassManager);
 
   funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
+  funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
+  funcPassManager.addPass(createTransferOpCanonicalizePass());
+  funcPassManager.addPass(createMemrefCopyToLinalgPass());
+  funcPassManager.addPass(createGPUDistributeSharedMemoryCopyPass());
+  funcPassManager.addPass(createConfigTrackingCanonicalizerPass());
+  funcPassManager.addPass(createCSEPass());
+  funcPassManager.addPass(memref::createFoldMemRefAliasOpsPass());
+  funcPassManager.addPass(createCanonicalizerPass());
+  funcPassManager.addPass(createCSEPass());
+
   funcPassManager.addPass(createOptimizeVectorTransferPass());
   funcPassManager.addPass(createOptimizeTensorInsertExtractSlicesPass());
   funcPassManager.addPass(createIREELoopInvariantCodeMotionPass());

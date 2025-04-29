@@ -86,7 +86,7 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride: tl.constexpr,output_
                    num_stages: tl.constexpr):
     # starting row of the program
     row_start = tl.program_id(0)
-    row_step = 1
+    row_step = tl.num_programs(0)
     for row_idx in tl.range(row_start, n_rows, row_step, num_stages=num_stages):
         # The stride represents how much we need to increase the pointer to advance 1 row
         row_start_ptr = input_ptr + row_idx * input_row_stride
