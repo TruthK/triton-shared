@@ -83,6 +83,7 @@ void TileTTSTransferWritePass::runOnOperation() {
         // 计算tile大小为forall的步长
         tileSizes.push_back(stepConstant.getValue());
       } else {
+        assert(false && "step is not a constant");
         // 如果不是常量，使用步长作为tile大小
         tileSizes.push_back(step);
       }
@@ -100,14 +101,6 @@ void TileTTSTransferWritePass::runOnOperation() {
             static_cast<unsigned>(gpu::MappingId::LinearDim0) + idx++;
         mapping.push_back(gpu::GPUThreadMappingAttr::get(
             context, static_cast<gpu::MappingId>(mappingId)));
-        // if (tilingLevel == IREE::GPU::TilingLevel::Thread) {
-        //   mapping.push_back(gpu::GPUThreadMappingAttr::get(
-        //       context, static_cast<gpu::MappingId>(mappingId)));
-        // } else {
-        //   // Else it must be subgroup tiling.
-        //   mapping.push_back(gpu::GPUWarpMappingAttr::get(
-        //       context, static_cast<gpu::MappingId>(mappingId)));
-        // }
       }
     }
     tilingOptions.setMapping(llvm::to_vector(llvm::reverse(mapping)));

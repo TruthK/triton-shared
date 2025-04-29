@@ -6,6 +6,7 @@
 
 #include "triton-shared/Codegen/Common/Passes.h"
 #include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtOps.h"
+#include "triton-shared/Codegen/Utils/GPUUtils.h"
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
@@ -311,6 +312,23 @@ public:
     // 获取原始的indices和mask_dims
     SmallVector<OpFoldResult> mixedIndices = op.getMixedIndices();
     SmallVector<OpFoldResult> mixedMaskDims = op.getMixedMaskDims();
+    // Detect no-mask and zero indices to use memref.copy
+    bool allZeroIndices = true;
+    for (auto &idx : mixedIndices) {
+      if (auto attr = dyn_cast<Attribute>(idx)) {
+        if (auto intAttr = dyn_cast<IntegerAttr>(attr)) {
+          if (intAttr.getInt() != 0) { allZeroIndices = false; break; }
+        } else { allZeroIndices = false; break; }
+      } else { allZeroIndices = false; break; }
+    }
+    if (!op.hasMask() && allZeroIndices) {
+      rewriter.setInsertionPoint(op);
+      if (failed(copyToWorkgroupMemory(rewriter, op.getValue(), op.getBase()))) {
+        return failure();
+      }
+      rewriter.eraseOp(op);
+      return success();
+    }
     // 创建perm map和inBounds
     auto identityMap = AffineMap::getMultiDimIdentityMap(mixedIndices.size(), rewriter.getContext());
     auto permMapAttr = AffineMapAttr::get(identityMap);
@@ -375,6 +393,24 @@ public:
       IREE::VectorExt::TransferWriteOp op, Value srcMemRef,
       PatternRewriter &rewriter) const {
     Location loc = op.getLoc();
+    // Detect no-mask and zero indices to use memref.copy
+    SmallVector<OpFoldResult> mixedIndicesBuf = op.getMixedIndices();
+    bool allZeroIndicesBuf = true;
+    for (auto &idx : mixedIndicesBuf) {
+      if (auto attr = dyn_cast<Attribute>(idx)) {
+        if (auto intAttr = dyn_cast<IntegerAttr>(attr)) {
+          if (intAttr.getInt() != 0) { allZeroIndicesBuf = false; break; }
+        } else { allZeroIndicesBuf = false; break; }
+      } else { allZeroIndicesBuf = false; break; }
+    }
+    if (!op.hasMask() && allZeroIndicesBuf) {
+      rewriter.setInsertionPoint(op);
+      if (failed(copyToWorkgroupMemory(rewriter, srcMemRef, op.getBase()))) {
+        return failure();
+      }
+      rewriter.eraseOp(op);
+      return success();
+    }
     MemRefType valueType = cast<MemRefType>(op.getValue().getType());
     VectorType vectorType =
         VectorType::get(valueType.getShape(), valueType.getElementType());

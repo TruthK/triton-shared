@@ -175,19 +175,10 @@ public:
   void runOnOperation() override {
     // 获取当前 Module
     ModuleOp moduleOp = getOperation();
-
     PassManager pm(&getContext(), moduleOp.getOperationName());
-    // Create an IntegerAttr with the value
-    IntegerAttr warpAttr = IntegerAttr::get(
-        IntegerType::get(moduleOp.getContext(), 32), numWrap * 32);
-
-    moduleOp.walk([&](func::FuncOp funcOp) {
-      // Add the attribute to the ModuleOp with a name "num_warp"
-      funcOp->setAttr("num_warp", warpAttr);
-      // funcOp->setAttr("llvm.bareptr", BoolAttr::get(funcOp.getContext(), true));
-    });
-
-   
+    Attribute warpSizeAttr =
+        (*moduleOp.getOps<func::FuncOp>().begin())->getAttr("num_warp");
+    int64_t numWrap = cast<IntegerAttr>(warpSizeAttr).getInt();
 
     FunctionLikeNest(pm)
         .addPass(createLLVMGPULowerExecutableTargetPass)

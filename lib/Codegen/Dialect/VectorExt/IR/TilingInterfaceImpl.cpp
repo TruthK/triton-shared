@@ -1,4 +1,7 @@
-#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SmallVector.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Interfaces/TilingInterface.h"
 #include "triton-shared/Codegen/Dialect/VectorExt/IR/VectorExtDialect.h"
@@ -73,12 +76,8 @@ struct TransferWriteTilingInterface
 
     // Extract a subview of the original value memref.
     Value originalValue = writeOp.getValue();
-    auto memRefType = cast<MemRefType>(originalValue.getType());
     SmallVector<OpFoldResult> strides(sizes.size(), b.getIndexAttr(1));
-    auto subViewType =
-        memref::SubViewOp::inferResultType(memRefType, offsets, sizes, strides);
-    Value subView = b.create<memref::SubViewOp>(loc, subViewType, originalValue,
-                                                offsets, sizes, strides);
+    Value subView = b.create<memref::SubViewOp>(loc, originalValue, offsets, sizes, strides);
 
     // Create the tiled TransferWriteOp.
     auto newOp =

@@ -24,10 +24,7 @@ def LLVMGPUCodegenPass : Pass<"llvmgpu-codegen", "ModuleOp"> {
             "device compute capability">,
     Option<"ptxVersion", "ptx-version",
             "int32_t", /*default*/"84",
-            "PTX version">,
-        Option<"numWrap", "num-wrap",
-               "int32_t", "4",
-               "Number of wrap">
+            "PTX version">
   ];
 }
 
@@ -41,6 +38,9 @@ def MaterializeTargetPass : Pass<"iree-materialize-target", "ModuleOp"> {
         Option<"ptxVersion", "ptx-version",
                "int32_t", /*default*/"84",
                "PTX version">,
+        Option<"numWrap", "num-wrap",
+               "int32_t", "4",
+               "Number of wrap">
     ];
   
 }

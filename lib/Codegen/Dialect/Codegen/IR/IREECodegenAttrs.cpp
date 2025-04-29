@@ -507,12 +507,9 @@ getTranslationInfo(FunctionOpInterface funcOp) {
 
 std::optional<SmallVector<int64_t>>
 getWorkgroupSize(FunctionOpInterface funcOp) {
-  IREE::Codegen::TranslationInfoAttr translationInfo =
-      getTranslationInfo(funcOp);
-  if (!translationInfo) {
-    return std::nullopt;
-  }
-  return llvm::to_vector(translationInfo.getWorkgroupSize());
+  Attribute warpSizeAttr = funcOp->getAttr("num_warp");
+  int64_t flatWorkgroupSize = cast<IntegerAttr>(warpSizeAttr).getInt();
+  return SmallVector<int64_t>{32 * flatWorkgroupSize, 1, 1};
 }
 
 std::optional<int64_t> getSubgroupSize(FunctionOpInterface funcOp) {
@@ -594,6 +591,5 @@ void eraseCompilationInfo(Operation *op) {
 void setRootOpInfo(Operation *op) {
   op->setAttr(kRootOpInfoAttrName, UnitAttr::get(op->getContext()));
 }
-
 
 } // namespace mlir::tts

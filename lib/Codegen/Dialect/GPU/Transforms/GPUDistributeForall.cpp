@@ -183,8 +183,9 @@ void GPUDistributeForallPass::runOnOperation() {
         "unimplemented: Distribution with dynamic subgroup size.");
     return signalPassFailure();
   }
-  Attribute warpSizeAttr = funcOp->getAttr("num_warp");
-  int64_t flatWorkgroupSize = cast<IntegerAttr>(warpSizeAttr).getInt();
+  int64_t flatWorkgroupSize =
+      std::accumulate(workgroupSize.begin(), workgroupSize.end(), 1,
+                      std::multiplies<int64_t>());
   int64_t subgroupSize = *maybeSubgroupSize;
 
   if (flatWorkgroupSize % subgroupSize != 0 &&

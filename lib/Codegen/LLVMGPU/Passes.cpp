@@ -553,7 +553,7 @@ void addGPUMatmulTensorCoreMmaSyncPassPipeline(
     OpPassManager &funcPassManager, const GPUPipelineOptions &options,
     unsigned pipelineDepth) {
   tileAndBufferize(funcPassManager);
-
+  funcPassManager.addPass(createSPMDOpPass());
   // Distribute linalg onto warps within the workgroup.
   funcPassManager.addPass(
       createLLVMGPUTileAndDistributePass(/*distributeToWarp=*/true));
@@ -583,12 +583,13 @@ void addGPUMatmulTensorCoreMmaSyncPassPipeline(
   funcPassManager.addPass(createCSEPass());
   // funcPassManager.addPass(createTransferReadSubviewFusionPass());
   // funcPassManager.addPass(createFuseForallPass());
-  funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
-  funcPassManager.addPass(createTransferOpCanonicalizePass());
+
   funcPassManager.addPass(createOptimizeVectorTransferPass());
   funcPassManager.addPass(createOptimizeTensorInsertExtractSlicesPass());
 
   // Distribute shared memory copies.
+  funcPassManager.addPass(createVectorExtTransferToVectorTransferPass());
+  funcPassManager.addPass(createTransferOpCanonicalizePass());
   funcPassManager.addPass(createMemrefCopyToLinalgPass());
   funcPassManager.addPass(createGPUDistributeSharedMemoryCopyPass());
   funcPassManager.addPass(createCanonicalizerPass());

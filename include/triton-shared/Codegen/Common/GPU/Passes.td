@@ -59,6 +59,14 @@ def GPUDistributeSharedMemoryCopyPass :
     "::mlir::gpu::GPUDialect", "::mlir::scf::SCFDialect", "::mlir::vector::VectorDialect"
   ];
 }
+// def GPUDistributeVectorExtPass :
+//     InterfacePass<"iree-codegen-gpu-distribute-vector-ext", "mlir::FunctionOpInterface"> {
+//   let summary = "Pass to distribute vector.transfer_read/write to threads.";
+//   let dependentDialects = [
+//     "mlir::tts::IREE::VectorExt::IREEVectorExtDialect",
+//     "::mlir::gpu::GPUDialect", "::mlir::scf::SCFDialect", "::mlir::vector::VectorDialect"
+//   ];
+// }
 
 // def GPUDistributeScfForPass :
 //     InterfacePass<"iree-codegen-gpu-distribute-scf-for", "mlir::FunctionOpInterface"> {
