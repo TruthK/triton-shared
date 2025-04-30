@@ -323,6 +323,7 @@ public:
     }
     if (!op.hasMask() && allZeroIndices) {
       rewriter.setInsertionPoint(op);
+      rewriter.create<gpu::BarrierOp>(loc);
       if (failed(copyToWorkgroupMemory(rewriter, op.getValue(), op.getBase()))) {
         return failure();
       }
@@ -405,6 +406,7 @@ public:
     }
     if (!op.hasMask() && allZeroIndicesBuf) {
       rewriter.setInsertionPoint(op);
+      rewriter.create<gpu::BarrierOp>(loc);
       if (failed(copyToWorkgroupMemory(rewriter, srcMemRef, op.getBase()))) {
         return failure();
       }

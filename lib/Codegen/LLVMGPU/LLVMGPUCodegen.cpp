@@ -176,9 +176,16 @@ public:
     // 获取当前 Module
     ModuleOp moduleOp = getOperation();
     PassManager pm(&getContext(), moduleOp.getOperationName());
-    Attribute warpSizeAttr =
-        (*moduleOp.getOps<func::FuncOp>().begin())->getAttr("num_warp");
+    auto funcOp = (*moduleOp.getOps<func::FuncOp>().begin());
+    Attribute warpSizeAttr = funcOp->getAttr("num_warp");
     int64_t numWrap = cast<IntegerAttr>(warpSizeAttr).getInt();
+
+    auto work = getWorkgroupSize(funcOp).value();
+    funcOp->setAttr("nvvm.reqntid",
+                    DenseI32ArrayAttr::get(moduleOp.getContext(),
+                                           {static_cast<int>(work[0]),
+                                            static_cast<int>(work[1]),
+                                            static_cast<int>(work[2])}));
 
     FunctionLikeNest(pm)
         .addPass(createLLVMGPULowerExecutableTargetPass)

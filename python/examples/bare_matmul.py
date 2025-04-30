@@ -8,7 +8,7 @@ import benchmark
 
 
 @triton.jit
-def bare_matmul(X, Y, Z, M, N, K, BLOCK_SIZE: tl.constexpr):
+def bare_matmul(X, Y, Z, M: tl.constexpr, N: tl.constexpr, K: tl.constexpr, BLOCK_SIZE: tl.constexpr):
     pid_x = tl.program_id(0)  # block row id
     pid_y = tl.program_id(1)  # block column id
 
@@ -30,16 +30,16 @@ def bench_matmul(N, provider):
     a = torch.randn((N, N), device=device, dtype=dtype)
     b = torch.randn((N, N), device=device, dtype=dtype)
     c = torch.empty((N, N), device=device, dtype=dtype)
-    grid = lambda META: (triton.cdiv(N, 32) * triton.cdiv(N, 32), )
-    if provider == 'torch' or provider == 'test':
+    grid = lambda META: (triton.cdiv(N, 32) , triton.cdiv(N, 32), )
+    if provider == 'torch' :
         c_ref = torch.matmul(a, b)
-    if provider == 'triton' or provider == 'test':
+    if provider == 'test':
         bare_matmul[grid](a, b, c, N, N, N, 32)
         if provider == 'test':
             torch.testing.assert_close(c, c_ref, atol=1e-2, rtol=0)
 
 
 if __name__ == "__main__":
-    benchmark.select_kzx_backend()
-    for provider in ['test', 'torch', 'triton']:
+    # benchmark.select_kzx_backend()
+    for provider in ['test', 'torch']:
         bench_matmul(512, provider)

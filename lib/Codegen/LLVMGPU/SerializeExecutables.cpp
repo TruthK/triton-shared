@@ -1,4 +1,3 @@
-
 #include <memory>
 #include <utility>
 
@@ -12,11 +11,14 @@
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
 
 #include "triton-shared/Codegen/LLVMGPU/Passes.h"
 #include "triton-shared/Codegen/Utils/GPUUtils.h"
 #include "triton-shared/Codegen/Utils/Utils.h"
 
+#include "lib/Target/LLVMIR/LLVMPasses.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/BitcodeReader.h"
@@ -69,6 +71,16 @@ std::string sanitizeSymbolName(StringRef name) {
 
 static std::string translateModuleToISA(llvm::Module &module,
                                         llvm::TargetMachine &targetMachine) {
+
+  for (llvm::Function &f : module.functions())
+    if (!f.hasFnAttribute(llvm::Attribute::NoInline))
+      f.addFnAttr(llvm::Attribute::AlwaysInline);
+  // verify and store llvm
+  llvm::legacy::PassManager pm;
+  pm.add(llvm::createAlwaysInlinerLegacyPass());
+  pm.add(llvm::createVerifierPass());
+  pm.run(module);
+
   std::string targetISA;
   {
     llvm::raw_string_ostream stream(targetISA);
@@ -82,45 +94,53 @@ static std::string translateModuleToISA(llvm::Module &module,
 }
 
 /// Performs optimizations on |module| (including LTO-style whole-program ones).
-static void optimizeModule(llvm::Module &module,
+static void optimizeModule(llvm::Module *mod,
                            llvm::TargetMachine &targetMachine,
                            const std::array<int32_t, 3> &maxWorkgroupSize) {
-  llvm::LoopAnalysisManager lam;
-  llvm::FunctionAnalysisManager fam;
-  llvm::CGSCCAnalysisManager cgam;
+
+  using namespace llvm;
+  LoopAnalysisManager lam;
+  FunctionAnalysisManager fam;
+  CGSCCAnalysisManager cgam;
   llvm::ModuleAnalysisManager mam;
 
-  fam.registerPass([&] { return targetMachine.getTargetIRAnalysis(); });
+  PassInstrumentationCallbacks *instrCbPtr = nullptr;
+  PassInstrumentationCallbacks passInstrCb;
+  StandardInstrumentations standardInstr(mod->getContext(),
+                                         /*DebugLogging*/ true);
 
-  llvm::PipelineTuningOptions pto;
-  pto.SLPVectorization = false;
+  PipelineTuningOptions tuningOptions;
+  tuningOptions.LoopUnrolling = true;
+  tuningOptions.LoopInterleaving = true;
+  tuningOptions.LoopVectorization = true;
+  // TODO: currently we run SLP vectorizer with an empty target machine.
+  // This cause the vectorizer to create larger vector which could be bad.
+  // Disabling it would currently cause regressions as this pass also
+  // applies some scheduling that helps performance in some cases. We
+  // should work on using NVPTX target instead and address the performance
+  // regressions with some scheduling solution.
+  tuningOptions.SLPVectorization = true;
 
-  llvm::PassInstrumentationCallbacks pic;
+  PassBuilder pb(/*targetMachine=*/&targetMachine, tuningOptions, std::nullopt,
+                 instrCbPtr);
 
-  llvm::StandardInstrumentations si(module.getContext(), false);
-  si.registerCallbacks(pic, &mam);
-
-  llvm::PassBuilder pb(&targetMachine, pto, std::nullopt, &pic);
-  llvm::ModulePassManager mpm;
-  StringRef nnvmReflectPassName = "nvvm-reflect";
-  if (pb.parsePassPipeline(mpm, nnvmReflectPassName)) {
-    llvm::errs() << "Could not parse -" << nnvmReflectPassName << "\n";
-  }
   pb.registerModuleAnalyses(mam);
   pb.registerCGSCCAnalyses(cgam);
   pb.registerFunctionAnalyses(fam);
   pb.registerLoopAnalyses(lam);
   pb.crossRegisterProxies(lam, fam, cgam, mam);
 
-  llvm::OptimizationLevel ol = llvm::OptimizationLevel::O2;
-
-  mpm.addPass(llvm::VerifierPass());
-  llvm::FunctionPassManager fpm;
-  mpm.addPass(createModuleToFunctionPassAdaptor(std::move(fpm)));
-  mpm.addPass(pb.buildPerModuleDefaultPipeline(ol));
-  mpm.addPass(llvm::VerifierPass());
-
-  mpm.run(module, mam);
+  ModulePassManager mpm;
+  pb.registerVectorizerStartEPCallback(
+      [&](llvm::FunctionPassManager &fpm, llvm::OptimizationLevel level) {
+        // Triton generates large structure of scalars which may pessimise
+        // optimizations, we run a pass to break up phi of struct to make
+        // sure all the struct are removed for the following passes.
+        fpm.addPass(BreakStructPhiNodesPass());
+        fpm.addPass(InstCombinePass());
+      });
+  mpm.addPass(pb.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O3));
+  mpm.run(*mod, mam);
 }
 
 LogicalResult serializeExecutable(std::string &targetPTX,
@@ -177,25 +197,6 @@ LogicalResult serializeExecutable(std::string &targetPTX,
     // Mark the entry point as a kernel.
     setMetadataValueI32("kernel", 1);
 
-    // // Set the maximum number of threads in the thread block (CTA).
-    // auto exportOp = exportOpMap[funcOp.getName()];
-    // if (auto workgroupSizeAttr = exportOp.getWorkgroupSize()) {
-    //   auto workgroupSizeValues = workgroupSizeAttr->getValue();
-    //   std::array<int32_t, 3> workgroupSize = {
-    //       static_cast<int32_t>(
-    //           cast<IntegerAttr>(workgroupSizeValues[0]).getInt()),
-    //       static_cast<int32_t>(
-    //           cast<IntegerAttr>(workgroupSizeValues[1]).getInt()),
-    //       static_cast<int32_t>(
-    //           cast<IntegerAttr>(workgroupSizeValues[2]).getInt()),
-    //   };
-    //   maxWorkgroupSize[0] = std::max(maxWorkgroupSize[0], workgroupSize[0]);
-    //   maxWorkgroupSize[1] = std::max(maxWorkgroupSize[1], workgroupSize[1]);
-    //   maxWorkgroupSize[2] = std::max(maxWorkgroupSize[2], workgroupSize[2]);
-    //   setMetadataValueI32("maxntidx", workgroupSize[0]);
-    //   setMetadataValueI32("maxntidy", workgroupSize[1]);
-    //   setMetadataValueI32("maxntidz", workgroupSize[2]);
-    // }
   }
 
   std::unique_ptr<llvm::TargetMachine> targetMachine;
@@ -219,13 +220,8 @@ LogicalResult serializeExecutable(std::string &targetPTX,
   }
 
   llvmModule->setDataLayout(targetMachine->createDataLayout());
-
-  for (llvm::Function &llvmFunc : llvmModule->functions()) {
-    llvmFunc.addFnAttr(llvm::Attribute::AlwaysInline);
-  }
-
   // Run LLVM optimization passes.
-  optimizeModule(*llvmModule, *targetMachine, maxWorkgroupSize);
+  optimizeModule(llvmModule.get(), *targetMachine, maxWorkgroupSize);
   // Serialize ptx kernel into the binary that we will embed in the
   // final FlatBuffer.
   LLVM_DEBUG({
@@ -237,9 +233,12 @@ LogicalResult serializeExecutable(std::string &targetPTX,
   if (targetPTX.empty()) {
     return failure();
   }
-
-  llvm::outs() << "targetPTX: " << "\n"<< targetPTX;
-  llvm::outs()  << "\n"<< "end targetPTX: "<< "\n";
+  llvm::outs() << "targetPTX: "
+               << "\n"
+               << targetPTX;
+  llvm::outs() << "\n"
+               << "end targetPTX: "
+               << "\n";
 
   return success();
 }
@@ -269,6 +268,7 @@ struct SerializeTargetExecutablesPass
           << "failed to serialize executable for target backend ";
       return signalPassFailure();
     }
+    // moduleOp->setAttr("tt.ptx_code", StringAttr::get(moduleOp.getContext(), targetPTX));
   }
 
 private:

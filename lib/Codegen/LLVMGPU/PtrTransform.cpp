@@ -7,10 +7,10 @@
 // removing associated i64 arguments.
 
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/LLVMIR/LLVMTypes.h" // for LLVMPointerType
-#include "mlir/IR/Block.h"                 // For Block, BlockArgument
+#include "mlir/Dialect/LLVMIR/LLVMTypes.h"
+#include "mlir/IR/Block.h"                 
 #include "mlir/IR/BuiltinAttributes.h"
-#include "mlir/IR/BuiltinOps.h" // For ModuleOp
+#include "mlir/IR/BuiltinOps.h" 
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
@@ -18,12 +18,12 @@
 #include "mlir/Transforms/Passes.h"
 #include "triton-shared/Codegen/LLVMGPU/Passes.h"
 #include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/STLExtras.h" // llvm::seq, llvm::equal
+#include "llvm/ADT/STLExtras.h" 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/IR/TypeSupport.h" // for mlir::isa
+#include "mlir/IR/TypeSupport.h" 
 #include "llvm/ADT/APInt.h"
 
 #define DEBUG_TYPE "ptr-transform"
@@ -90,20 +90,38 @@ void PtrTransformPass::transformPointerParams(ModuleOp module) {
 // 删除未使用的 i64 参数
 void PtrTransformPass::removeUnusedI64Args(ModuleOp module) {
   module.walk([&](LLVM::LLVMFuncOp func) {
-    int numArgs = func.getNumArguments();
-    if (numArgs <= 1)
+    auto oldType = func.getFunctionType();
+    int numParams = oldType.getNumParams();
+    if (numParams <= 1)
       return;
-    llvm::BitVector toErase(numArgs);
+    // 找出所有 pointer 参数的索引
+    SmallVector<int, 4> ptrIdxs;
+    for (int j = 0; j < numParams; ++j)
+      if (isa<LLVM::LLVMPointerType>(oldType.getParamType(j)))
+        ptrIdxs.push_back(j);
+    if (ptrIdxs.empty())
+      return;
+    int lastPtrIdx = ptrIdxs.back();
+    llvm::BitVector toErase(numParams);
     Block &entry = func.getBody().front();
-    for (int i = 0; i < numArgs - 1; ++i)
-      if (entry.getArgument(i).use_empty())
+    for (int i = 0; i < numParams - 1; ++i) {
+      auto paramType = oldType.getParamType(i);
+      auto nextType = oldType.getParamType(i + 1);
+      bool isI64 = false;
+      if (auto intTy = dyn_cast<IntegerType>(paramType))
+        if (intTy.getWidth() == 64)
+          isI64 = true;
+      bool nextIsPtr = isa<LLVM::LLVMPointerType>(nextType);
+      // 仅删除 i64 且紧跟 llvm.ptr，且不是最后一个 llvm.ptr 前的 i64
+      if (isI64 && nextIsPtr && i != lastPtrIdx - 1 && entry.getArgument(i).use_empty())
         toErase.set(i);
+    }
     if (!toErase.any())
       return;
-    auto oldType = func.getFunctionType();
+    // 构建新参数列表
     SmallVector<Type> keptParams;
-    keptParams.reserve(oldType.getNumParams());
-    for (int i = 0, e = oldType.getNumParams(); i < e; ++i)
+    keptParams.reserve(numParams);
+    for (int i = 0; i < numParams; ++i)
       if (!toErase.test(i))
         keptParams.push_back(oldType.getParamType(i));
     auto newType = LLVM::LLVMFunctionType::get(

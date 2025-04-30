@@ -232,6 +232,7 @@ class KzxCUDABackend(BaseBackend):
         passes.common.add_symbol_dce(pm)
         passes.ttir.add_loop_unroll(pm)
         pm.run(mod)
+        print(str(mod))
         return mod
     
 
@@ -246,6 +247,7 @@ class KzxCUDABackend(BaseBackend):
         ttsnv.passes.tts_codegen.iree_llvmgpu_codegen(pm,capability,ptx_version)
         ttsnv.passes.tts_codegen.llvmgpu_ptr_transform(pm)
         pm.run(mod)
+        
         metadata["shared"] = mod.get_int_attr("ttg.shared")
 
         # LLVM-IR (MLIR) -> LLVM-IR (LLVM)
@@ -291,13 +293,13 @@ class KzxCUDABackend(BaseBackend):
         if capability == 100:
             proc = 'sm_90a'
         features = get_features(opt, self.target.arch)
-        ret = llvm.translate_to_asm(src, triple, proc, features, ['nvptx-short-ptr'], opt.enable_fp_fusion, False)
+        ret = llvm.translate_to_asm(src, triple, proc, features, [], opt.enable_fp_fusion, False)
         
         # Find kernel names (there should only be one)
         names = re.findall(r".visible .entry ([a-zA-Z_][a-zA-Z0-9_]*)", ret)
         assert len(names) == 1
         metadata["name"] = names[0]
-        Path(".vscode/tts_ptx_"+str(names[0])+".ir").write_text(str(ret))
+        # Path(".vscode/tts_ptx_"+str(names[0])+".ir").write_text(str(ret))
         
         # post-process
         ptx_version = f'{ptx_version//10}.{ptx_version%10}'

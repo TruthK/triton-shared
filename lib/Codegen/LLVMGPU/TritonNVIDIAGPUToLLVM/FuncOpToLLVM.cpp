@@ -24,6 +24,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "triton-shared/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
 #include "triton-shared/Codegen/LLVMGPU/TritonNVIDIAGPUToLLVM/PatternTritonGPUOpToLLVM.h"
 #include "triton-shared/Codegen/LLVMGPU/TritonNVIDIAGPUToLLVM/TypeConverter.h"
 #include "triton-shared/Codegen/LLVMGPU/TritonNVIDIAGPUToLLVM/Utility.h"
@@ -171,9 +172,6 @@ struct FuncOpConversion : public ConvertOpToLLVMPattern<func::FuncOp> {
     }
     // Set an attribute for reqntidx, it could be used in latter LLVM codegen
     // for `nvvm.annotation` metadata.
-    newFuncOp->setAttr("nvvm.reqntid",
-                       rewriter.getDenseI32ArrayAttr(32 * numWarps));
-
     rewriter.eraseOp(funcOp);
     rewriter.eraseOp(amendedFuncOp);
 
@@ -250,14 +248,14 @@ struct ReturnOpLowering : public ConvertOpToLLVMPattern<func::ReturnOp> {
   }
 };
 
-// Pattern to clean up kernel function signatures by removing i64 arguments before !llvm.ptr
-// and changing !llvm.ptr to !llvm.ptr<1>
+// Pattern to clean up kernel function signatures by removing i64 arguments
+// before !llvm.ptr and changing !llvm.ptr to !llvm.ptr<1>
 struct KernelArgCleanupPattern : public OpRewritePattern<LLVM::LLVMFuncOp> {
   using OpRewritePattern<LLVM::LLVMFuncOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(LLVM::LLVMFuncOp funcOp,
-                               PatternRewriter &rewriter) const override {
-   
+                                PatternRewriter &rewriter) const override {
+
     return success();
   }
 };

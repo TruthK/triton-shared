@@ -46,6 +46,13 @@ void init_tts_codegen(py::module &&m) {
         });
   ADD_PASS_WRAPPER_0("llvmgpu_ptr_transform",
                      mlir::tts::createPtrTransformPass);
+  m.def("iree_hal_serialize_target_executables",
+        [](mlir::PassManager &pm, int32_t capability, int32_t ptxVersion) {
+          mlir::tts::SerializeTargetExecutablesPassOptions options;
+          options.computeCapability = capability;
+          options.ptxVersion = ptxVersion;
+          pm.addPass(mlir::tts::createSerializeTargetExecutablesPass(options));
+        });
 }
 
 void init_triton_ttsnv(py::module &&m) {

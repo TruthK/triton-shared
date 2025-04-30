@@ -45,7 +45,6 @@ add_triton_library(IREECodegenLLVMGPU
   LLVMSupport
   LLVMTarget
   LLVMipo
-  LLVMNVPTXInfo
 
   MLIRAMDGPUDialect
   MLIRAMDGPUToROCDL

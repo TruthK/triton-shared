@@ -45,7 +45,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Clone the Triton repository with shallow clone
-RUN git clone --depth 1 --branch beta2 https://github.com/TruthK/triton-shared.git && \
+RUN git clone --branch z https://github.com/TruthK/triton-shared.git && \
     cd triton-shared && \
     git config --global http.postBuffer 524288000 && \
     git submodule update --init --depth=1
@@ -65,5 +65,5 @@ CMD ["/usr/sbin/sshd", "-D"]
 # RUN chmod +x create_conda_env.sh
 # RUN bash create_conda_env.sh cu124
 # RUN conda init bash && \
-#     echo "conda activate triton_shared_mlir_nv" >> ~/.bashrc
+    echo "conda activate triton_shared_mlir_nv" >> ~/.bashrc
 # RUN /bin/bash -c "source ~/.bashrc"
