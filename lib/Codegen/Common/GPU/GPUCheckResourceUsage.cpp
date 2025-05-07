@@ -98,7 +98,7 @@ static LogicalResult checkGPUAllocationSize(
 
   moduleOp->setAttr("ttg.shared",
                     mlir::IntegerAttr::get(mlir::IntegerType::get(ctx, 32),
-                                           llvm::divideCeil(cumSize, 1024)));
+                                           cumSize));
   return success();
 }
 

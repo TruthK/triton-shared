@@ -30,6 +30,7 @@ def bench_matmul(N, provider):
     a = torch.randn((N, N), device=device, dtype=dtype)
     b = torch.randn((N, N), device=device, dtype=dtype)
     c = torch.empty((N, N), device=device, dtype=dtype)
+    c_ref = torch.empty((N, N), device=device, dtype=dtype)
     grid = lambda META: (triton.cdiv(N, 32) , triton.cdiv(N, 32), )
     if provider == 'torch' :
         c_ref = torch.matmul(a, b)
