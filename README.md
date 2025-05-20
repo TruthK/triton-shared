@@ -59,7 +59,7 @@ export TRITON_BUILD_WITH_CLANG_LLD=true
 export TRITON_BUILD_WITH_CCACHE=true
 DEBUG=1 LLVM_INCLUDE_DIRS=$LLVM_BUILD_DIR/include   LLVM_LIBRARY_DIR=$LLVM_BUILD_DIR/lib   LLVM_SYSPATH=$LLVM_BUILD_DIR   TRITON_BUILD_WITH_CLANG_LLD=true pip install -e triton/python --no-build-isolation
 ```
-
+ 
 
 ```
 cmake -G Ninja \

@@ -197,6 +197,9 @@ class KzxCUDABackend(BaseBackend):
             metadata.cluster_dims[0],
             metadata.cluster_dims[1],
             metadata.cluster_dims[2],
+            metadata.block_dims[0],
+            metadata.block_dims[1],
+            metadata.block_dims[2],
         )
 
     def get_codegen_implementation(self, options):
@@ -249,6 +252,7 @@ class KzxCUDABackend(BaseBackend):
         pm.run(mod)
         
         metadata["shared"] = mod.get_int_attr("ttg.shared")
+        metadata["block_dims"] = mod.get_array_i32_attr("nvvm.reqntid")
 
         # LLVM-IR (MLIR) -> LLVM-IR (LLVM)
         llvm.init_targets()
