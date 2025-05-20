@@ -240,11 +240,11 @@ static cuLaunchKernelEx_t getLaunchKernelExHandle() {{
   return cuLaunchKernelExHandle;
 }}
 
-static void _launch(int gridX, int gridY, int gridZ, int num_warps, int num_ctas, int launch_cooperative_grid, int clusterDimX, int clusterDimY, int clusterDimZ, int shared_memory, CUstream stream, CUfunction function, CUdeviceptr global_scratch{', ' + arg_decls if len(arg_decls) > 0 else ''}) {{
+static void _launch(int gridX, int gridY, int gridZ, int num_warps, int num_ctas, int launch_cooperative_grid, int clusterDimX, int clusterDimY, int clusterDimZ, int blockDimX, int blockDimY, int blockDimZ, int shared_memory, CUstream stream, CUfunction function, CUdeviceptr global_scratch{', ' + arg_decls if len(arg_decls) > 0 else ''}) {{
   void *params[] = {{ {', '.join(params)} }};
   if (gridX*gridY*gridZ > 0) {{
     if ((num_ctas == 1) && (0 == launch_cooperative_grid)) {{
-      CUDA_CHECK(cuLaunchKernel(function, gridX, gridY, gridZ, 32*num_warps, 1, 1, shared_memory, stream, params, 0));
+      CUDA_CHECK(cuLaunchKernel(function, gridX, gridY, gridZ, blockDimX, blockDimY, blockDimZ, shared_memory, stream, params, 0));
     }} else if ((num_ctas == 1) && (0 != launch_cooperative_grid)) {{
       CUlaunchAttribute launchAttr[1];
       CUlaunchAttribute coopAttr = {{ .id = CU_LAUNCH_ATTRIBUTE_COOPERATIVE, .value = 1}};
@@ -254,9 +254,9 @@ static void _launch(int gridX, int gridY, int gridZ, int num_warps, int num_ctas
       config.gridDimX = gridX;
       config.gridDimY = gridY;
       config.gridDimZ = gridZ;
-      config.blockDimX = 32 * num_warps;
-      config.blockDimY = 1;
-      config.blockDimZ = 1;
+      config.blockDimX = blockDimX;
+      config.blockDimY = blockDimY;
+      config.blockDimZ = blockDimZ;
       config.sharedMemBytes = shared_memory;
       config.hStream = stream;
       config.attrs = launchAttr;
@@ -288,9 +288,9 @@ static void _launch(int gridX, int gridY, int gridZ, int num_warps, int num_ctas
       config.gridDimX = gridX * clusterDimX;
       config.gridDimY = gridY * clusterDimY;
       config.gridDimZ = gridZ * clusterDimZ;
-      config.blockDimX = 32 * num_warps;
-      config.blockDimY = 1;
-      config.blockDimZ = 1;
+      config.blockDimX = blockDimX;
+      config.blockDimY = blockDimY;
+      config.blockDimZ = blockDimZ;
       config.sharedMemBytes = shared_memory;
       config.hStream = stream;
       config.attrs = launchAttr;
@@ -433,8 +433,8 @@ static PyObject* launch(PyObject* self, PyObject* args) {{
     return NULL;
   }}
 
-  int num_warps, num_ctas, shared_memory, clusterDimX, clusterDimY, clusterDimZ;
-  if (!PyArg_ParseTuple(kernel_metadata, \"iiiiii\", &num_warps, &num_ctas, &shared_memory, &clusterDimX, &clusterDimY, &clusterDimZ)) {{
+  int num_warps, num_ctas, shared_memory, clusterDimX, clusterDimY, clusterDimZ, blockDimX, blockDimY, blockDimZ;
+  if (!PyArg_ParseTuple(kernel_metadata, \"iiiiiiiii\", &num_warps, &num_ctas, &shared_memory, &clusterDimX, &clusterDimY, &clusterDimZ,&blockDimX, &blockDimY, &blockDimZ)) {{
     PyErr_SetString(PyExc_TypeError, "kernel_metadata must be a tuple");
     return NULL;
   }}
@@ -461,7 +461,7 @@ static PyObject* launch(PyObject* self, PyObject* args) {{
   {newline.join(ptr_decls)}
   {newline.join(tma_decls)}
   Py_BEGIN_ALLOW_THREADS;
-  _launch(gridX, gridY, gridZ, num_warps, num_ctas, launch_cooperative_grid, clusterDimX, clusterDimY, clusterDimZ, shared_memory, (CUstream)_stream, (CUfunction)_function, global_scratch{', ' + ', '.join(internal_args_list) if len(internal_args_list) > 0 else ''});
+  _launch(gridX, gridY, gridZ, num_warps, num_ctas, launch_cooperative_grid, clusterDimX, clusterDimY, clusterDimZ, blockDimX, blockDimY, blockDimZ,shared_memory, (CUstream)_stream, (CUfunction)_function, global_scratch{', ' + ', '.join(internal_args_list) if len(internal_args_list) > 0 else ''});
   Py_END_ALLOW_THREADS;
   if (PyErr_Occurred()) {{
     return NULL;
