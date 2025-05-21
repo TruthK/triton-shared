@@ -1,7 +1,7 @@
 [submodule "triton"]
 	path = triton
-	url = https://github.com/triton-lang/triton.git
-	commit = c75c6b034756629b891e7b2df406f634552331d5
+	url = https://github.com/TruthK/triton.git
+	commit = af87f6f5090b6e7229adb5a5569bc3ac86364c59
 [submodule "third_party/googletest"]
 	path = third_party/googletest
 	url = https://github.com/google/googletest.git

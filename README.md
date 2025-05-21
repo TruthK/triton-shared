@@ -11,8 +11,8 @@
 graph TD
     A[Triton IR] --> B(Triton-Shared)
     B --> C[Linalg+Tensor/Memref]
-    C --> D[Linalg+Vector]
-    D --> E[SCF+GUP]
+    C --> D[SCF+Vector]
+    D --> E[SCF+GPU]
     E --> F[LLVM+NVVM]
     F --> G[PTX]
 ```
@@ -20,13 +20,14 @@ graph TD
 ## Current Status
 | 算子类型     | 支持状态 | 性能基准 (vs cuBLAS) |
 |--------------|----------|---------------------|
-| Elementwise  | ✅        | 近乎99%                |
-| Matrix Multiply (MMA) | ✅ | 81% (512x512)      |
+| Elementwise  | ✅        | 近乎一致                |
+| MMA | ✅ | 81% (512x512)      |
 | Reduce        | 🚧       | N/A                 |
 
 ### mma性能对比图
 ![MMA](./mma.png)
-
+### Elementwise 性能对比图
+![MMA](./elementwise.png)
 
 ## Features & Core Components
 
